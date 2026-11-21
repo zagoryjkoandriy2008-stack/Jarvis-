@@ -124,7 +124,7 @@ public final class JarvisWearPhoneAssistant {
         // The Spotify controller itself checks installed app and permission.
         SpotifyMusicCommands.Kind songCommand=SpotifyMusicCommands.parse(raw);
         if(songCommand!=null) {
-            if(musicController==null)musicController=new SpotifyPlaybackController(phone);
+            if(musicController==null)musicController=SpotifyPlaybackController.shared(phone);
             musicController.start(songCommand,raw,new SpotifyPlaybackController.Listener(){
                 @Override public void onProgress(String progress) { }
                 @Override public void onFinished(boolean success,String detail) {

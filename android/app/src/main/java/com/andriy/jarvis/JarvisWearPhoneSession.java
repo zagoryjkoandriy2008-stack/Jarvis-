@@ -154,7 +154,7 @@ public final class JarvisWearPhoneSession {
             }
             automaticSpotifyBusy = true;
             automaticSpotifyNode = sourceNode;
-            if (spotify == null) spotify = new SpotifyPlaybackController(context);
+            if (spotify == null) spotify = SpotifyPlaybackController.shared(context);
             spotify.start(music,command,new SpotifyPlaybackController.Listener() {
                 @Override public void onProgress(String progress) { }
                 @Override public void onFinished(boolean ok, String detail) {
@@ -364,7 +364,7 @@ public final class JarvisWearPhoneSession {
         }
         SpotifyMusicCommands.Kind music = SpotifyMusicCommands.parse(command);
         if (music != null) {
-            if (spotify == null) spotify = new SpotifyPlaybackController(context);
+            if (spotify == null) spotify = SpotifyPlaybackController.shared(context);
             spotify.start(music,command,new SpotifyPlaybackController.Listener() {
                 @Override public void onProgress(String detail) { }
                 @Override public void onFinished(boolean success,String detail) {

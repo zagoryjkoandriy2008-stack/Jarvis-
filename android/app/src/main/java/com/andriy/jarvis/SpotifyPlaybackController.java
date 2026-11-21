@@ -75,6 +75,9 @@ public final class SpotifyPlaybackController {
             context.getApplicationContext());
         return shared;
     }
+    public static synchronized boolean isSharedRunning() {
+        return shared!=null && shared.isRunning();
+    }
 
     private SpotifyPlaybackController(Context context) {
         this.context=context.getApplicationContext();

@@ -1287,7 +1287,7 @@ public final class FloatingJarvisService extends Service {
         SpotifyMusicCommands.Kind requestedMusic = SpotifyMusicCommands.parse(raw);
         if (requestedMusic != null) {
             if (spotifyPlayback == null)
-                spotifyPlayback = new SpotifyPlaybackController(this);
+                spotifyPlayback = SpotifyPlaybackController.shared(this);
             spotifyPlayback.start(requestedMusic,raw,new SpotifyPlaybackController.Listener() {
                 @Override public void onProgress(String status) {
                     if (!closing) message(status);
@@ -1811,8 +1811,13 @@ public final class FloatingJarvisService extends Service {
         if (listeningAudioFocus != null) listeningAudioFocus.end();
         clearInstantCommand();
         if (sequences != null) sequences.cancel();
-        if (spotifyPlayback != null) spotifyPlayback.cancel();
-        if (screenModeStartedHere) ScreenControlAccessibilityService.stop();
+        // This overlay can be torn down while Spotify is foreground.
+        // Destruction of the Jarvis face is not a user cancellation.
+        // Keep Accessibility alive while the shared Spotify controller
+        // finishes its existing, explicitly requested command.
+        if (screenModeStartedHere &&
+            !SpotifyPlaybackController.isSharedRunning())
+            ScreenControlAccessibilityService.stop();
         if (recognizer != null) {
             try { recognizer.cancel(); recognizer.destroy(); }
             catch (Exception ignored) { }
