@@ -362,6 +362,33 @@ public final class JarvisWatchSpotifyController {
             }
         }
 
+        /** A result without visible type may open a playlist detail.
+         * If so, use the actual PLAY step. A completed tap alone is
+         * never claimed to prove audio playback. */
+        private void confirmUnknownSearchResult(String chosenTitle,long tappedAt) {
+            if(finished || !callback.active())return;
+            if(JarvisWatchScreenService.spotifySelectedPlaylistPageReady(
+                    chosenTitle,title)) {
+                selectedPlaylistTitle=chosenTitle;
+                RESULT_CURSOR.selected(resultOrdinal,
+                    SystemClock.elapsedRealtime(),true,chosenTitle);
+                stageStart=SystemClock.elapsedRealtime();
+                status("Відкрився плейлист «"+chosenTitle+
+                    "». Натискаю Play…");
+                MAIN.postDelayed(()->run(
+                    JarvisWatchScreenService.SpotifyStep.PLAY_PLAYLIST),450L);
+                return;
+            }
+            if(SystemClock.elapsedRealtime()-tappedAt<3400L) {
+                MAIN.postDelayed(()->confirmUnknownSearchResult(
+                    chosenTitle,tappedAt),700L);
+                return;
+            }
+            done(true,"Натиснув результат №"+(resultOrdinal+1)+
+                " у Spotify Watch7. Android підтвердив жест, але "+
+                "сам запуск музики цим ще не доведений.");
+        }
+
         private void advance(JarvisWatchScreenService.SpotifyStep step,
                              JarvisWatchScreenService.SpotifyStep next) {
             if(finished || !callback.active())return;
@@ -380,11 +407,19 @@ public final class JarvisWatchSpotifyController {
                     stageStart=SystemClock.elapsedRealtime();
                     MAIN.postDelayed(()->run(
                         JarvisWatchScreenService.SpotifyStep.PLAY_PLAYLIST),1200L);
+                } else if(chosenTitle!=null) {
+                    // A first search result can be a playlist whose type
+                    // subtitle was hidden by Spotify Compose. Inspect the
+                    // destination page before claiming playback succeeded.
+                    status("Торкнувся результату №"+(resultOrdinal+1)+
+                        ". Перевіряю, чи це плейлист…");
+                    final long tappedAt=SystemClock.elapsedRealtime();
+                    MAIN.postDelayed(()->confirmUnknownSearchResult(
+                        chosenTitle,tappedAt),750L);
                 } else {
-                    // Android confirmed a tap; this is not proof of audio.
-                    done(true,"Натиснув результат №"+(resultOrdinal+1)+
-                        " у Spotify Watch7. Дімон повертається до прослуховування. "+
-                        "Скажи «Не та пісня», щоб вибрати наступний.");
+                    done(false,"Android завершив натискання, але назва "+
+                        "першого результату не доступна. Відтворення "+
+                        "Spotify не підтверджено.");
                 }
                 return;
             }
