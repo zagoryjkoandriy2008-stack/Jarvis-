@@ -4795,7 +4795,12 @@ public final class MainActivity extends Activity implements RecognitionListener 
             }
         }
         spotifyPlayback.start(selection,voice,new SpotifyPlaybackController.Listener() {
-            @Override public void onProgress(String detail) { setStatus(detail); }
+            @Override public void onProgress(String detail) {
+                // Spotify can outlive this Activity when Android destroys
+                // Jarvis' UI after bringing Spotify to the foreground.
+                if(isFinishing() || isDestroyed())return;
+                setStatus(detail);
+            }
             @Override public void onFinished(boolean success, String detail) {
                 if (isFinishing() || isDestroyed()) return;
                 appendDialogue("Дімон", detail);
