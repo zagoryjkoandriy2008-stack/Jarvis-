@@ -202,6 +202,24 @@ public final class JarvisWatchUiRulesTest {
             "song title must not include metadata");
         yes(JarvisWatchUiRules.watchCombinedTitle("Плейлісти")==null,
             "filter title cannot be selected as song");
+        yes(JarvisWatchUiRules.watchUntypedResultTitle(
+            "Сексуальный плейлист",215,190,220,36,440,440),
+            "first untyped playlist is a valid Watch search result");
+        yes(JarvisWatchUiRules.watchUntypedResultTitle(
+            "Романтичная",215,295,200,36,440,440),
+            "a later untyped song remains selectable by ordinal");
+        yes(!JarvisWatchUiRules.watchUntypedResultTitle(
+            "Пошук",215,190,200,36,440,440),
+            "Search icon is not a result");
+        yes(!JarvisWatchUiRules.watchUntypedResultTitle(
+            "Все",215,190,200,36,440,440),
+            "filter chips are not result titles");
+        yes(!JarvisWatchUiRules.watchUntypedResultTitle(
+            "Сексуальный плейлист",215,70,220,36,440,440),
+            "top search header is not a result");
+        yes(!JarvisWatchUiRules.watchUntypedResultTitle(
+            "Сексуальный плейлист",215,400,220,36,440,440),
+            "bottom mini player is not a result");
         System.out.println("PASS JarvisWatchUiRulesTest");
     }
 }

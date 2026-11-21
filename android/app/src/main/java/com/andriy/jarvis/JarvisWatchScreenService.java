@@ -1070,6 +1070,31 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                 chosenBounds));
             taps.add(at,chosen);
         }
+        // Combine ALL visible title rows, even when Spotify hid the
+        // category of the first playlist but labelled a later song.
+        // Never fall back to an exact-title song farther down the list.
+        for(AccessibilityNodeInfo candidate:nodes) {
+            if(candidate.isEditable() || candidate.isPassword() ||
+               !candidate.isVisibleToUser() || !candidate.isEnabled())continue;
+            String titleText=candidate.getText()==null?""
+                :candidate.getText().toString().trim();
+            if(titleText.isEmpty() && candidate.getContentDescription()!=null)
+                titleText=candidate.getContentDescription().toString().trim();
+            Rect bounds=new Rect();candidate.getBoundsInScreen(bounds);
+            if(!JarvisWatchUiRules.watchUntypedResultTitle(
+                titleText,bounds.centerX(),bounds.centerY(),
+                bounds.width(),bounds.height(),frame.width(),frame.height()))
+                continue;
+            boolean same=false;
+            for(SpotifySearchSelection prior:results)
+                if(Math.abs(prior.bounds.centerY()-bounds.centerY())<
+                   frame.height()*.073f){same=true;break;}
+            if(same)continue;
+            int at=0;
+            while(at<results.size() && results.get(at).bounds.top<bounds.top)at++;
+            results.add(at,new SpotifySearchSelection(titleText,false,bounds));
+            taps.add(at,candidate);
+        }
         if(results.size()>ordinal) {
             lastSearchSelection=results.get(ordinal);
             Result tap=spotifyTapNode(taps.get(ordinal),cb);
@@ -1077,14 +1102,9 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                 lastSearchSelection=null;
             return tap;
         }
-        if(!results.isEmpty())return Result.WAIT;
-        // Compatibility for older Spotify builds with an exact title but
-        // no accessible category. A playlist is never inferred from geometry.
-        if(ordinal==0) {
-            lastSearchSelection=null;
-            return spotifySelectResult(root,query,false,false,cb);
-        }
-        return spotifySelectNextSongResult(root,query,ordinal,cb);
+        // No accessible matching row. Do not substitute a later exact-title
+        // track for the top mixed result or claim that music was started.
+        return Result.WAIT;
     }
 
     /** Skip to the Nth song row of the ORIGINAL search on Watch7. This

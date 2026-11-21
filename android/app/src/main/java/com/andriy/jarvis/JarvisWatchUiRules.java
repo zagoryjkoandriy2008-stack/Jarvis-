@@ -140,6 +140,30 @@ public final class JarvisWatchUiRules {
             y>screenH*.17f && y<screenH*.85f;
     }
 
+    /** Spotify Compose may hide the category for the FIRST row. If a
+     * later row exposes a Song type, do not skip the untyped first row.
+     * Exclude Watch navigation, filter chips and top query header. */
+    public static boolean watchUntypedResultTitle(String title,
+            int x,int y,int w,int h,int width,int height) {
+        String text=SpotifyTrackSearchRules.normal(title);
+        if(text.isEmpty() || text.length()>95 || text.equals("пошук") ||
+           text.equals("поиск") || text.equals("search") ||
+           text.equals("головна") || text.equals("home") ||
+           text.equals("моя бібліотека") || text.equals("library") ||
+           text.equals("пісні") || text.equals("песни") ||
+           text.equals("songs") || text.equals("плейлісти") ||
+           text.equals("плейлисты") || text.equals("playlists") ||
+           text.equals("все") || text.equals("всі") ||
+           text.equals("усі") || text.equals("all") ||
+           text.equals("подкасти") || text.equals("podcasts") ||
+           text.equals("виконавці") || text.equals("artists") ||
+           SpotifyTrackSearchRules.mixedResultType(title)!=
+                SpotifyTrackSearchRules.SearchResultType.UNKNOWN)return false;
+        return watchResultRegion(x,y,w,h,width,height) &&
+            w>width*.18f && h<height*.17f &&
+            y>height*.29f && y<height*.78f;
+    }
+
     /** Watch Spotify may merge a title and its "Плейліст"/"Пісня"
      * subtitle into ONE Accessibility description, separated by a bullet. */
     public static SpotifyTrackSearchRules.SearchResultType watchCombinedType(
