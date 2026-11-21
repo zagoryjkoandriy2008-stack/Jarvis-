@@ -208,6 +208,15 @@ jobs:
           grep -Fq 'MAPS_WALKING_AFTER_SWIPE_Y' "$screen"
           grep -Fq 'mapsRouteCardsLikely(' "$screen"
           ! grep -Fq 'if(root==null || !mapsRouteChoices(root))' "$screen"
+      - name: Spotify Pixel first-result gates (no APK)
+        run: |
+          service=android/app/src/main/java/com/andriy/jarvis/ScreenControlAccessibilityService.java
+          flow=android/app/src/main/java/com/andriy/jarvis/SpotifyPlaybackController.java
+          grep -Fq 'querySubmittedByJarvis' "$service" "$flow"
+          grep -Fq 'spotifyKeyboardWindowVisible()' "$service"
+          grep -Fq 'SpotifyVisibleResultOrder.combine(mixed,untyped' "$service"
+          grep -Fq 'SPOTIFY_RESULT' android/app/src/main/java/com/andriy/jarvis/JarvisDiagnostics.java
+          ! grep -Fq 'if(root==null || spotifyOwnsInputMethod() ||' "$service"
       - name: Java policy contracts (without APK)
         run: |
           mkdir -p /tmp/jarvis-voice-tests
@@ -243,6 +252,8 @@ jobs:
             android/app/src/main/java/com/andriy/jarvis/SpotifyMusicCommands.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyUiLabels.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyTrackSearchRules.java \
+            android/app/src/main/java/com/andriy/jarvis/SpotifyVisibleResultOrder.java \
+            android/app/src/test/java/com/andriy/jarvis/SpotifyVisibleResultOrderTest.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyUriRules.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisSearchRouting.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisVoicePause.java \
@@ -338,6 +349,7 @@ jobs:
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyMusicCommandsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyUiLabelsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyTrackSearchRulesTest
+          java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyVisibleResultOrderTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyResultCursorTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyUriRulesTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisSearchRoutingTest

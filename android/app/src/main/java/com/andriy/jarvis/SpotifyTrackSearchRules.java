@@ -161,6 +161,27 @@ public final class SpotifyTrackSearchRules {
         return y>height*.16f && y<height*.78f;
     }
 
+    /** A submitted query can remain on Spotify's results screen after
+     * Compose removes both the editable field and the query header.
+     * Trust the command's just-submitted query only for a short time,
+     * never if the visible search editor shows a DIFFERENT query. */
+    public static boolean allowSubmittedResultPage(boolean submitted,
+            boolean spotifyForeground,boolean keyboardVisible,
+            boolean conflictingEditor,long resultAgeMs) {
+        return submitted && spotifyForeground && !keyboardVisible &&
+            !conflictingEditor && resultAgeMs>=1500L &&
+            resultAgeMs<=20000L;
+    }
+
+    /** Result rows are not all necessarily typed: a playlist with no
+     * subtitle may appear ABOVE a song exposing a "Пісня" subtitle.
+     * Merge them in physical screen order, preferring typed metadata
+     * only when they represent the SAME visual card. */
+    public static boolean sameVisibleResultRow(int y1,int y2,int screenHeight) {
+        return screenHeight>=700 &&
+            Math.abs(y1-y2)<screenHeight*.070f;
+    }
+
     /** Strict metadata classification for the MIXED Spotify search list.
      * Category pills use plural "Пісні"/"Плейлісти"; each result uses a
      * singular "Пісня"/"Плейліст", often followed by an artist. */
@@ -232,7 +253,14 @@ public final class SpotifyTrackSearchRules {
            s.equals("відео") || s.equals("альбоми") ||
            s.equals("жанри") || s.equals("video") ||
            s.equals("albums") || s.equals("genres") ||
-           s.equals("моя бібліотека") || s.equals("створити"))
+           s.equals("моя бібліотека") || s.equals("створити") ||
+           s.equals("все") || s.equals("всі") ||
+           s.equals("усі") || s.equals("all") ||
+           s.equals("подкасти") || s.equals("подкасты") ||
+           s.equals("podcasts") || s.equals("виконавці") ||
+           s.equals("артисти") || s.equals("artists") ||
+           s.equals("исполнители") || s.equals("плейлист") ||
+           s.equals("playlist"))
             return false;
         return resultRegion(x,y,w,h,left,top,right,bottom) &&
             pw>=450 && ph>=700 &&

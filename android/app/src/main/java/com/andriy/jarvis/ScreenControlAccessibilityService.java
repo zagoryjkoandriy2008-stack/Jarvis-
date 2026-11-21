@@ -1225,19 +1225,19 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
                 return SpotifyStep.BLOCKED;
             int action=editor.imeOptions &
                 android.view.inputmethod.EditorInfo.IME_MASK_ACTION;
+            boolean accepted;
             if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
                action==android.view.inputmethod.EditorInfo.IME_ACTION_GO ||
                action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                conn.performEditorAction(action);
+                accepted=conn.performEditorAction(action);
             } else {
-                // An editor with no Search/Go/Done exposes the conventional
-                // Enter key. Send one down/up pair, never a global click.
-                conn.sendKeyEvent(new android.view.KeyEvent(
+                boolean down=conn.sendKeyEvent(new android.view.KeyEvent(
                     android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_ENTER));
-                conn.sendKeyEvent(new android.view.KeyEvent(
+                boolean up=conn.sendKeyEvent(new android.view.KeyEvent(
                     android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_ENTER));
+                accepted=down && up;
             }
-            return SpotifyStep.CLICKED;
+            return accepted?SpotifyStep.CLICKED:SpotifyStep.WAIT;
         }catch(RuntimeException denied){
             return SpotifyStep.BLOCKED;
         }
@@ -2731,6 +2731,30 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
             frame.left,frame.top,frame.right,frame.bottom)?point:null;
     }
 
+    /** The IME input connection can survive keyboard dismissal.
+     * Only an actual foreground IME WINDOW blocks selection. */
+    public static boolean spotifyKeyboardWindowVisible() {
+        ScreenControlAccessibilityService s=connected.get();
+        if(s==null || !s.sessionActive)return false;
+        try {
+            for(android.view.accessibility.AccessibilityWindowInfo window:s.getWindows())
+                if(window.getType()==android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD &&
+                   (window.isActive() || window.isFocused()))return true;
+        }catch(RuntimeException failure){
+            JarvisDiagnostics.error(JarvisDiagnostics.Event.ACCESSIBILITY_ERROR,failure);
+        }
+        return false;
+    }
+
+    private static volatile int spotifySelectionGate=-1;
+    private static void selectionGate(int value) {
+        if(value!=spotifySelectionGate) {
+            spotifySelectionGate=value;
+            JarvisDiagnostics.event(JarvisDiagnostics.Event.SPOTIFY_RESULT,value);
+        }
+    }
+    public static void resetSpotifySelectionGate() { spotifySelectionGate=-1; }
+
     /** Verifiable Spotify-owned IME: only the active system input connection
      * may continue text entry while the keyboard covers the app window.
      * No unrelated app, password field or stale search text is accepted. */
@@ -3112,7 +3136,8 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
      * real title rectangle; only fall back to old song-only matching when no
      * typed results are exposed. Never target a plus/add action or the player. */
     public static SpotifyStep spotifyTapTrackResultAtIndex(String title,
-            int ordinal,long resultAgeMs,Completion callback) {
+            int ordinal,long resultAgeMs,boolean querySubmittedByJarvis,
+            Completion callback) {
         ScreenControlAccessibilityService s=connected.get();
         if(s==null || !s.sessionActive || callback==null ||
            title==null || title.trim().isEmpty() ||
@@ -3120,28 +3145,26 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
             return SpotifyStep.BLOCKED;
         selectedSpotifySearchResult=null;
         AccessibilityNodeInfo root=s.currentSpotifyRoot();
-        if(root==null || spotifyOwnsInputMethod() ||
-           !s.spotifyQueryPresent(root,title))return SpotifyStep.WAIT;
+        if(root==null) {selectionGate(1);return SpotifyStep.WAIT;}
+        if(spotifyKeyboardWindowVisible()) {
+            selectionGate(2);return SpotifyStep.WAIT;
+        }
+        boolean visibleQuery=s.spotifyQueryPresent(root,title);
+        AccessibilityNodeInfo queryField=s.spotifySearchEditor(root);
+        boolean differentQuery=queryField!=null &&
+            !asString(queryField.getText()).trim().isEmpty() &&
+            !SpotifyTrackSearchRules.exactSong(title,asString(queryField.getText()));
+        if(!visibleQuery && !SpotifyTrackSearchRules.allowSubmittedResultPage(
+            querySubmittedByJarvis,true,false,differentQuery,resultAgeMs)) {
+            selectionGate(differentQuery?3:4);
+            return SpotifyStep.WAIT;
+        }
+        selectionGate(5);
         java.util.ArrayList<SpotifySearchSelection> mixed=
             s.spotifyMixedSearchResults(root);
-        if(mixed.size()>ordinal) {
-            SpotifySearchSelection selected=mixed.get(ordinal);
-            Rect hit=selected.bounds;
-            if(s.currentSpotifyRoot()==null)return SpotifyStep.WAIT;
-            FloatingJarvisService.avoidControl(hit);
-            Path p=new Path();
-            p.moveTo(hit.exactCenterX(),hit.exactCenterY());
-            GestureDescription gesture=new GestureDescription.Builder()
-                .addStroke(new GestureDescription.StrokeDescription(p,0,95))
-                .build();
-            selectedSpotifySearchResult=selected;
-            boolean dispatched=s.dispatchTrackedGesture(gesture,callback);
-            if(!dispatched)selectedSpotifySearchResult=null;
-            return dispatched?SpotifyStep.CLICKED:SpotifyStep.BLOCKED;
-        }
-        if(!mixed.isEmpty())return SpotifyStep.WAIT;
-        // No category subtitles: respect VISUAL list order. Never jump to
-        // the first exact-title song, which may actually be result #4.
+        // Before selecting, merge typed and untyped cards in physical
+        // screen order. A later typed SONG must not eclipse the first
+        // untyped PLAYLIST.
         Rect frame=new Rect();root.getBoundsInScreen(frame);
         java.util.ArrayList<SpotifySearchSelection> untyped=
             new java.util.ArrayList<>();
@@ -3170,41 +3193,56 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
             }
         }
         if(scanned>MAX_SCAN)return SpotifyStep.WAIT;
-        untyped.sort((a,b)->Integer.compare(a.bounds.top,b.bounds.top));
-        if(untyped.size()>ordinal) {
-            SpotifySearchSelection item=untyped.get(ordinal);
-            Rect hit=item.bounds;
-            if(s.currentSpotifyRoot()==null)return SpotifyStep.WAIT;
+        mixed=SpotifyVisibleResultOrder.combine(mixed,untyped,
+            row->row.bounds.centerY(),row->row.bounds.top,frame.height());
+        if(mixed.size()>ordinal) {
+            SpotifySearchSelection selected=mixed.get(ordinal);
+            Rect hit=selected.bounds;
+            if(s.currentSpotifyRoot()==null) {
+                selectionGate(1);return SpotifyStep.WAIT;
+            }
+            selectionGate(selected.playlist?6:7);
             FloatingJarvisService.avoidControl(hit);
-            Path tap=new Path();
-            tap.moveTo(hit.exactCenterX(),hit.exactCenterY());
+            Path path=new Path();
+            path.moveTo(hit.exactCenterX(),hit.exactCenterY());
             GestureDescription gesture=new GestureDescription.Builder()
-                .addStroke(new GestureDescription.StrokeDescription(tap,0,95))
+                .addStroke(new GestureDescription.StrokeDescription(path,0,95))
                 .build();
-            selectedSpotifySearchResult=item;
-            boolean accepted=s.dispatchTrackedGesture(gesture,callback);
-            if(!accepted)selectedSpotifySearchResult=null;
-            return accepted?SpotifyStep.CLICKED:SpotifyStep.BLOCKED;
+            selectedSpotifySearchResult=selected;
+            boolean dispatched=s.dispatchTrackedGesture(gesture,(ok,detail)->{
+                selectionGate(ok?8:9);
+                callback.finished(ok,detail);
+            });
+            if(!dispatched)selectedSpotifySearchResult=null;
+            return dispatched?SpotifyStep.CLICKED:SpotifyStep.BLOCKED;
         }
-        if(!untyped.isEmpty())return SpotifyStep.WAIT;
+        if(!mixed.isEmpty()) {
+            selectionGate(10);return SpotifyStep.WAIT;
+        }
         // Geometry is a LAST resort if Spotify exposes no row metadata;
         // it is only allowed under a verified query, portrait and no IME.
         android.view.Display display=s.safeActionDisplay();
         if(display==null)return SpotifyStep.WAIT;
         android.graphics.Point physical=new android.graphics.Point();
         display.getRealSize(physical);
-        if(!SpotifyTrackSearchRules.mayTapResultAfterSubmit(true,true,false,
-                physical.x,physical.y,ordinal,resultAgeMs))return SpotifyStep.WAIT;
+        if(!SpotifyTrackSearchRules.mayTapResultAfterSubmit(
+                visibleQuery || querySubmittedByJarvis,true,false,
+                physical.x,physical.y,ordinal,resultAgeMs)) {
+            selectionGate(11);return SpotifyStep.WAIT;
+        }
         int x=physical.x/2;
         int y=SpotifyTrackSearchRules.calibratedResultY(physical.y,ordinal);
         Rect current=new Rect();s.currentSpotifyRoot().getBoundsInScreen(current);
         if(!current.contains(x,y))return SpotifyStep.WAIT;
+        selectionGate(12);
         FloatingJarvisService.avoidControl(new Rect(x-32,y-32,x+32,y+32));
         Path tap=new Path();tap.moveTo(x,y);
         GestureDescription g=new GestureDescription.Builder()
             .addStroke(new GestureDescription.StrokeDescription(tap,0,95)).build();
-        return s.dispatchTrackedGesture(g,callback)
-            ?SpotifyStep.CLICKED:SpotifyStep.BLOCKED;
+        return s.dispatchTrackedGesture(g,(ok,detail)->{
+            selectionGate(ok?13:14);
+            callback.finished(ok,detail);
+        }) ?SpotifyStep.CLICKED:SpotifyStep.BLOCKED;
     }
 
     /** Verify the chosen track in Spotify's BOTTOM mini-player, rather than

@@ -293,6 +293,34 @@ public final class SpotifyTrackSearchRulesTest {
         ok(!SpotifyTrackSearchRules.untypedResultTitleCandidate(
             "романтична",310,146,370,56,0,0,684,1536),
             "search query is not a track row");
+        ok(SpotifyTrackSearchRules.allowSubmittedResultPage(
+            true,true,false,false,1800L),
+            "Compose may hide query header after confirmed Search action");
+        ok(!SpotifyTrackSearchRules.allowSubmittedResultPage(
+            false,true,false,false,1800L),
+            "never infer query submission from Spotify foreground alone");
+        ok(!SpotifyTrackSearchRules.allowSubmittedResultPage(
+            true,true,true,false,1800L),
+            "do not tap while keyboard is actually visible");
+        ok(!SpotifyTrackSearchRules.allowSubmittedResultPage(
+            true,true,false,true,1800L),
+            "reject a different visible Spotify search query");
+        ok(!SpotifyTrackSearchRules.allowSubmittedResultPage(
+            true,false,false,false,1800L),
+            "Spotify must still be foreground");
+        ok(!SpotifyTrackSearchRules.allowSubmittedResultPage(
+            true,true,false,false,800L),
+            "wait for actual search-result rendering");
+        ok(SpotifyTrackSearchRules.sameVisibleResultRow(319,365,1536),
+            "a title and its category description belong to one result");
+        ok(!SpotifyTrackSearchRules.sameVisibleResultRow(319,520,1536),
+            "different results must stay in visual order");
+        ok(!SpotifyTrackSearchRules.untypedResultTitleCandidate(
+            "Все",115,330,105,45,0,0,684,1536),
+            "search filter cannot be the first track");
+        ok(!SpotifyTrackSearchRules.untypedResultTitleCandidate(
+            "Подкасти",260,345,210,45,0,0,684,1536),
+            "podcast filter is not a song");
         System.out.println("PASS SpotifyTrackSearchRulesTest");
     }
 }

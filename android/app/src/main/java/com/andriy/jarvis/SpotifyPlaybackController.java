@@ -62,6 +62,9 @@ public final class SpotifyPlaybackController {
     private String searchSongTitle;
     private boolean mixedPlaylistPlayPending;
     private boolean mixedPlaylistUsedCoordinate;
+    /** Set only when Spotify accepts Enter for this exact voice query.
+     * This short-lived proof survives Compose hiding its query header. */
+    private boolean querySubmittedByJarvis;
 
     public SpotifyPlaybackController(Context context) {
         this.context = context;
@@ -189,6 +192,7 @@ public final class SpotifyPlaybackController {
         searchSongTitle=null;
         mixedPlaylistPlayPending=false;
         mixedPlaylistUsedCoordinate=false;
+        querySubmittedByJarvis=false;
         listener = callback;
         active = true;
         move(Stage.WAIT_APP, "Режим «Телефон»: очікую відкриття Spotify...");
@@ -232,6 +236,8 @@ public final class SpotifyPlaybackController {
     private void move(Stage next, String message) {
         stage = next;
         stageStart = SystemClock.elapsedRealtime();
+        if(next==Stage.COORD_SELECT_FIRST)
+            ScreenControlAccessibilityService.resetSpotifySelectionGate();
         // Stage names/codes only: never log a dictated song or private
         // Spotify result. COMMAND_END alone did not track async playback.
         JarvisDiagnostics.event(JarvisDiagnostics.Event.SPOTIFY_STAGE,
@@ -456,8 +462,10 @@ public final class SpotifyPlaybackController {
                 break;
             }
             case SUBMIT_SEARCH:
-                if(successful(ScreenControlAccessibilityService.spotifySubmitTrackSearch(namedTrack)))
+                if(successful(ScreenControlAccessibilityService.spotifySubmitTrackSearch(namedTrack))) {
+                    querySubmittedByJarvis=true;
                     move(Stage.COORD_SELECT_FIRST,"Очікую результати пошуку Spotify...");
+                }
                 break;
             case COORD_SELECT_FIRST: {
                 // Spotify's first result moves when a "More releases" section,
@@ -466,7 +474,7 @@ public final class SpotifyPlaybackController {
                 if(age<1100L)break;
                 ScreenControlAccessibilityService.SpotifyStep selected=
                     ScreenControlAccessibilityService.spotifyTapTrackResultAtIndex(
-                        namedTrack,resultOrdinal,age,(ok,detail)->{
+                        namedTrack,resultOrdinal,age,querySubmittedByJarvis,(ok,detail)->{
                             if(!active || stage!=Stage.COORD_SELECT_FIRST)return;
                             if(!ok) {
                                 finish(false,"Spotify не зміг натиснути першу пісню: "+detail);

@@ -34,6 +34,8 @@ javac -encoding UTF-8 -d /tmp/jarvis-voice-tests \
   android/app/src/main/java/com/andriy/jarvis/SpotifyResultCursor.java \
   android/app/src/main/java/com/andriy/jarvis/SpotifyUiLabels.java \
   android/app/src/main/java/com/andriy/jarvis/SpotifyTrackSearchRules.java \
+  android/app/src/main/java/com/andriy/jarvis/SpotifyVisibleResultOrder.java \
+  android/app/src/test/java/com/andriy/jarvis/SpotifyVisibleResultOrderTest.java \
   android/app/src/main/java/com/andriy/jarvis/SpotifyUriRules.java \
   android/app/src/main/java/com/andriy/jarvis/JarvisSearchRouting.java \
   android/app/src/main/java/com/andriy/jarvis/JarvisVoicePause.java \
@@ -129,6 +131,7 @@ java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyMusicCommandsTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyResultCursorTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyUiLabelsTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyTrackSearchRulesTest
+java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyVisibleResultOrderTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyUriRulesTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisSearchRoutingTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisVoicePauseTest
