@@ -4775,7 +4775,7 @@ public final class MainActivity extends Activity implements RecognitionListener 
     private SpotifyPlaybackController spotifyPlayback;
 
     private void startSpotifyMusic(SpotifyMusicCommands.Kind selection,String voice) {
-        if (spotifyPlayback == null) spotifyPlayback = new SpotifyPlaybackController(this);
+        if (spotifyPlayback == null) spotifyPlayback = SpotifyPlaybackController.shared(this);
         // Only reuse the user's already granted overlay access. Never request
         // a new permission or create a second screen-control microphone icon.
         if (selection != SpotifyMusicCommands.Kind.OPEN &&
@@ -5735,7 +5735,9 @@ public final class MainActivity extends Activity implements RecognitionListener 
         JarvisLiveTranscript.unsubscribe(transcriptListener);
         cancelPendingWakeCommand();
         if (commandSequenceExecutor != null) commandSequenceExecutor.cancel();
-        if (spotifyPlayback != null) spotifyPlayback.cancel();
+        // Android can destroy this Activity after opening Spotify. Do not
+        // cancel the process-owned Spotify controller merely because Jarvis'
+        // UI was destroyed; explicit "Скасуй Spotify" still cancels it.
         if(FinanceManagerController.isRunning())FinanceManagerController.cancel();
         cancelAutoWakeSchedule();
         wakeConversation.end();

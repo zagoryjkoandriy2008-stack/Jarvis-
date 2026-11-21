@@ -14,8 +14,13 @@ No claim of verified audio playback on a real Pixel is made.
 3. Previous mixed-result logic returned the first TYPED song whenever any type
    labels were visible, skipping an earlier untyped playlist. The new pure
    SpotifyVisibleResultOrder merges typed and untyped rows by physical Y.
-4. The IME submit step previously ignored performEditorAction/sendKeyEvent
-   rejection and still reported CLICKED.
+4. AccessibilityInputConnection.performEditorAction/sendKeyEvent are VOID:
+   sending Enter cannot itself confirm search completion. The new selection
+   stage waits for the visible IME window to close, then looks for results.
+5. MainActivity.onDestroy() used to cancel Spotify when Android recreated or
+   destroyed Jarvis UI after launching Spotify. MainActivity and Accessibility
+   now use one application-owned controller and only explicit user cancellation
+   or the actual Accessibility session ending stops the automation.
 
 ## Steps to test on Pixel
 
@@ -61,6 +66,10 @@ distinguish verified completion from failure. Do not infer music from code 8/13.
 - [ ] Compile all Android sources (not an APK) and run all Java policy tests.
 - [ ] Re-run mixed typed/untyped ordering unit test with an untyped playlist
       **above** a typed song.
-- [ ] Re-run IME rejection and hidden-query safety cases.
+- [ ] Re-run hidden-query safety cases and verify IME window handling.
+- [ ] Force recreation of Jarvis Activity while Spotify is opening; check
+      that automation remains active until completion, not cancelled in onDestroy.
+- [ ] Confirm only one controller exists across Jarvis and Accessibility,
+      to prevent two concurrent taps.
 - [ ] If no further source-level failure is found, STOP changes and wait for
       real Pixel evidence. Hardware playback remains unverified.

@@ -1225,19 +1225,20 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
                 return SpotifyStep.BLOCKED;
             int action=editor.imeOptions &
                 android.view.inputmethod.EditorInfo.IME_MASK_ACTION;
-            boolean accepted;
+            // Android AccessibilityInputConnection methods are VOID. The
+            // action is REQUESTED, not confirmed. The next stage checks
+            // whether the real keyboard window closes and results render.
             if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
                action==android.view.inputmethod.EditorInfo.IME_ACTION_GO ||
                action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                accepted=conn.performEditorAction(action);
+                conn.performEditorAction(action);
             } else {
-                boolean down=conn.sendKeyEvent(new android.view.KeyEvent(
+                conn.sendKeyEvent(new android.view.KeyEvent(
                     android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_ENTER));
-                boolean up=conn.sendKeyEvent(new android.view.KeyEvent(
+                conn.sendKeyEvent(new android.view.KeyEvent(
                     android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_ENTER));
-                accepted=down && up;
             }
-            return accepted?SpotifyStep.CLICKED:SpotifyStep.WAIT;
+            return SpotifyStep.CLICKED;
         }catch(RuntimeException denied){
             return SpotifyStep.BLOCKED;
         }
@@ -2222,7 +2223,7 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
                         SpotifyMusicCommands.Kind selection = SpotifyMusicCommands.parse(raw);
                         if (selection != null) {
                             if (spotifyPlayback == null)
-                                spotifyPlayback = new SpotifyPlaybackController(
+                                spotifyPlayback = SpotifyPlaybackController.shared(
                                     ScreenControlAccessibilityService.this);
                             spotifyPlayback.start(selection,raw,new SpotifyPlaybackController.Listener() {
                                 @Override public void onProgress(String progress) {

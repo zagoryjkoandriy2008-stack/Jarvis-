@@ -66,8 +66,18 @@ public final class SpotifyPlaybackController {
      * This short-lived proof survives Compose hiding its query header. */
     private boolean querySubmittedByJarvis;
 
-    public SpotifyPlaybackController(Context context) {
-        this.context = context;
+    /** One phone-side automation across MainActivity and Accessibility
+     * service. Avoid two independent controllers tapping the same Spotify
+     * screen and survive a recreation of the Jarvis Activity. */
+    private static SpotifyPlaybackController shared;
+    public static synchronized SpotifyPlaybackController shared(Context context) {
+        if(shared==null)shared=new SpotifyPlaybackController(
+            context.getApplicationContext());
+        return shared;
+    }
+
+    private SpotifyPlaybackController(Context context) {
+        this.context=context.getApplicationContext();
     }
 
     public boolean isRunning() { return active; }
