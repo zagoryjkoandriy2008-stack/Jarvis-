@@ -37,7 +37,7 @@ public partial class MainWindow : Window {
         InitializeComponent();
         try { _state=_store.Load(); }
         catch(InvalidDataException ex) {
-            MessageBox.Show(ex.Message,"JARVIS Windows",MessageBoxButton.OK,MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(ex.Message,"JARVIS Windows",MessageBoxButton.OK,MessageBoxImage.Error);
             throw;
         }
         _finance=new FinanceService(_state,_store);
@@ -66,7 +66,7 @@ public partial class MainWindow : Window {
             // not prevent users from using all local JARVIS functions.
             _relay=null;
             _state.Settings.EnableDeviceRelay=false;
-            MessageBox.Show(invalidReceipts.Message+
+            System.Windows.MessageBox.Show(invalidReceipts.Message+
                 "\nЛокальний JARVIS продовжить роботу. Для дистанційного "+
                 "керування віднови remote-receipts.json із резервної копії.",
                 "JARVIS — журнал дистанційних дій",MessageBoxButton.OK,
