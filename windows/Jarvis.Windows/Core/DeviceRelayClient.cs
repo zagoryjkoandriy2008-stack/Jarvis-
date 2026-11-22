@@ -16,7 +16,7 @@ public sealed class DeviceRelayClient : IDisposable {
     private readonly HttpClient _http=new() {Timeout=TimeSpan.FromSeconds(12)};
     private readonly StateStore _store;
     private readonly JarvisSettings _settings;
-    private readonly Dictionary<Guid,(RemoteResult Result,DateTimeOffset When)> _completed=new();
+    private readonly DeviceReceiptJournal _receipts=new();
     public event Func<RemoteCommand,Task<RemoteResult>>? CommandReceived;
     public event Action<string>? Status;
 
@@ -114,21 +114,23 @@ public sealed class DeviceRelayClient : IDisposable {
                         item.GetProperty("target").GetString()??"",
                         item.GetProperty("command").GetString()??"");
                     RemoteResult result;
-                    if(_completed.TryGetValue(command.Id,out var cached))
-                        result=cached.Result;
-                    else {
+                    if(!_receipts.TryClaim(command.Id,out var prior)) {
+                        // Crash after side effect but before original ACK:
+                        // explicitly return UNKNOWN instead of double execution.
+                        result=prior?.Ok.HasValue==true
+                            ?new(prior.Ok.Value,prior.Detail)
+                            :new(false,"Windows раніше отримав цю команду, але "+
+                                "виконання не підтверджене. Перевір пристрій "+
+                                "вручну; повторно дію не запускаю.");
+                    } else {
                         if(CommandReceived==null)
                             result=new(false,"Windows JARVIS не приймає дистанційні команди.");
                         else try {result=await CommandReceived.Invoke(command);}
-                        catch(Exception e){
+                        catch(Exception e) {
                             result=new(false,"Windows відхилив команду: "+e.Message);
                         }
-                        // Cache success OR rejection before ACK. Re-delivery
-                        // after lease expiry must get the identical receipt.
-                        _completed[command.Id]=(result,DateTimeOffset.UtcNow);
-                        foreach(var expired in _completed.Where(x=>
-                            DateTimeOffset.UtcNow-x.Value.When>TimeSpan.FromMinutes(5))
-                            .Select(x=>x.Key).ToArray())_completed.Remove(expired);
+                        // Persist exact outcome BEFORE remote ACK.
+                        _receipts.Complete(command.Id,result.Ok,result.Detail);
                     }
                     try {
                         using var ack=await SendAsync(Request(HttpMethod.Post,
