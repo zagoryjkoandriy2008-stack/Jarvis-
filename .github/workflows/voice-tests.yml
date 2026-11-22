@@ -250,6 +250,22 @@ jobs:
           grep -Fq 'JarvisDeviceTargetSession.get()' "$base/FloatingJarvisService.java"
           grep -Fq 'JarvisDeviceRelay.watchRequestPath()' "$base/JarvisWearMessageReceiver.java"
           grep -Fq 'String safeDetail=detail==null?' "$base/JarvisDeviceRelay.java"
+      - name: Pixel floating remote mode precedes local macros and Telegram (no APK)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('android/app/src/main/java/com/andriy/jarvis/FloatingJarvisService.java').read_text()
+          start=text.index('private void executeCommand(String raw)')
+          tail=text[start:text.index('JarvisPhoneMode.Transition transition',start)]
+          route=tail.index('JarvisDeviceRelayRules.Target remote=JarvisDeviceTargetSession.get()')
+          macro=tail.index('JarvisMacros.cancelIfRequested(raw')
+          telegram=tail.index('TelegramReplyCommands.Request telegram=')
+          assert route<macro<telegram, 'Remote mode must be dispatched before local macros and Telegram'
+          assert '!JarvisDeviceRelayRules.isFinance(raw)' in tail[:macro]
+          assert '!JarvisDeviceRelayRules.isNotes(raw)' in tail[:macro]
+          assert tail.count('JarvisDeviceRelay.send(')==1,'Exactly one remote dispatch'
+          print('PASS floating remote selection takes precedence')
+          PY
       - name: Watch7 Spotify fresh-task launch without losing next result (no APK)
         run: |
           watch=android/app/src/main/java/com/andriy/jarvis
