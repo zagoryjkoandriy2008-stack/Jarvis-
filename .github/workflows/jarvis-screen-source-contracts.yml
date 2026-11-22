@@ -1,0 +1,84 @@
+name: JARVIS screen source contracts (no APK/EXE)
+on:
+  push:
+    paths:
+      - 'windows/**'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWindowsScreenActivity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisScreenViewCommands.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/AiChatClient.java'
+      - 'server/jarvis-ai-worker/src/screen-relay.mjs'
+      - '.github/workflows/jarvis-screen-source-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static code safety checks — no build tools and no artifacts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+
+          app=Path('windows/Jarvis.Windows')
+          publisher=(app/'Core/WindowsScreenPublisher.cs').read_text()
+          state=(app/'Core/LocalState.cs').read_text()
+          wnd=(app/'MainWindow.xaml.cs').read_text()
+          fx=(app/'FloatingOrb.xaml.cs').read_text()
+          px=Path('android/app/src/main/java/com/andriy/jarvis')
+          android=(px/'JarvisWindowsScreenActivity.java').read_text()
+          proxy=(px/'AiChatClient.java').read_text()
+          route=(px/'JarvisScreenViewCommands.java').read_text()
+          worker=Path('server/jarvis-ai-worker/src/screen-relay.mjs').read_text()
+          manifest=ET.parse('android/app/src/main/AndroidManifest.xml').getroot()
+
+          assert 'public bool EnableScreenShare { get; set; }' in state, 'must default OFF'
+          assert 'if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare)' in publisher
+          assert 'if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare)' in publisher
+          assert publisher.index('CapturePrimaryScreen()') > publisher.index('EnableScreenShare')
+          assert 'await RevokeAsync()' in publisher
+          assert 'Graphics.FromImage' in publisher and 'CopyFromScreen' in publisher
+          assert 'byte[] CapturePrimaryScreen' in publisher
+          assert 'File.WriteAllBytes' not in publisher and 'File.WriteAllText' not in publisher
+          assert '🔴 Передаю екран Pixel' in publisher
+          assert 'StopScreenShare_Click' in wnd and '_screenPublisher.RevokeAsync()' in wnd
+          assert 'SetStreaming(active)' in wnd and 'SetStreaming(bool streaming)' in fx
+          assert 'StopSharingRequested' in fx
+
+          assert 'JarvisScreenViewCommands.open(raw)' in (
+              px/'MainActivity.java').read_text()
+          assert 'JarvisScreenViewCommands.open(raw)' in (
+              px/'FloatingJarvisService.java').read_text()
+          assert 'FLAG_SECURE' in android and 'onPause()' in android
+          assert 'FLAG_KEEP_SCREEN_ON' in android
+          assert 'deviceRelayRequest("/device/v1/screen/view"' in android
+          assert '"/device/v1/screen/stop"' in android
+          assert 'inJustDecodeBounds=true' in android
+          assert 'showBitmap(null)' in android and 'previous.recycle()' in android
+          assert 'ByteArrayOutputStream' in proxy and 'screenFrame(String viewerSession)' in proxy
+
+          activities=manifest.findall('.//activity')
+          mobile=[a for a in activities if a.attrib.get(
+              '{http://schemas.android.com/apk/res/android}name')==
+              '.JarvisWindowsScreenActivity']
+          assert len(mobile)==1
+          assert mobile[0].attrib.get(
+              '{http://schemas.android.com/apk/res/android}exported')=='false'
+
+          assert 'this.revokedSessions.set(body.session' in worker
+          assert 'this.recentlyRevoked(body.session)' in worker
+          assert 'this.frame=null' in worker and 'frame.slice()' in worker
+          assert 'MAX_JPEG_BYTES=240_000' in worker
+          assert 'VIEW_TTL_MS=8_000' in worker
+          assert 'покажи екран комп' in route
+
+          win_workflow=Path('.github/workflows/jarvis-windows.yml').read_text()
+          assert '  push:' not in win_workflow, 'EXE builds must be manual'
+          android_workflow=Path('.github/workflows/voice-tests.yml').read_text()
+          assert "if: github.event_name == 'workflow_dispatch'" in android_workflow
+          print('PASS Windows/Pixel/Cloudflare screenshot source contracts — no compilation')
+          PY
