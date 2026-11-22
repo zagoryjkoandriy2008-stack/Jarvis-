@@ -1261,6 +1261,16 @@ public final class FloatingJarvisService extends Service {
                 : "Не розпізнав витрату. Скажи: «Витратив 150 готівка транспорт таксі».");
             return;
         }
+        // Floating Pixel and the main Activity MUST use the exact same
+        // notes JSON preference as Wear7 and Windows. Never send a note
+        // command to the currently selected Windows/watch screen.
+        if(JarvisDeviceRelayRules.isNotes(raw)) {
+            JarvisWearPhoneAssistant.execute(this,"pixel-floating-notes",raw,
+                (ok,detail)->{
+                    if(!closing)reply((ok?"":"Не вдалося: ")+detail);
+                });
+            return;
+        }
         JarvisDeviceRelayRules.Target remote=JarvisDeviceTargetSession.get();
         if(selected==JarvisDeviceRelayRules.Target.NONE &&
            (remote==JarvisDeviceRelayRules.Target.COMPUTER ||
