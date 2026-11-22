@@ -24,6 +24,11 @@ export function validateDeviceRequest(b,now=Date.now()) {
       !(typeof value==='boolean'||(typeof value==='number' && Number.isFinite(value))||
       (typeof value==='string' && value.length<=160 && !/[\x00-\x1f]/.test(value)))))return false;
   if(DANGEROUS.has(b.kind) && !b.requiresApproval)return false;
+  const expected=b.kind==='volume.set'?'value':
+    b.kind==='application.open'?'name':
+    b.kind==='macro.run'?'name':null;
+  const keys=Object.keys(b.payload);
+  if(expected ? keys.length!==1 || keys[0]!==expected : keys.length!==0)return false;
   if(b.kind==='volume.set' && (!Number.isInteger(b.payload.value) || b.payload.value<0||b.payload.value>100))return false;
   if(b.kind==='application.open' && !['notepad','calculator','explorer','browser','spotify'].includes(b.payload.name))return false;
   if(b.kind==='macro.run' && (typeof b.payload.name!=='string'||b.payload.name.length<2))return false;
