@@ -2,6 +2,8 @@ package com.andriy.jarvis;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -14,6 +16,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import org.json.JSONObject;
 import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -23,6 +28,7 @@ import java.util.concurrent.Executors;
  */
 public final class JarvisPcFileInboxActivity extends Activity {
     private static final int SAVE_FILE=5701;
+    private static final int PICK_FILE=5702;
     private static final int MAX_FILE_BYTES=1_048_576;
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private TextView status;
@@ -53,6 +59,15 @@ public final class JarvisPcFileInboxActivity extends Activity {
         save.setEnabled(false);
         save.setOnClickListener(v->chooseLocation());
         layout.addView(save);
+        Button upload=new Button(this);
+        upload.setText("📤 Вибрати файл і передати на Windows");
+        upload.setOnClickListener(v->{
+            Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("*/*");
+            startActivityForResult(pick,PICK_FILE);
+        });
+        layout.addView(upload);
         setContentView(layout);
         load();
     }
@@ -105,6 +120,11 @@ public final class JarvisPcFileInboxActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==PICK_FILE) {
+            if(result==RESULT_OK && data!=null && data.getData()!=null)
+                sendToWindows(data.getData());
+            return;
+        }
         if(request!=SAVE_FILE || result!=RESULT_OK || data==null ||
            data.getData()==null || pendingBytes==null)return;
         Uri selected=data.getData();
@@ -135,6 +155,51 @@ public final class JarvisPcFileInboxActivity extends Activity {
                     save.setEnabled(pendingBytes!=null);
                     status.setText("Не вдалося зберегти файл. Вибери іншу папку.");
                 });
+            }
+        });
+    }
+    /** Pixel document picker, explicit user action; no automatic file scan. */
+    private void sendToWindows(Uri uri) {
+        status.setText("Передаю вибраний файл у тимчасовий Relay…");
+        io.execute(()->{
+            try {
+                String name="pixel-file";
+                try(Cursor cursor=getContentResolver().query(uri,
+                    new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)) {
+                    if(cursor!=null && cursor.moveToFirst())
+                        name=cursor.getString(0);
+                }
+                if(name==null || name.length()<1 || name.length()>100 ||
+                   name.equals(".") || name.equals("..") ||
+                   name.matches(".*[\\\\/:*?\"<>|\\p{Cntrl}].*"))
+                    throw new IllegalArgumentException("Недопустиме ім'я файла.");
+                ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+                try(InputStream in=getContentResolver().openInputStream(uri)) {
+                    if(in==null)throw new IllegalStateException("Файл недоступний.");
+                    byte[] chunk=new byte[8192];int count;
+                    while((count=in.read(chunk))!=-1) {
+                        if(bytes.size()+count>MAX_FILE_BYTES)
+                            throw new IllegalArgumentException("Файл більший за 1 МіБ.");
+                        bytes.write(chunk,0,count);
+                    }
+                }
+                if(bytes.size()==0)throw new IllegalArgumentException("Порожній файл.");
+                String mime=getContentResolver().getType(uri);
+                if(mime==null || !mime.matches("[a-z0-9.+-]+/[a-z0-9.+-]+"))
+                    mime="application/octet-stream";
+                JSONObject body=new JSONObject();
+                body.put("id",UUID.randomUUID().toString());
+                body.put("source","phone");body.put("target","computer");
+                body.put("name",name);body.put("mime",mime);
+                body.put("data",Base64.encodeToString(bytes.toByteArray(),Base64.NO_WRAP));
+                new AiChatClient(getApplicationContext()).deviceRelayRequest(
+                    "/device/v1/files/send","POST",body);
+                final String selectedName=name;
+                runOnUiThread(()->status.setText(
+                    "📤 Файл «"+selectedName+"» доступний у JARVIS Windows до 2 хвилин. Відкрий вкладку «Обмін файлами» на ПК."));
+            }catch(Exception error) {
+                runOnUiThread(()->status.setText(
+                    "Передавання не виконано: файл завеликий, зв'язок відсутній або папка ПК зайнята."));
             }
         });
     }
