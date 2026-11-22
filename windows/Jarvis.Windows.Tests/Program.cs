@@ -361,4 +361,14 @@ Check(!foregroundGate.TryObserve("../../cmd",out _),
 foregroundGate.Reset();
 Check(foregroundGate.TryObserve("notepad",out _),
     "foreground reset permits next explicit transition");
+
+foreach(var template in MacroV2Engine.Templates) {
+    var preview=MacroV2Engine.New(template.Name,template.Trigger,
+        template.Schedule,template.Conditions,template.Steps,
+        template.EventTrigger,template.CooldownSeconds);
+    Check(preview.Name==template.Name && preview.Steps.Count>0,
+        "macro v2 preview-only template validates: "+template.Name);
+}
+Check(MacroV2Engine.Templates.Count>=5,
+    "macro v2 templates cover work, music, meeting, sleep and network");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

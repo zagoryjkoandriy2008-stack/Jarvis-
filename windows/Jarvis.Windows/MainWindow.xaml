@@ -140,10 +140,13 @@
             <ListBox x:Name="MacroList" Background="#1D304A" Foreground="#EAF8FF" Margin="4" Height="100"/>
             <Separator Margin="0,12"/>
             <TextBlock Text="Розумні макроси v2: тригер, умови, дії, розклад" FontSize="16" FontWeight="Bold"/>
+            <TextBlock Text="Безпечні шаблони (лише заповнять поля, не запускаються)" TextWrapping="Wrap" Margin="0,5,0,3"/>
+            <ComboBox x:Name="MacroV2TemplateList" DisplayMemberPath="Name" Height="32" Margin="0,4"/>
+            <Button Content="Заповнити редактор із шаблону" Click="FillMacroV2Template_Click" Margin="0,4,0,10"/>
             <TextBox x:Name="MacroV2Name" Margin="0,6" ToolTip="Назва: Робочий режим"/>
             <TextBox x:Name="MacroV2Trigger" Margin="0,6" ToolTip="Голосовий тригер: робота"/>
             <TextBox x:Name="MacroV2Schedule" Margin="0,6" ToolTip="Розклад HH:mm або порожньо"/>
-            <TextBlock Text="Тригер за подією: network.online або network.offline (необов'язково)" TextWrapping="Wrap"/>
+            <TextBlock Text="Тригер за подією: network.online, network.offline або app.active:notepad (необов'язково)" TextWrapping="Wrap"/>
             <TextBox x:Name="MacroV2Event" Margin="0,6" ToolTip="network.online / network.offline / app.active:notepad"/>
             <TextBlock Text="Мінімальна пауза між запусками (секунди, 0–86400)"/>
             <TextBox x:Name="MacroV2Cooldown" Text="60" Margin="0,6"/>

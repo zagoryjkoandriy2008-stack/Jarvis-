@@ -109,9 +109,14 @@ public partial class MainWindow : Window {
         try {
             while(await timer.WaitForNextTickAsync(cancel)) {
                 if(_busy||_automationPaused)continue;
-                var due=_state.MacrosV2.FirstOrDefault(m=>
-                    MacroV2Engine.ScheduleDue(m,DateTimeOffset.Now));
-                if(due!=null)await RunMacroV2ExclusiveAsync(due,true);
+                // A due macro on cooldown must not starve other scheduled macros.
+                var due=_state.MacrosV2.Where(m=>
+                    MacroV2Engine.ScheduleDue(m,DateTimeOffset.Now))
+                    .Take(12).ToArray();
+                foreach(var macro in due) {
+                    if(cancel.IsCancellationRequested||_automationPaused)break;
+                    await RunMacroV2ExclusiveAsync(macro,true);
+                }
             }
         }catch(OperationCanceledException){}
     }
@@ -224,6 +229,7 @@ public partial class MainWindow : Window {
         _wake.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
         _wake.Detected+=()=>Dispatcher.BeginInvoke(new Action(WakeDetected));
         RefreshFinance();
+        MacroV2TemplateList.ItemsSource=MacroV2Engine.Templates;
         RefreshMacros();
         _=RunMacroV2ScheduleAsync(_lifetime.Token);
         _macroEvents.Triggered+=eventName=>{
@@ -713,6 +719,20 @@ public partial class MainWindow : Window {
             _state.Macros.Add(macro);_store.Save(_state);
             RefreshMacros();Status("Макрос збережено.");
         }catch(Exception ex) {Reply(ex.Message,false);}
+    }
+    private void FillMacroV2Template_Click(object sender,RoutedEventArgs e) {
+        if(MacroV2TemplateList.SelectedItem is not MacroTemplateV2 template) {
+            Status("Спочатку вибери шаблон макросу.");return;
+        }
+        // Populate form ONLY: no save, no execution, no automation activation.
+        MacroV2Name.Text=template.Name;
+        MacroV2Trigger.Text=template.Trigger;
+        MacroV2Schedule.Text=template.Schedule;
+        MacroV2Event.Text=template.EventTrigger;
+        MacroV2Cooldown.Text=template.CooldownSeconds.ToString();
+        MacroV2Conditions.Text=template.Conditions;
+        MacroV2Steps.Text=template.Steps;
+        Status("Шаблон заповнено. Перевір кроки й натисни «Зберегти v2».");
     }
     private void SaveMacroV2Button_Click(object sender,RoutedEventArgs e) {
         try {

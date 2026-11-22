@@ -16,6 +16,10 @@ public sealed class MacroDefinitionV2 {
     // never grants remote access to the richer macro runner.
     public bool AllowRemote { get; set; }
 }
+/// <summary>Preview-only templates: cannot run until saved manually.</summary>
+public sealed record MacroTemplateV2(string Name,string Trigger,string Schedule,
+    string EventTrigger,int CooldownSeconds,string Conditions,string Steps);
+
 public abstract record MacroNodeV2;
 public sealed record MacroActionV2(ParsedCommand Command):MacroNodeV2;
 public sealed record MacroIfV2(string Condition,List<MacroNodeV2> Then,List<MacroNodeV2> Else):MacroNodeV2;
@@ -23,6 +27,20 @@ public sealed record MacroRepeatV2(int Count,List<MacroNodeV2> Body):MacroNodeV2
 
 /// <summary>Bounded, typed, user-authored macros. No shell, AI code or recursion.</summary>
 public static class MacroV2Engine {
+    public static readonly IReadOnlyList<MacroTemplateV2> Templates=
+        new List<MacroTemplateV2> {
+            new("Робочий режим","робота","","",60,"",
+                "відкрий блокнот\nгучність 40\nскажи починаю роботу"),
+            new("Музика","музика на пк","","",90,"",
+                "відкрий спотіфай\nгучність 45"),
+            new("Зустріч","зустріч","","",120,"",
+                "гучність 10\nскажи тихий режим"),
+            new("Перед сном","перед сном","","",180,"",
+                "гучність 15\nскажи час відпочивати"),
+            new("Мережа відновлена","відновлення зв'язку","","network.online",600,"",
+                "скажи інтернет знову доступний")
+        }.AsReadOnly();
+
     private static readonly HashSet<CommandKind> Allowed=new() {
         CommandKind.OpenApp,CommandKind.OpenSettings,CommandKind.Volume,
         CommandKind.MediaToggle,CommandKind.MediaNext,CommandKind.MediaPrevious,
