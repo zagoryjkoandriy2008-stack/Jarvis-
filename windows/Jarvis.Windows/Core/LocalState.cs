@@ -12,6 +12,7 @@ public sealed class JarvisSettings {
     public bool SpeakReplies { get; set; } = true;
     public bool OnTop { get; set; }
     public bool EnableDeviceRelay { get; set; } // user opt-in, default off
+    public bool EnableScreenShare { get; set; } // explicit owner consent, default OFF
     public bool ShowFloatingOrb { get; set; } = true;
 }
 public sealed class MoneyEntry {
