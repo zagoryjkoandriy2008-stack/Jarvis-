@@ -63,6 +63,25 @@ public final class JarvisDeviceRelayRulesTest {
         ok(!JarvisDeviceRelayRules.permittedRemotePhone(
             "запиши нотатку x\\nдруга команда"),
             "no injected second note action");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("увімкни реп"),
+            "Pixel accepts saved Rap playlist alias over relay");
+        ok(JarvisDeviceRelayRules.permittedRemoteWatch("увімкни реп"),
+            "Watch7 accepts saved Rap alias over relay");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("увімкни українське"),
+            "Pixel accepts Ukrainian playlist alias");
+        ok(JarvisDeviceRelayRules.permittedRemoteWatch("увімкни українське"),
+            "Watch7 accepts Ukrainian playlist alias");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("увімкни плейлист Для дороги"),
+            "Pixel accepts all named saved playlists");
+        ok(JarvisDeviceRelayRules.permittedRemoteWatch("увімкни плейлист Для дороги"),
+            "Watch7 accepts saved playlist by spoken name");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("інша пісня"),
+            "Pixel result follow-up can be remote");
+        ok(JarvisDeviceRelayRules.permittedRemoteWatch("інша пісня"),
+            "Watch7 result follow-up can be remote");
+        ok(!JarvisDeviceRelayRules.permittedRemotePhone(
+            "увімкни плейлист секретний пароль 123"),
+            "remote Spotify cannot carry passwords");
         System.out.println("PASS JarvisDeviceRelayRulesTest");
     }
 }
