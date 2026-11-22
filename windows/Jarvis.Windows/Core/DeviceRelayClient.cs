@@ -21,7 +21,7 @@ public sealed class DeviceRelayClient : IDisposable {
     public event Func<RemoteCommand,Task<RemoteResult>>? CommandReceived;
     public event Action<string>? Status;
 
-    public sealed record RemoteCommand(Guid Id,string Origin,string Target,string Command);
+    public sealed record RemoteCommand(Guid Id,string Origin,string Target,string Command,bool Signed=false);
     public sealed record RemoteResult(bool Ok,string Detail);
     public DeviceRelayClient(StateStore store,JarvisSettings settings) {
         _store=store;_settings=settings;
@@ -148,11 +148,7 @@ public sealed class DeviceRelayClient : IDisposable {
             if(expires>now && (origin is "watch" or "phone") && raw.Length>0 &&
                SignedDeviceLocalPolicy.IsAllowed(_settings,origin,kind,risk)) {
                 try {
-                    using var verified=await _signed.SignedPostAsync(
-                        "/device/v2/commands/authorize",
-                        new {requestId=id.ToString()},cancel);
-                    granted=verified.RootElement.TryGetProperty("authorized",out var permitted)
-                        && permitted.GetBoolean();
+                    granted=await RevalidateSignedCommandAsync(id,cancel);
                 }catch(OperationCanceledException){throw;}
                 catch(Exception){granted=false;}
             }
@@ -163,7 +159,7 @@ public sealed class DeviceRelayClient : IDisposable {
                     detail=prior?.Ok.HasValue==true?prior.Detail:
                         "Попереднє виконання не підтверджене. Повтор не запускаю.";
                 } else {
-                    var command=new RemoteCommand(id,origin,"computer",raw);
+                    var command=new RemoteCommand(id,origin,"computer",raw,true);
                     RemoteResult result;
                     if(CommandReceived==null)result=new(false,"Windows не приймає команди.");
                     else try{result=await CommandReceived.Invoke(command);}
@@ -190,6 +186,21 @@ public sealed class DeviceRelayClient : IDisposable {
                 Status?.Invoke("Підписане підтвердження команди не доставлене: "+error.GetType().Name);
             }
         }
+    }
+
+    /** Signed Windows target permission check. Always revalidate after any
+     * local owner confirmation dialog, not only when the queue was leased.
+     * No fallback to bearer-only v1 if this signed check fails.
+     */
+    public async Task<bool> RevalidateSignedCommandAsync(Guid requestId,
+            CancellationToken cancel) {
+        if(requestId==Guid.Empty || !_settings.EnableDeviceRelay ||
+           !_settings.EnableSignedRelay)return false;
+        using var response=await _signed.SignedPostAsync(
+            "/device/v2/commands/authorize",
+            new {requestId=requestId.ToString()},cancel);
+        return response.RootElement.TryGetProperty("authorized",out var allowed)
+            && allowed.GetBoolean();
     }
 
     public async Task ListenAsync(CancellationToken cancellation) {

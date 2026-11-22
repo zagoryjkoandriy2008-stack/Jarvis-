@@ -38,6 +38,9 @@ assert "await store.delete('v2:live:phone')" in pair
 assert "NONCE_TTL" in pair and "PAIR_TTL" in pair
 assert "Math.abs(now-Number(stamped))>SIGN_TTL" in pair
 assert "SignedDeviceLocalPolicy.IsAllowed" in pc
+assert "RevalidateSignedCommandAsync" in pc and '"computer",raw,true' in pc
+assert "if(reauthorize!=null && !await reauthorize(token))" in wpf
+assert "request.Signed" in wpf
 assert "DeviceReceiptJournal _receipts=new()" in pc
 assert "status=\"unknown\"" in pc
 assert "signed:true" in pc_keys and "DataProtectionScope.CurrentUser" in pc_keys

@@ -465,7 +465,8 @@ public partial class MainWindow : Window {
         }
     }
 
-    private async Task ExecuteAsync(ParsedCommand command,CancellationToken token) {
+    private async Task ExecuteAsync(ParsedCommand command,CancellationToken token,
+        Func<CancellationToken,Task<bool>>? reauthorize=null) {
         switch(command.Kind) {
             case CommandKind.FinanceAdd:
                 if(command.Finance==null)throw new InvalidOperationException("Немає даних транзакції.");
@@ -497,6 +498,13 @@ public partial class MainWindow : Window {
                     "JARVIS — дозвіл на системну дію",MessageBoxButton.YesNo,
                     MessageBoxImage.Warning)!=MessageBoxResult.Yes)
                     throw new OperationCanceledException("Власник відхилив дію.");
+                token.ThrowIfCancellationRequested();
+                // The owner may have revoked Pixel while the local Windows
+                // confirmation dialog was open. Check signed permission AGAIN.
+                if(reauthorize!=null && !await reauthorize(token))
+                    throw new InvalidOperationException(
+                        "Після підтвердження локальну дію заблоковано: "+
+                        "дозвіл пристрою відкликано або термін команди минув.");
                 if(command.Kind==CommandKind.LockWindows)WindowsActions.LockCurrentSession();
                 else WindowsActions.TurnOffMonitor();
                 Reply("Windows: "+commandLabel+".",false);break;
@@ -1034,7 +1042,10 @@ public partial class MainWindow : Window {
                 SystemStatusReport.Text=report;
                 return new(true,report);
             }
-            await ExecuteAsync(command,_lifetime.Token);
+            if(request.Signed) {
+                await ExecuteAsync(command,_lifetime.Token,async ct=>
+                    _relay!=null && await _relay.RevalidateSignedCommandAsync(request.Id,ct));
+            }else await ExecuteAsync(command,_lifetime.Token);
             return new(true,"Windows обробив: "+request.Command);
         }catch(OperationCanceledException) {
             return new(false,"Windows: дистанційну дію скасовано.");
