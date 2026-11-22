@@ -260,7 +260,7 @@ try{
 
 using(var pairingKey=System.Security.Cryptography.ECDsa.Create(
     System.Security.Cryptography.ECCurve.NamedCurves.nistP256)) {
-    var raw="{\\"pairingId\\":\\"00000000-0000-0000-0000-000000000000\\"}";
+    var raw="""{"pairingId":"00000000-0000-0000-0000-000000000000"}""";
     var canonical=DevicePairingService.CanonicalRequest("POST",
         "/device/v2/pair/pending","computer","1700000000000",
         "c1102abec5f138f973ea891300000000",raw);
@@ -270,7 +270,7 @@ using(var pairingKey=System.Security.Cryptography.ECDsa.Create(
         System.Security.Cryptography.HashAlgorithmName.SHA256,
         System.Security.Cryptography.DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
     Check(valid,"Windows P256 signature matches expected Worker P1363 format");
-    Check(canonical.Split('\\n').Length==6,
+    Check(canonical.Split('\n').Length==6,
         "canonical P0 signature has six ordered fields");
 }
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
