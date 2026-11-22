@@ -74,4 +74,29 @@ Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,CommandKind.Volume)
     ==JarvisDevice.Computer,"Windows-local system commands unchanged");
 Check(DeviceRouting.EffectiveTarget(JarvisDevice.Watch,CommandKind.SpotifySearch)
     ==JarvisDevice.Watch,"watch Spotify target preserved");
+// Cross-device notes and advanced finance must route to the Pixel authority,
+// regardless of whether the user's current mode is PC or Watch.
+foreach(var (utterance,kind) in new (string,CommandKind)[]{
+    ("запиши нотатку Купити хліб",CommandKind.NoteAdd),
+    ("створи нотатку Завтра зустріч",CommandKind.NoteAdd),
+    ("додай нотатку Тренування",CommandKind.NoteAdd),
+    ("нотатка Купити воду",CommandKind.NoteAdd),
+    ("занотуй Кава о сьомій",CommandKind.NoteAdd),
+    ("покажи нотатки",CommandKind.NoteRead),
+    ("мої нотатки",CommandKind.NoteRead),
+    ("прочитай нотатки",CommandKind.NoteRead),
+    ("видали останню нотатку",CommandKind.NoteDelete)
+}) {
+    var parsed=CommandRouter.Parse(utterance);
+    Check(parsed.Kind==kind,"notes command "+utterance);
+    Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,kind)==JarvisDevice.Phone,
+        "Pixel is notes authority: "+utterance);
+    Check(DeviceRouting.EffectiveTarget(JarvisDevice.Watch,kind)==JarvisDevice.Phone,
+        "Notes from Watch mode still use Pixel: "+utterance);
+}
+Check(CommandRouter.Parse("нотатка купити каву").Argument=="купити каву",
+    "notes content only, no redundant prefix");
+Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,
+    CommandRouter.Parse("скільки витратив за місяць").Kind)==JarvisDevice.Phone,
+    "Finance queries still on Pixel");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
