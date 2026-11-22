@@ -97,6 +97,18 @@ export class DeviceCommandBrokerV2 {
       await store.put('v2:live:'+device,now);
       await this._schedule(now+HEARTBEAT_TTL,now);
       const queued=await store.list({prefix:'v2:command:'});
+      // Revocation blocks even commands queued before the owner revoked a key.
+      // Do not pass a stale sender's request onward to local execution.
+      for(const item of queued.values()) {
+        if(item.command.target!==device || TERMINAL.has(item.status))continue;
+        const sender=await store.get('v2:device:'+item.authenticatedBy);
+        if(!sender?.enabled) {
+          item.status='failed';item.errorCode='DEVICE_REVOKED';
+          item.detail='Доступ пристрою відкликано.';item.leaseUntil=0;
+          item.updatedAt=now;
+          await store.put('v2:command:'+item.command.requestId,item);
+        }
+      }
       const due=[...queued.values()]
         .filter(x=>x.command.target===device && x.command.expiresAt>now &&
           x.createdAt+DELIVERY_TTL>now &&

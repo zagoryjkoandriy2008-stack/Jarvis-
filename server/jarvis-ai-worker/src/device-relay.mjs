@@ -1,6 +1,7 @@
 import {ScreenRelayState} from './screen-relay.mjs';
 import {FileRelayState} from './file-relay.mjs';
 import {DevicePairingV2} from './device-pairing-v2.mjs';
+import {DeviceCommandBrokerV2} from './device-command-broker-v2.mjs';
 /** JARVIS private three-device relay. Only trusted device clients call these
  * endpoints. The same user-controlled Worker bearer token authenticates them.
  * This first-party prototype is NOT suitable for multi-user public deployment.
@@ -50,6 +51,7 @@ export class DeviceRelay {
     this.screen=new ScreenRelayState();
     this.fileInbox=new FileRelayState();
     this.pairing=new DevicePairingV2(this.state.storage);
+    this.v2Commands=new DeviceCommandBrokerV2(this.state.storage);
   }
 
   /** Durable Object storage expiry is a security property, not only a
@@ -60,18 +62,24 @@ export class DeviceRelay {
     for(const [key,value] of rows)
       if(now-value.created>TTL)await store.delete(key);
     // Pairing codes and signed request nonces must not remain in storage.
-    for(const prefix of ['v2:pending:','v2:nonce:']) {
+    for(const prefix of ['v2:pending:','v2:nonce:','v2:command:','v2:live:']) {
       const expired=await store.list({prefix});
       for(const [key,value] of expired)
-        if(value.expires<=now)await store.delete(key);
+        if((prefix==='v2:command:'? value.command?.expiresAt+180000 :
+              prefix==='v2:live:'?value+35000:value.expires)<=now)
+          await store.delete(key);
     }
     const remaining=await store.list({prefix:'m:'});
     const pending=await store.list({prefix:'v2:pending:'});
     const nonces=await store.list({prefix:'v2:nonce:'});
+    const commands=await store.list({prefix:'v2:command:'});
+    const v2Live=await store.list({prefix:'v2:live:'});
     const expiries=[
       ...[...remaining.values()].map(x=>x.created+TTL+2000),
       ...[...pending.values()].map(x=>x.expires+1000),
-      ...[...nonces.values()].map(x=>x.expires+1000)
+      ...[...nonces.values()].map(x=>x.expires+1000),
+      ...[...commands.values()].map(x=>x.command.expiresAt+180000),
+      ...[...v2Live.values()].map(x=>x+35000)
     ];
     if(expiries.length && typeof store.setAlarm==='function')
       await store.setAlarm(Math.max(now+1000,Math.min(...expiries)));
@@ -83,6 +91,7 @@ export class DeviceRelay {
     const now=Date.now();
     const store=this.state.storage;
     if(path.startsWith('/device/v2/pair/'))return this.pairing.fetch(request);
+    if(path.startsWith('/device/v2/commands/'))return this.v2Commands.fetch(request);
     // Screenshots exist ONLY in short-lived object RAM. Do not touch durable
     // storage, history, logs or AI when serving screen viewer/frame calls.
     if(path.startsWith('/device/v1/screen/'))

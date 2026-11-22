@@ -91,7 +91,9 @@ test('revoked phone cannot send, poll or read receipts; Watch is delegated only 
  assert.equal((await post(broker,'/device/v2/commands/send',command(),'phone',phone.privateKey)).status,403);
  assert.equal((await post(broker,'/device/v2/commands/result',{requestId:id},'phone',phone.privateKey)).status,403);
  const poll=await post(broker,'/device/v2/commands/poll',{device:'computer'},'computer',pc.privateKey);
- assert.equal(poll.result.items.length,1,'queued prior work is still visible to Windows; local policy can reject');
+ assert.equal(poll.result.items.length,0,'revoked sender must not deliver queued commands');
+ assert.equal((await storage.get('v2:command:'+id)).status,'failed');
+ assert.equal((await storage.get('v2:command:'+id)).errorCode,'DEVICE_REVOKED');
 });
 test('stale v2 requests are unknown, never newly delivered',async()=>{
  let tick=now;const storage=fakeStorage(),phone=await keypair(),pc=await keypair();
