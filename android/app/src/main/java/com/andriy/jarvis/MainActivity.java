@@ -1570,6 +1570,13 @@ public final class MainActivity extends Activity implements RecognitionListener 
                 callback.finished(false,"Команда Watch7 не входить у дозволений список.");
                 return;
             }
+            JarvisWatchTimerRequests.Request remoteTimer=
+                JarvisWatchTimerRequests.parse(utterance);
+            if(remoteTimer!=null) {
+                JarvisWatchTimerController.execute(activity,remoteTimer,
+                    callback::finished);
+                return;
+            }
             String spoken=CommandPatterns.spokenText(utterance);
             if(spoken!=null && !spoken.isEmpty()) {
                 activity.speakReply(spoken);
@@ -5325,6 +5332,28 @@ public final class MainActivity extends Activity implements RecognitionListener 
             return;
         }
         if (isWatchDevice) {
+            // A timer spoken on Watch7 belongs to its native Samsung Timer,
+            // NOT the Pixel AlarmManager. Explicit selected PHONE/COMPUTER
+            // modes retain their destination semantics.
+            JarvisWatchTimerRequests.Request watchTimer=
+                JarvisWatchTimerRequests.parse(raw);
+            if(watchTimer!=null &&
+               deviceControlTarget!=JarvisDeviceRelayRules.Target.PHONE &&
+               deviceControlTarget!=JarvisDeviceRelayRules.Target.COMPUTER) {
+                processing=true;
+                setStatus("⏱ Відкриваю Samsung Таймер на годиннику…");
+                JarvisWatchTimerController.execute(this,watchTimer,(ok,detail)->{
+                    processing=false;
+                    if(isFinishing()||isDestroyed())return;
+                    appendDialogue("Дімон",detail);
+                    setStatus(detail);
+                    if(face!=null)face.showTranscript(detail,false,
+                        SystemClock.uptimeMillis()+9000L);
+                    if(voiceEnabled)speakReply(detail);
+                    else if(face!=null)face.setState("idle");
+                });
+                return;
+            }
             // Speak this after returning from the watch face to see the last
             // durable stage even when Wear OS killed the previous activity.
             String watchPhrase=CommandPatterns.normalize(raw).trim();
