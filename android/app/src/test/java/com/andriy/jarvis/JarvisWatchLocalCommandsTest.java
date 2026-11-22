@@ -44,6 +44,18 @@ public final class JarvisWatchLocalCommandsTest {
             "Включи плейлист Вечірній")==null ? false : true);
         yes(JarvisWatchLocalCommands.spotifyOnWatch(
             "Натисни оплатити")==null);
+        // Named playlists are generic: new Spotify Remote entries require
+        // no new command branches and always execute on the watch.
+        for(String playlistName:new String[]{"Тренування","Для дороги","Рок",
+                "Пісні для сну","Мій плейлист 59"}) {
+            JarvisWatchLocalCommands.Request saved=
+                JarvisWatchLocalCommands.spotifyOnWatch(
+                    "Дімон, увімкни плейлист "+playlistName);
+            yes(saved!=null && saved.playsSpotify());
+            yes(saved.music==SpotifyMusicCommands.Kind.PLAYLIST);
+            yes(SpotifyUriRules.normalizedAlias(playlistName).equals(
+                SpotifyUriRules.normalizedAlias(saved.musicTitle)));
+        }
         JarvisWatchLocalCommands.Request rap=
             JarvisWatchLocalCommands.spotifyOnWatch("Увімкни реп");
         yes(rap!=null && rap.playsSpotify());
