@@ -56,7 +56,7 @@ function generateCode() {
   crypto.getRandomValues(bytes);
   return (1000000+bytes[0]%9000000).toString();
 }
-export async function verifySignedRequest(request,device,spki,storage,now=Date.now()) {
+export async function verifySignedRequest(request,device,spki,storage,now=Date.now(),rawBody=null) {
   if(!spki)return false;
   const stamped=request.headers.get('x-jarvis-timestamp');
   const nonce=request.headers.get('x-jarvis-nonce');
@@ -70,7 +70,8 @@ export async function verifySignedRequest(request,device,spki,storage,now=Date.n
   if(!bytes||bytes.length!==64)return false;
   const key=await importPublic(spki);
   if(!key)return false;
-  const raw=request.method==='POST'?await request.clone().text():'';
+  const raw=typeof rawBody==='string'?rawBody:
+    (request.method==='POST'?await request.clone().text():'');
   if(raw.length>4096)return false;
   const path=new URL(request.url).pathname;
   const canonical=[request.method,path,device,stamped,nonce,
@@ -109,7 +110,7 @@ export class DevicePairingV2 {
       if(existing && existing.enabled) {
         if(existing.publicKey!==body.publicKey ||
            !await verifySignedRequest(request,'computer',
-             existing.publicKey,store,now))
+             existing.publicKey,store,now,parsed.raw))
           return json({error:'Computer owner signature required'},403);
       }
       const id=uniqueId(),code=generateCode();
@@ -155,7 +156,7 @@ export class DevicePairingV2 {
         return json({error:'Pairing unavailable'},404);
       const computer=await store.get('v2:device:computer');
       const ownerKey=computer?.enabled?computer.publicKey:pending.computerPublicKey;
-      if(!await verifySignedRequest(request,'computer',ownerKey,store,now))
+      if(!await verifySignedRequest(request,'computer',ownerKey,store,now,parsed.raw))
         return json({error:'Invalid Windows approval signature'},403);
       if(!body.approve) {
         await store.delete('v2:pending:'+body.pairingId);
@@ -175,7 +176,7 @@ export class DevicePairingV2 {
       if(!parsed)return json({error:'Invalid request'},400);
       const computer=await store.get('v2:device:computer');
       if(!computer?.enabled ||
-         !await verifySignedRequest(request,'computer',computer.publicKey,store,now))
+         !await verifySignedRequest(request,'computer',computer.publicKey,store,now,parsed.raw))
         return json({error:'Unauthorized device'},403);
       const phone=await store.get('v2:device:phone');
       return json({devices:[
@@ -188,7 +189,7 @@ export class DevicePairingV2 {
         return json({error:'Invalid revocation'},400);
       const computer=await store.get('v2:device:computer');
       if(!computer?.enabled ||
-         !await verifySignedRequest(request,'computer',computer.publicKey,store,now))
+         !await verifySignedRequest(request,'computer',computer.publicKey,store,now,parsed.raw))
         return json({error:'Unauthorized revocation'},403);
       const phone=await store.get('v2:device:phone');
       if(phone)await store.put('v2:device:phone',{...phone,enabled:false,
@@ -202,7 +203,7 @@ export class DevicePairingV2 {
         return json({error:'Unknown device'},403);
       const identity=await store.get('v2:device:'+device);
       if(!identity?.enabled ||
-         !await verifySignedRequest(request,device,identity.publicKey,store,now))
+         !await verifySignedRequest(request,device,identity.publicKey,store,now,parsed.raw))
         return json({error:'Not paired or signature invalid'},403);
       return json({verified:true,device});
     }

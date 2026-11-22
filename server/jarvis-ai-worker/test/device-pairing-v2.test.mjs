@@ -56,7 +56,10 @@ test('P-256 pairing needs code and explicit signed Windows approval',async()=>{
     {pairingId:id,approve:true},'computer',pc.key);
  const success=await call(p,request);
  assert.equal(success.body.approved,true);
- const replay=await call(p,request);
+ const replay=await call(p,new Request(request.url,{
+   method:'POST',headers:Object.fromEntries(request.headers),
+   body:JSON.stringify({pairingId:id,approve:true})
+ }));
  assert.notEqual(replay.status,200);
  const verified=await call(p,await signed('/device/v2/pair/verify',
     {},'phone',phone.key));
