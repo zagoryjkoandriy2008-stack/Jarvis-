@@ -11,6 +11,8 @@ public sealed class JarvisSettings {
     public string RecognizerCulture { get; set; } = "";
     public bool SpeakReplies { get; set; } = true;
     public bool OnTop { get; set; }
+    public bool EnableDeviceRelay { get; set; } // user opt-in, default off
+    public bool ShowFloatingOrb { get; set; } = true;
 }
 public sealed class MoneyEntry {
     public Guid Id { get; set; } = Guid.NewGuid();
