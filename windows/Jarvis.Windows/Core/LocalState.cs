@@ -38,6 +38,7 @@ public sealed class JarvisState {
     public string Notes { get; set; } = "";
     public List<MoneyEntry> Money { get; set; } = new();
     public List<MacroDefinition> Macros { get; set; } = new();
+    public List<MacroDefinitionV2> MacrosV2 { get; set; } = new();
 }
 
 public sealed class StateStore {
@@ -58,6 +59,8 @@ public sealed class StateStore {
             state.Settings ??= new();
             state.Money ??= new();
             state.Macros ??= new();
+            state.MacrosV2 ??= new();
+            foreach(var m in state.MacrosV2) {m.Conditions ??= new();m.Steps ??= new();}
             return state;
         }catch(JsonException) {
             // Never overwrite a damaged file: a human must decide how to restore.

@@ -184,4 +184,29 @@ if(!OperatingSystem.IsWindows()) {
         throw new Exception("system monitor should be Windows-only");
     }catch(PlatformNotSupportedException) { assertions++; }
 }
+
+var v2=MacroV2Engine.New("Робота","робота","09:30",
+    "день=пн,вт\nінтернет=так",
+    "якщо інтернет=так\nгучність 20\nінакше\nгучність 30\nкінець\nповтори 2\nскажи перевірка\nкінець");
+Check(MacroV2Engine.Compile(v2.Steps).Count==2,"v2 conditional and repeat compilation");
+Check(MacroV2Engine.EvaluateCondition("інтернет=так",DateTimeOffset.Now,true,"notepad"),
+      "v2 internet condition true");
+Check(!MacroV2Engine.EvaluateCondition("інтернет=так",DateTimeOffset.Now,false,"notepad"),
+      "v2 internet condition false");
+Check(MacroV2Engine.EvaluateCondition("процес=notepad",DateTimeOffset.Now,true,"notepad"),
+      "v2 process exact match");
+var performed=new List<ParsedCommand>();
+await MacroV2Engine.RunAsync(v2,cmd=>{performed.Add(cmd);return Task.CompletedTask;},
+    condition=>condition=="інтернет=так",CancellationToken.None);
+Check(performed.Count==3 && performed[0].Kind==CommandKind.Volume &&
+      performed[0].Value==20 && performed[1].Kind==CommandKind.Speak,
+      "v2 executes only selected condition plus two repeats");
+try {MacroV2Engine.New("Тест","тест","","",
+    "повтори 5\nповтори 5\nповтори 5\nскажи ок\nкінець\nкінець\nкінець");
+     throw new Exception("unbounded v2 macro accepted");}
+catch(ArgumentException){assertions++;}
+Check(!DeviceTrustPolicy.IsValid(new DeviceCommandV2(2,Guid.NewGuid(),
+    "watch","computer","windows.lock",new(),DateTimeOffset.UtcNow,
+    DateTimeOffset.UtcNow.AddMinutes(1),false,"watch"),DateTimeOffset.UtcNow),
+    "v2 remote lock requires approval");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

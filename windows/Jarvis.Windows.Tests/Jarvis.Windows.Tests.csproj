@@ -18,6 +18,8 @@
     <Compile Include="../Jarvis.Windows/Core/FinanceCommandClassifier.cs" Link="Core/FinanceCommandClassifier.cs" />
     <Compile Include="../Jarvis.Windows/Core/LocalState.cs" Link="Core/LocalState.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroEngine.cs" Link="Core/MacroEngine.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroV2Engine.cs" Link="Core/MacroV2Engine.cs" />
+    <Compile Include="../Jarvis.Windows/Core/DeviceTrustPolicy.cs" Link="Core/DeviceTrustPolicy.cs" />
     <Compile Include="../Jarvis.Windows/Core/AiClient.cs" Link="Core/AiClient.cs" />
   </ItemGroup>
 </Project>

@@ -96,13 +96,29 @@
           <TextBlock Text="Точна голосова фраза → локальні дії (по одній команді на рядок; макрос не виконує shell-код)" Foreground="#A4B4CD" TextWrapping="Wrap"/>
           <TextBox x:Name="MacroTrigger" Grid.Row="1" Margin="0,10,0,0" Height="36" ToolTip="Наприклад: робочий режим"/>
           <TextBox x:Name="MacroActions" Grid.Row="2" Margin="0,8,0,0" Height="108" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="відкрий блокнот&#10;гучність 40&#10;скажи починаю роботу"/>
-          <StackPanel Grid.Row="3">
+          <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"><StackPanel>
             <StackPanel Orientation="Horizontal">
               <Button Click="SaveMacroButton_Click" Content="Зберегти макрос"/>
               <Button Click="RunMacroButton_Click" Content="Перевірити"/>
             </StackPanel>
-            <ListBox x:Name="MacroList" Background="#1D304A" Foreground="#EAF8FF" Margin="4" Height="180"/>
-          </StackPanel>
+            <ListBox x:Name="MacroList" Background="#1D304A" Foreground="#EAF8FF" Margin="4" Height="100"/>
+            <Separator Margin="0,12"/>
+            <TextBlock Text="Розумні макроси v2: тригер, умови, дії, розклад" FontSize="16" FontWeight="Bold"/>
+            <TextBox x:Name="MacroV2Name" Margin="0,6" ToolTip="Назва: Робочий режим"/>
+            <TextBox x:Name="MacroV2Trigger" Margin="0,6" ToolTip="Голосовий тригер: робота"/>
+            <TextBox x:Name="MacroV2Schedule" Margin="0,6" ToolTip="Розклад HH:mm або порожньо"/>
+            <TextBlock Text="Умови: день=пн,вт; час=09:00-18:00; інтернет=так; процес=notepad"/>
+            <TextBox x:Name="MacroV2Conditions" Height="70" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" Margin="0,6"/>
+            <TextBlock Text="Дії: якщо умова / інакше / кінець; повтори 1..5 / кінець"/>
+            <TextBox x:Name="MacroV2Steps" Height="120" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" Margin="0,6"/>
+            <StackPanel Orientation="Horizontal">
+              <Button Click="SaveMacroV2Button_Click" Content="Зберегти v2"/>
+              <Button Click="RunMacroV2Button_Click" Content="Перевірити v2"/>
+            </StackPanel>
+            <ListBox x:Name="MacroV2List" Height="105" Background="#1D304A" Foreground="#EAF8FF"/>
+          </StackPanel></ScrollViewer>
         </Grid>
       </TabItem>
       <TabItem Header="Система ПК">
