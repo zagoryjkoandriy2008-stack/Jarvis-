@@ -1,3 +1,4 @@
+import {DeviceRelay} from './device-relay.mjs';
 /**
  * Personal JARVIS AI. API key is stored only in Cloudflare Worker secrets.
  * Photo/document access requires the user to pick a file on Android.
@@ -193,6 +194,20 @@ export default {
   async fetch(request,env) {
     const url = new URL(request.url);
     if (url.pathname === '/health' && request.method === 'GET') return json({status:'ok'});
+    // Commands are explicit user actions, never model responses. Protected by
+    // the same private bearer as /chat, with short-lived Durable Object queue.
+    if(url.pathname.startsWith('/device/v1/')) {
+      if(!env.JARVIS_CLIENT_TOKEN)return json({error:'Relay not configured'},503);
+      if(!safeBearer(request.headers.get('authorization'),env.JARVIS_CLIENT_TOKEN))
+        return json({error:'Unauthorized'},401);
+      if(!env.DEVICE_RELAY)return json({error:'Device relay not deployed'},503);
+      if(!['GET','POST'].includes(request.method))
+        return json({error:'Method not allowed'},405);
+      const contentLength=Number(request.headers.get('content-length')||0);
+      if(contentLength>8192)return json({error:'Request too large'},413);
+      const object=env.DEVICE_RELAY.get(env.DEVICE_RELAY.idFromName('private-jarvis'));
+      return object.fetch(request);
+    }
     if (url.pathname !== '/chat' || request.method !== 'POST') return json({error:'Not found'},404);
     if (!env.OPENAI_API_KEY || !env.JARVIS_CLIENT_TOKEN) return json({error:'Server is not configured'},503);
     if (!safeBearer(request.headers.get('authorization'),env.JARVIS_CLIENT_TOKEN))
