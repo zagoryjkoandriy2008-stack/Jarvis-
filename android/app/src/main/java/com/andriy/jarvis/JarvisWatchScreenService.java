@@ -603,8 +603,24 @@ public final class JarvisWatchScreenService extends AccessibilityService {
      * keyboard open. Dismiss only an active IME, never an app screen. */
     public static boolean spotifyKeyboardVisible() {
         JarvisWatchScreenService s=connected.get();
-        if(s==null || s.appRoot(SPOTIFY_PKG)==null)return false;
-        return s.spotifyImeVisible();
+        return s!=null && s.spotifyImeVisible() &&
+            (s.appRoot(SPOTIFY_PKG)!=null ||
+             s.spotifyRootUnderKeyboard()!=null);
+    }
+
+    /** Some Wear keyboards leave their full-screen panel open after their
+     * Search action. Dismiss ONLY the confirmed IME, at most once per
+     * submitted query. Never issue Back on Spotify itself or swipe RIGHT. */
+    public static boolean spotifyDismissSubmittedKeyboard(String title) {
+        JarvisWatchScreenService service=connected.get();
+        if(service==null || !spotifyKeyboardVisible() || title==null)return false;
+        AccessibilityNodeInfo root=service.appRoot(SPOTIFY_PKG);
+        if(root==null)root=service.spotifyRootUnderKeyboard();
+        if(root==null || !service.spotifyImeVisible())return false;
+        AccessibilityNodeInfo field=service.spotifyEditableNode(root);
+        if(field==null || !JarvisWatchUiRules.spotifyQueryVisible(title,
+            field.getText()==null?null:field.getText().toString()))return false;
+        return service.performGlobalAction(GLOBAL_ACTION_BACK);
     }
 
     private boolean spotifyImeVisible() {
