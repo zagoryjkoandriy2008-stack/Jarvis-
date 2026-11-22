@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
+    <PackageReference Include="System.Management" Version="9.0.11" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Jarvis.Windows/Core/CommandRouter.cs" Link="Core/CommandRouter.cs" />
@@ -20,6 +21,7 @@
     <Compile Include="../Jarvis.Windows/Core/MacroEngine.cs" Link="Core/MacroEngine.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroV2Engine.cs" Link="Core/MacroV2Engine.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroEventService.cs" Link="Core/MacroEventService.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroProcessStartService.cs" Link="Core/MacroProcessStartService.cs" />
     <Compile Include="../Jarvis.Windows/Core/LargeFileTransferService.cs" Link="Core/LargeFileTransferService.cs" />
     <Compile Include="../Jarvis.Windows/Core/ClipboardBridge.cs" Link="Core/ClipboardBridge.cs" />
     <Compile Include="../Jarvis.Windows/Core/DeviceTrustPolicy.cs" Link="Core/DeviceTrustPolicy.cs" />

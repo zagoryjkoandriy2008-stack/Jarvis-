@@ -391,4 +391,28 @@ using(var stopMacro=new CancellationTokenSource()) {
         Check(actionStarted,"macro timeout token reaches in-flight action");
     }
 }
+
+var processMacro=MacroV2Engine.New("Старт Блокнота","блокнот запущено","","",
+    "гучність 20","app.start:notepad",120);
+Check(MacroV2Engine.EventDue(processMacro,"app.start:notepad",DateTimeOffset.UtcNow),
+    "process-start trigger executes only matching process");
+Check(!MacroV2Engine.EventDue(processMacro,"app.active:notepad",DateTimeOffset.UtcNow),
+    "app-start and app-active are different triggers");
+Check(MacroProcessStartService.TryEventName("Notepad.EXE",out var procEvent)
+    && procEvent=="app.start:notepad",
+    "Win32_ProcessStartTrace name normalization");
+Check(!MacroProcessStartService.TryEventName(@"C:\Windows\cmd.exe",out _),
+    "process-start event forbids full paths");
+Check(!MacroProcessStartService.TryEventName("jarvis.windows.exe",out _),
+    "process-start events do not recursively trigger JARVIS");
+Check(!MacroProcessStartService.TryEventName("powershell.exe -enc abc",out _),
+    "process-start event disallows arguments");
+Check(!MacroProcessStartService.TryEventName(null,out _),
+    "process-start event rejects missing WMI name");
+try{
+    MacroV2Engine.New("Не дозволено","команда","","",
+        "гучність 20","app.start:../../cmd");
+    throw new Exception("unsafe process-start trigger accepted");
+}catch(ArgumentException){assertions++;}
+
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

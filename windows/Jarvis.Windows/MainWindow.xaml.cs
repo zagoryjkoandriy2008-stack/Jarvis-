@@ -62,6 +62,7 @@ public partial class MainWindow : Window {
     private bool _busy;
     private bool _runningMacro;
     private readonly MacroEventService _macroEvents=new();
+    private readonly MacroProcessStartService _processStarts=new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint pid);
@@ -245,6 +246,23 @@ public partial class MainWindow : Window {
         };
         _macroEvents.Start(_state.MacrosV2.Any(m=>m.Enabled &&
             m.EventTrigger.StartsWith("app.active:",StringComparison.Ordinal)));
+        _processStarts.Triggered+=eventName=>{
+            if(Dispatcher.HasShutdownStarted)return;
+            Dispatcher.BeginInvoke(new Action(async()=>{
+                if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+                var eligible=_state.MacrosV2.Where(m=>
+                    MacroV2Engine.EventDue(m,eventName,DateTimeOffset.Now))
+                    .Take(3).ToArray();
+                foreach(var candidate in eligible)
+                    await RunMacroV2ExclusiveAsync(candidate,false);
+            }));
+        };
+        _processStarts.Unavailable+=text=>{
+            if(!Dispatcher.HasShutdownStarted)
+                Dispatcher.BeginInvoke(new Action(()=>Status(text)));
+        };
+        _processStarts.SetEnabled(_state.MacrosV2.Any(m=>m.Enabled &&
+            m.EventTrigger.StartsWith("app.start:",StringComparison.Ordinal)));
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
         _floating=new FloatingOrb();
         _floating.ListenRequested+=ToggleListening;
@@ -291,6 +309,7 @@ public partial class MainWindow : Window {
         if(!_allowExit && _state.Settings.MinimizeToTray) {
             e.Cancel=true;Hide();return;
         }
+        _processStarts.Dispose();
         _macroEvents.Dispose();
         _wakeGeneration++;
         _wake.Dispose();
@@ -753,6 +772,8 @@ public partial class MainWindow : Window {
             _state.MacrosV2.Add(macro);_store.Save(_state);
             _macroEvents.SetForegroundTrackingEnabled(_state.MacrosV2.Any(m=>
                 m.Enabled && m.EventTrigger.StartsWith("app.active:",StringComparison.Ordinal)));
+            _processStarts.SetEnabled(_state.MacrosV2.Any(m=>
+                m.Enabled && m.EventTrigger.StartsWith("app.start:",StringComparison.Ordinal)));
             RefreshMacros();Status("Макрос v2 збережено.");
         }catch(Exception ex){Reply("Макрос v2: "+ex.Message,false);}
     }
