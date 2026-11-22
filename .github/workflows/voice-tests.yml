@@ -194,6 +194,13 @@ jobs:
           grep -Fq 'tts.setVoice(chosen)' "$main"
           grep -Fq '🔊 Вибрати голос Watch7' "$main"
           grep -Fq 'WatchTtsVoiceChoice.pitch(tone)' "$main"
+          # A list-based AlertDialog must NOT also have a message body:
+          # Android otherwise replaces the list and hides the choices.
+          ! sed -n '/private void showWatchVoiceSettings()/,/private void showWatchVoiceChoices()/p' "$main" | grep -Fq '.setMessage(info)'
+          ! sed -n '/private void showWatchVoiceChoices()/,/private void showWatchVoiceToneChoices()/p' "$main" | grep -Fq 'dialog.setMessage('
+          grep -Fq '"ℹ Довідка про голоси"' "$main"
+          grep -Fq 'choices[choices.length-1]="⚙ Додати українські голоси у Wear OS";' "$main"
+          grep -Fq 'if(index==choices.length-1)' "$main"
           ! grep -Fq '.setTitle("Голос Android Watch7")' "$main"
       - name: Watch7 Spotify song UP-only navigation contract (no APK)
         run: |
