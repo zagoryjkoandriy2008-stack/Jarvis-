@@ -343,6 +343,63 @@ public final class AiChatClient {
         return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
     }
 
+    /** Private JARVIS device relay uses the same user-owned Worker bearer
+     * without exposing the token outside Android Keystore-backed AiChatClient.
+     * Synchronous NETWORK THREAD ONLY. No remote AI request is involved. */
+    JSONObject deviceRelayRequest(String route,String method,
+                                  JSONObject payload) throws Exception {
+        if(android.os.Looper.myLooper()==android.os.Looper.getMainLooper())
+            throw new IllegalStateException("Device relay requires a background thread.");
+        if(!isConfigured())throw new IllegalStateException(
+            "Спочатку налаштуй Cloudflare AI Worker на Pixel.");
+        if(route==null || !route.matches(
+            "^/device/v1/(?:send|poll|ack|result|online)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
+            throw new IllegalArgumentException("Неправильний шлях JARVIS Relay.");
+        if(!"GET".equals(method) && !"POST".equals(method))
+            throw new IllegalArgumentException("Недопустимий метод Relay.");
+        URL configured=new URL(endpoint());
+        URL url=new URL(configured.getProtocol(),configured.getHost(),
+            configured.getPort(),route);
+        HttpURLConnection connection=null;
+        try {
+            connection=(HttpURLConnection)url.openConnection();
+            connection.setRequestMethod(method);
+            connection.setConnectTimeout(9000);
+            connection.setReadTimeout(9000);
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestProperty("Authorization","Bearer "+
+                decrypt(prefs.getString("code_encrypted","")));
+            connection.setRequestProperty("Accept","application/json");
+            if("POST".equals(method)) {
+                byte[] data=(payload==null?"{}":payload.toString())
+                    .getBytes(StandardCharsets.UTF_8);
+                if(data.length>8192)throw new IllegalArgumentException(
+                    "Повідомлення для Relay завелике.");
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type",
+                    "application/json; charset=utf-8");
+                connection.setFixedLengthStreamingMode(data.length);
+                try(OutputStream out=connection.getOutputStream()){out.write(data);}
+            }
+            int status=connection.getResponseCode();
+            if(status==401 || status==403)throw new Exception(
+                "Невірний особистий код Worker для підключення пристроїв.");
+            if(status==503)throw new Exception("Cloudflare Relay не розгорнуто.");
+            if(status<200 || status>=300)throw new Exception(
+                "JARVIS Relay HTTP "+status+".");
+            try(InputStream body=connection.getInputStream()) {
+                ByteArrayOutputStream limited=new ByteArrayOutputStream();
+                byte[] buffer=new byte[2048];int n;
+                while((n=body.read(buffer))>=0) {
+                    if(limited.size()+n>65536)throw new Exception(
+                        "JARVIS Relay повернув надто багато даних.");
+                    limited.write(buffer,0,n);
+                }
+                return new JSONObject(limited.toString("UTF-8"));
+            }
+        }finally{if(connection!=null)connection.disconnect();}
+    }
+
     private static SecretKey getKey() throws Exception {
         KeyStore keystore = KeyStore.getInstance("AndroidKeyStore");
         keystore.load(null);
