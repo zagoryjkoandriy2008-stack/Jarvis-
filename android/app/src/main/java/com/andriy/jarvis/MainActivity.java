@@ -751,6 +751,12 @@ public final class MainActivity extends Activity implements RecognitionListener 
     protected void onResume() {
         super.onResume();
         foreground = true;
+        if(!isWatchDevice) {
+            // Windows and Galaxy Watch use the same phone notes store.
+            // Refresh existing screen when user returns from another app.
+            loadNotes();
+            renderNotes();
+        }
         if(isWatchDevice)activeWatchRemote=new java.lang.ref.WeakReference<>(this);
         if(isWatchDevice) resumeWatchOperation();
         if(isWatchDevice)
@@ -6036,6 +6042,9 @@ public final class MainActivity extends Activity implements RecognitionListener 
     }
 
     private void loadNotes() {
+        // Re-reading after Windows/Watch edits must NOT append duplicate
+        // notes to the current Android Activity's in-memory list.
+        notes.clear();
         String data = getPreferences(MODE_PRIVATE).getString("notes", "[]");
         try {
             JSONArray array = new JSONArray(data);
