@@ -172,6 +172,7 @@ public final class JarvisWatchSpotifyController {
         long lastRevealAt;
         int queryRetries;
         int submittedQueryRepairs;
+        boolean searchKeyboardDismissed;
         int keyboardDismissals;
         int searchRecoveryRound;
         String selectedPlaylistTitle;
@@ -296,6 +297,19 @@ public final class JarvisWatchSpotifyController {
                         JarvisWatchScreenService.SpotifyStep.SET_QUERY),650L);
                 } else done(false,"Spotify Watch7 повторно змінив текст пошуку. "+
                     "Не натискаю випадкові пісні або плейлисти.");
+                return;
+            }
+            if(kind==SpotifyMusicCommands.Kind.TRACK &&
+               step==JarvisWatchScreenService.SpotifyStep.SELECT_RESULT &&
+               !searchKeyboardDismissed &&
+               now-stageStart>=2700L &&
+               JarvisWatchScreenService.spotifyKeyboardVisible()) {
+                // Only after the query was verified and submitted; do NOT
+                // navigate away from Spotify, tap an IME key or swipe RIGHT.
+                searchKeyboardDismissed=true;
+                if(JarvisWatchScreenService.spotifyDismissSubmittedKeyboard(title))
+                    status("Приховую клавіатуру після пошуку Spotify…");
+                MAIN.postDelayed(()->run(step),900L);
                 return;
             }
             if(kind==SpotifyMusicCommands.Kind.TRACK &&
@@ -550,6 +564,8 @@ public final class JarvisWatchSpotifyController {
             if(next==null) {
                 done(false,"Не вдалося завершити сценарій Spotify.");return;
             }
+            if(step==JarvisWatchScreenService.SpotifyStep.SUBMIT_QUERY)
+                searchKeyboardDismissed=false;
             if(step==JarvisWatchScreenService.SpotifyStep.SCROLL_LIBRARY_PLAYLISTS)
                 playlistScrolls++;
             if(step==JarvisWatchScreenService.SpotifyStep.REVEAL_NAV)
