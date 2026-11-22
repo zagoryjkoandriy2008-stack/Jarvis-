@@ -392,12 +392,18 @@ public final class JarvisWearPhoneAssistant {
 
     /** Read the same preferences as MainActivity.getPreferences(MODE_PRIVATE). */
     private static String phoneNotes(Context phone,String raw,String normalized) {
+        // Shared source of truth for Pixel/Watch/Windows notes. Preserve
+        // legacy "запиши ..." behavior, while supporting explicit full
+        // Windows phrases without saving the word "нотатку" as content.
         boolean add = normalized.startsWith("запиши ") ||
             normalized.startsWith("занотуй ") ||
-            normalized.startsWith("нотатка ");
-        boolean list = normalized.contains("покажи нотатки") ||
-            normalized.contains("мої нотатки") ||
-            normalized.contains("прочитай нотатки");
+            normalized.startsWith("нотатка ") ||
+            normalized.startsWith("створи нотатку ") ||
+            normalized.startsWith("додай нотатку ");
+        boolean list = normalized.equals("покажи нотатки") ||
+            normalized.equals("мої нотатки") ||
+            normalized.equals("прочитай нотатки") ||
+            normalized.equals("покажи мої нотатки");
         boolean deleteLast = normalized.equals("видали останню нотатку");
         if (!add && !list && !deleteLast) return null;
         SharedPreferences prefs = phone.getSharedPreferences("MainActivity",Context.MODE_PRIVATE);
@@ -408,7 +414,7 @@ public final class JarvisWearPhoneAssistant {
                 // punctuation, rather than storing a normalized command.
                 String content = raw.trim()
                     .replaceFirst("(?iu)^(?:дімон|димон|dimon|джарвіс|джарвис|jarvis)[,\\s:—-]*","")
-                    .replaceFirst("(?iu)^(?:запиши|занотуй|нотатка)\\s+","")
+                    .replaceFirst("(?iu)^(?:запиши\\s+(?:мені\\s+)?нотатку|створи\\s+нотатку|додай\\s+нотатку|запиши|занотуй|нотатка)\\s+","")
                     .trim();
                 if (content.isEmpty()) return "Назви, що записати.";
                 if (content.length() > 800) return "Нотатка занадто довга.";
