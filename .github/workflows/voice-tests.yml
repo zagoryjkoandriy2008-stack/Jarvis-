@@ -23,6 +23,9 @@ on:
       - 'android/app/src/main/java/com/andriy/jarvis/NeuralSpeechPolicy.java'
       - 'android/app/src/main/java/com/andriy/jarvis/NeuralSpeechClient.java'
       - 'android/app/src/main/java/com/andriy/jarvis/CommandPatterns.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchTimerRequests.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchTimerController.java'
+      - 'android/app/src/test/java/com/andriy/jarvis/JarvisWatchTimerRequestsTest.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisSearchRouting.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisVoicePause.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisSpeechLanguages.java'
@@ -266,6 +269,28 @@ jobs:
           assert tail.count('JarvisDeviceRelay.send(')==1,'Exactly one remote dispatch'
           print('PASS floating remote selection takes precedence')
           PY
+      - name: Watch7 native Samsung Timer actions never launch Pixel timer (no APK)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          base=Path('android/app/src/main/java/com/andriy/jarvis')
+          main=(base/'MainActivity.java').read_text()
+          pos_watch=main.index('if (isWatchDevice) {',main.index('JarvisDeviceRelayRules.Target phoneTarget='))
+          pos_timer=main.index('JarvisWatchTimerRequests.parse(raw)',pos_watch)
+          pos_music=main.index('JarvisWatchLocalCommands.spotifyOnWatch(raw)',pos_timer)
+          pos_phone=main.index('watchPhoneLink.assistantDocument(raw',pos_timer)
+          assert pos_watch<pos_timer<pos_music<pos_phone
+          timer=(base/'JarvisWatchTimerController.java').read_text()
+          assert 'AlarmClock.ACTION_SET_TIMER' in timer
+          assert 'AlarmClock.EXTRA_LENGTH,request.seconds' in timer
+          assert 'AlarmClock.EXTRA_SKIP_UI,false' in timer
+          assert 'com.samsung.android.watch.timer' in timer
+          assert 'TimerScheduler.start(' not in timer
+          manifest=Path('android/app/src/main/AndroidManifest.xml').read_text()
+          assert 'com.android.alarm.permission.SET_ALARM' in manifest
+          assert '<package android:name="com.samsung.android.watch.timer"' in manifest
+          print('PASS Watch7 Timer starts in watch app, not Pixel')
+          PY
       - name: Watch7 Spotify fresh-task launch without losing next result (no APK)
         run: |
           watch=android/app/src/main/java/com/andriy/jarvis
@@ -312,6 +337,8 @@ jobs:
           mkdir -p /tmp/jarvis-voice-tests
           javac -encoding UTF-8 -d /tmp/jarvis-voice-tests \
             android/app/src/main/java/com/andriy/jarvis/CommandPatterns.java \
+            android/app/src/main/java/com/andriy/jarvis/JarvisWatchTimerRequests.java \
+            android/app/src/test/java/com/andriy/jarvis/JarvisWatchTimerRequestsTest.java \
             android/app/src/main/java/com/andriy/jarvis/WakeConversation.java \
             android/app/src/test/java/com/andriy/jarvis/DimonVoiceNameTest.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisInstantCommands.java \
@@ -448,6 +475,7 @@ jobs:
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisMacroScreenRulesTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisMacroTriggerRulesTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.CommandPatternsTest
+          java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchTimerRequestsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisInstantCommandsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyMusicCommandsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchSpotifyLaunchPolicyTest
