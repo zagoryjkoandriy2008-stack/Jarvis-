@@ -48,7 +48,7 @@ public final class JarvisDeviceIdentity {
     public static Map<String,String> signedHeaders(String path,JSONObjectWrapper body)
         throws Exception {
         publicKeyBase64();
-        if(!path.matches("^/device/v2/(?:pair/verify|commands/(?:send|result|heartbeat|status))$"))
+        if(!JarvisDeviceV2Paths.signedPhonePath(path))
             throw new IllegalArgumentException("Неприпустимий signed endpoint.");
         String timestamp=Long.toString(System.currentTimeMillis());
         String nonce=UUID.randomUUID().toString().replace("-","");

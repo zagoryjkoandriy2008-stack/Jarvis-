@@ -50,7 +50,11 @@ assert "v2/commands/send" in android_signed and "v2/commands/result" in android_
 assert "Не повторюю" not in android_signed or "автоматично не запускаю" in android_signed
 assert 'private static final String FLAG="signed_v2_enabled"' in android_signed
 assert "AndroidKeyStore" in android_keys
-assert "/device/v2/commands/" in android_http
+assert "JarvisDeviceV2Paths.httpAllowed(route)" in android_http
+android_routes=read("android/app/src/main/java/com/andriy/jarvis/JarvisDeviceV2Paths.java")
+assert "/device/v2/" in android_routes
+assert "commands/(?:send|result|heartbeat|status)" in android_routes
+assert "JarvisDeviceV2Paths.signedPhonePath(path)" in android_keys
 assert "JarvisSignedDeviceCommands.setEnabled" in app
 assert "PairGrantsSave_Click" in wpf and "PairRevoke_Click" in wpf
 assert "DeviceReceiptJournal" in pc
