@@ -1,5 +1,6 @@
 import {ScreenRelayState} from './screen-relay.mjs';
 import {FileRelayState} from './file-relay.mjs';
+import {DevicePairingV2} from './device-pairing-v2.mjs';
 /** JARVIS private three-device relay. Only trusted device clients call these
  * endpoints. The same user-controlled Worker bearer token authenticates them.
  * This first-party prototype is NOT suitable for multi-user public deployment.
@@ -48,6 +49,7 @@ export class DeviceRelay {
     this.state=state;this.env=env;
     this.screen=new ScreenRelayState();
     this.fileInbox=new FileRelayState();
+    this.pairing=new DevicePairingV2(this.state.storage);
   }
 
   /** Durable Object storage expiry is a security property, not only a
@@ -69,6 +71,7 @@ export class DeviceRelay {
     const path=url.pathname;
     const now=Date.now();
     const store=this.state.storage;
+    if(path.startsWith('/device/v2/pair/'))return this.pairing.fetch(request);
     // Screenshots exist ONLY in short-lived object RAM. Do not touch durable
     // storage, history, logs or AI when serving screen viewer/frame calls.
     if(path.startsWith('/device/v1/screen/'))

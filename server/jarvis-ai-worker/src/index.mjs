@@ -197,7 +197,7 @@ export default {
     if (url.pathname === '/health' && request.method === 'GET') return json({status:'ok'});
     // Commands are explicit user actions, never model responses. Protected by
     // the same private bearer as /chat, with short-lived Durable Object queue.
-    if(url.pathname.startsWith('/device/v1/')) {
+    if(url.pathname.startsWith('/device/v1/') || url.pathname.startsWith('/device/v2/')) {
       if(!env.JARVIS_CLIENT_TOKEN)return json({error:'Relay not configured'},503);
       if(!safeBearer(request.headers.get('authorization'),env.JARVIS_CLIENT_TOKEN))
         return json({error:'Unauthorized'},401);
