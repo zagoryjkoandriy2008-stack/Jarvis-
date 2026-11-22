@@ -44,9 +44,11 @@ public final class SpotifyPlaylistSync {
         PutDataMapRequest data = PutDataMapRequest.create(PATH);
         data.getDataMap().putString(KEY_ENTRIES, entries);
         data.getDataMap().putLong(KEY_REVISION, System.currentTimeMillis());
-        data.asPutDataRequest().setUrgent();
+        com.google.android.gms.wearable.PutDataRequest request =
+            data.asPutDataRequest();
+        request.setUrgent();
         Wearable.getDataClient(context.getApplicationContext())
-            .putDataItem(data.asPutDataRequest())
+            .putDataItem(request)
             .addOnFailureListener(error ->
                 Log.w("DIMON_SPOTIFY_SYNC", "Could not publish playlist aliases", error));
     }
