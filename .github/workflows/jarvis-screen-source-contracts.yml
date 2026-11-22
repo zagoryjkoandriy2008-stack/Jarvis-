@@ -7,6 +7,8 @@ on:
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisScreenViewCommands.java'
       - 'android/app/src/main/java/com/andriy/jarvis/AiChatClient.java'
       - 'server/jarvis-ai-worker/src/screen-relay.mjs'
+      - 'server/jarvis-ai-worker/src/screen-control.mjs'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisRemoteTouchMapper.java'
       - '.github/workflows/jarvis-screen-source-contracts.yml'
   workflow_dispatch:
 permissions:
@@ -26,6 +28,7 @@ jobs:
 
           app=Path('windows/Jarvis.Windows')
           publisher=(app/'Core/WindowsScreenPublisher.cs').read_text()
+          remoteinput=(app/'Core/WindowsRemoteInput.cs').read_text()
           state=(app/'Core/LocalState.cs').read_text()
           wnd=(app/'MainWindow.xaml.cs').read_text()
           fx=(app/'FloatingOrb.xaml.cs').read_text()
@@ -72,6 +75,29 @@ jobs:
           assert 'this.revokedSessions.set(body.session' in worker
           assert 'this.recentlyRevoked(body.session)' in worker
           assert 'this.frame=null' in worker and 'frame.slice()' in worker
+          assert 'ScreenControlState' in worker
+          control=Path('server/jarvis-ai-worker/src/screen-control.mjs').read_text()
+          assert 'validScreenInput' in control
+          assert 'MAX_PENDING=24' in control
+          assert 'INPUT_TTL=4500' in control
+          assert 'controlRequested' in control
+          assert "'/device/v1/screen/control/input'" in control
+          assert 'TryClaim' not in remoteinput
+          assert 'SendInput' in remoteinput and 'MouseLeftDown' in remoteinput
+          assert 'KeyUnicode' in remoteinput and 'MOUSEEVENTF' not in remoteinput
+          assert 'Math.Clamp' in remoteinput
+          assert 'EnableRemoteControl { get; set; }' in state
+          assert 'ControlRequested' in publisher and 'DecideControlAsync' in publisher
+          assert '_approvedSession==session' in publisher
+          assert 'WindowsRemoteInput.Execute(action)' in publisher
+          assert 'EnableRemoteControl.IsChecked' in wnd
+          assert 'AllowControl_Click' in wnd and 'StopControl_Click' in wnd
+          assert 'JarvisRemoteTouchMapper.map' in android
+          assert 'submitInput("tap"' in android or 'sendPointer("tap"' in android
+          assert 'sendPointer("double"' in android
+          assert 'sendPointer("drag"' in android
+          assert 'remoteText' in android and 'sendKey' in android
+          assert 'requestControl()' in android
           assert 'MAX_JPEG_BYTES=240_000' in worker
           assert 'VIEW_TTL_MS=8_000' in worker
           assert 'покажи екран комп' in route
