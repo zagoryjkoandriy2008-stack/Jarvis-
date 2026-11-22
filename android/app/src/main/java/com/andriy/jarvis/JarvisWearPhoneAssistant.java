@@ -41,6 +41,21 @@ public final class JarvisWearPhoneAssistant {
             return;
         }
         Context phone = context.getApplicationContext();
+        // Internal marker comes only from Google's authenticated Wear Data
+        // Layer. Never forward it to AI or reinterpret it as an Android
+        // command. Finance always stays on the phone's encrypted ledger.
+        final String desktopPrefix="__jarvis_pc__:";
+        if(raw.startsWith(desktopPrefix)) {
+            String command=raw.substring(desktopPrefix.length()).trim();
+            if(!JarvisDeviceRelay.enabled(phone) ||
+               command.isEmpty() || command.length()>225 ||
+               JarvisDeviceRelayRules.isFinance(command)) {
+                completion.finished(false,"Зв'язок Windows вимкнено або команда недопустима.");
+                return;
+            }
+            JarvisDeviceRelay.send(phone,"watch","computer",command,completion::finished);
+            return;
+        }
         final String normalized = CommandPatterns.normalizeControlVerb(raw);
         if (normalized.isEmpty()) {
             completion.finished(false,"Не розпізнав голосову команду.");
