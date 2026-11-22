@@ -107,6 +107,16 @@ public final class JarvisWatchUiRules {
                 .toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+"," "));
     }
 
+    /** After tapping Search, a faulty IME action on Wear OS can replace
+     * the actual query with punctuation (e.g. \",,,,,\"). Never choose a
+     * song from this unrelated search result screen. Empty text is not proof
+     * of corruption because Spotify may remove the editor upon submission. */
+    public static boolean spotifySubmittedQueryCorrupted(String expected,String actual) {
+        return expected!=null && !expected.trim().isEmpty() &&
+            actual!=null && !actual.trim().isEmpty() &&
+            !spotifyQueryVisible(expected,actual);
+    }
+
     /** Wear Spotify SONG search is UP-ONLY. After the initial UP
      * reveal, at most two further UP swipes are allowed only while
      * Search is absent and Spotify remains foreground. Library playlist
