@@ -5286,7 +5286,8 @@ public final class MainActivity extends Activity implements RecognitionListener 
         if(isWatchDevice && deviceControlTarget==
                JarvisDeviceRelayRules.Target.COMPUTER &&
            change==JarvisDeviceRelayRules.Target.NONE &&
-           !JarvisDeviceRelayRules.isFinance(raw)) {
+           !JarvisDeviceRelayRules.isFinance(raw) &&
+           !JarvisDeviceRelayRules.isNotes(raw)) {
             if(watchPhoneLink==null) {
                 setStatus("Не підключено Pixel для команд на комп'ютер.");
                 return;
@@ -5309,7 +5310,8 @@ public final class MainActivity extends Activity implements RecognitionListener 
         if(!isWatchDevice && change==JarvisDeviceRelayRules.Target.NONE &&
            (phoneTarget==JarvisDeviceRelayRules.Target.COMPUTER ||
             phoneTarget==JarvisDeviceRelayRules.Target.WATCH) &&
-           !JarvisDeviceRelayRules.isFinance(raw)) {
+           !JarvisDeviceRelayRules.isFinance(raw) &&
+           !JarvisDeviceRelayRules.isNotes(raw)) {
             String target=phoneTarget==JarvisDeviceRelayRules.Target.COMPUTER
                 ?"computer":"watch";
             setStatus(JarvisDeviceRelayRules.icon(phoneTarget)+
