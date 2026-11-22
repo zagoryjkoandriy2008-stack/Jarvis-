@@ -328,7 +328,7 @@ public partial class MainWindow : Window {
                 FileExchangeStatus.Text="Файла з Pixel немає. Спочатку передай його з телефону.";
                 return;
             }
-            var picker=new SaveFileDialog {
+            var picker=new Microsoft.Win32.SaveFileDialog {
                 Title="JARVIS — зберегти файл з Pixel",FileName=selected.Name,
                 OverwritePrompt=true,Filter="Усі файли|*.*"
             };
@@ -353,7 +353,7 @@ public partial class MainWindow : Window {
             FileExchangeStatus.Text="Спочатку ввімкни приватний Relay у налаштуваннях.";
             return;
         }
-        var picker=new OpenFileDialog {
+        var picker=new Microsoft.Win32.OpenFileDialog {
             Title="JARVIS — вибери файл для Pixel (до 1 МіБ)",
             Multiselect=false,CheckFileExists=true,Filter="Усі файли|*.*"
         };
@@ -822,7 +822,7 @@ public partial class MainWindow : Window {
             PairingCodeReport.Text="На Pixel → Пристрої → Спарювання Windows:\n"+
                 "ID: "+request.Id+"\nОдноразовий код: "+request.Code+
                 "\nДійсний 5 хвилин; нікому не пересилай.";
-        }catch(Exception e){PairingCodeReport.Text="Помилка створення спарювання: "+e.Message;}
+        }catch(Exception ex){PairingCodeReport.Text="Помилка створення спарювання: "+ex.Message;}
     }
     private async void PairPending_Click(object sender,RoutedEventArgs e) {
         if(_pairingRequestId==Guid.Empty) {
@@ -836,7 +836,7 @@ public partial class MainWindow : Window {
                 "\nВідбиток ключа Pixel: "+
                 (pending.PhoneFingerprint??"ще не отримано")+
                 "\nЗвір цей відбиток із тим, який показує Pixel перед підтвердженням.";
-        }catch(Exception e){PairingCodeReport.Text="Не вдалося перевірити: "+e.Message;}
+        }catch(Exception ex){PairingCodeReport.Text="Не вдалося перевірити: "+ex.Message;}
     }
     private async void PairApprove_Click(object sender,RoutedEventArgs e) {
         if(_pairingRequestId==Guid.Empty ||
@@ -856,7 +856,7 @@ public partial class MainWindow : Window {
                 "Старий Relay v1 ще потребує міграції на підписаний v2.":
                 "Підтвердження не завершено.";
             if(approved){_pairingRequestId=Guid.Empty;_pendingPhoneFingerprint=null;}
-        }catch(Exception e){PairingCodeReport.Text="Підтвердження не виконано: "+e.Message;}
+        }catch(Exception ex){PairingCodeReport.Text="Підтвердження не виконано: "+ex.Message;}
     }
     private async void PairList_Click(object sender,RoutedEventArgs e) {
         try{PairingCodeReport.Text=await _pairing.ListAsync(_lifetime.Token);}
