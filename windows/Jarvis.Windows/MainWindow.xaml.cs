@@ -40,10 +40,22 @@ public partial class MainWindow : Window {
             throw;
         }
         _finance=new FinanceService(_state,_store);
-        _relay=new DeviceRelayClient(_store,_state.Settings);
-        _relay.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
-        _relay.CommandReceived+=HandleRemoteOnUiAsync;
-        _=_relay.ListenAsync(_lifetime.Token);
+        try {
+            _relay=new DeviceRelayClient(_store,_state.Settings);
+            _relay.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
+            _relay.CommandReceived+=HandleRemoteOnUiAsync;
+            _=_relay.ListenAsync(_lifetime.Token);
+        } catch(InvalidDataException invalidReceipts) {
+            // A corrupt at-most-once journal must disable REMOTE execution,
+            // not prevent users from using all local JARVIS functions.
+            _relay=null;
+            _state.Settings.EnableDeviceRelay=false;
+            MessageBox.Show(invalidReceipts.Message+
+                "\nЛокальний JARVIS продовжить роботу. Для дистанційного "+
+                "керування віднови remote-receipts.json із резервної копії.",
+                "JARVIS — журнал дистанційних дій",MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
         WorkerUrl.Text=_state.Settings.WorkerUrl;
         SpeakReplies.IsChecked=_state.Settings.SpeakReplies;
         StayOnTop.IsChecked=_state.Settings.OnTop;
