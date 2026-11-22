@@ -40,11 +40,11 @@ jobs:
         run: |
           if (!(Test-Path output/win-x64/Jarvis.Windows.exe)) { throw 'Windows exe is missing' }
           Copy-Item windows/README-WINDOWS.md output/win-x64/README-WINDOWS.md
-          Compress-Archive -Path output/win-x64/* -DestinationPath Jarvis-Windows-0.1.0-preview-win-x64.zip
-          Get-FileHash Jarvis-Windows-0.1.0-preview-win-x64.zip -Algorithm SHA256 | Format-List
+          Compress-Archive -Path output/win-x64/* -DestinationPath Jarvis-Windows-0.2.0-preview-win-x64.zip
+          Get-FileHash Jarvis-Windows-0.2.0-preview-win-x64.zip -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
-          name: Jarvis-Windows-0.1.0-preview-win-x64
-          path: Jarvis-Windows-0.1.0-preview-win-x64.zip
+          name: Jarvis-Windows-0.2.0-preview-win-x64
+          path: Jarvis-Windows-0.2.0-preview-win-x64.zip
           if-no-files-found: error
           retention-days: 30
