@@ -1058,6 +1058,14 @@ public final class MainActivity extends Activity implements RecognitionListener 
         financeApiParams.topMargin=dp(7);
         content.addView(financeApiTab,financeApiParams);
         if(!isWatchDevice) {
+            Button windowsScreen=secondaryButton(
+                "🖥 Побачити екран комп'ютера",this::openWindowsScreen);
+            LinearLayout.LayoutParams windowsScreenParams=
+                new LinearLayout.LayoutParams(-1,dp(48));
+            windowsScreenParams.topMargin=dp(7);
+            content.addView(windowsScreen,windowsScreenParams);
+        }
+        if(!isWatchDevice) {
             Button alarmPermissions=secondaryButton("⏰ Дозволи будильників Watch7",
                 this::showWatchAlarmPermissions);
             LinearLayout.LayoutParams alarmParams=
@@ -5188,6 +5196,28 @@ public final class MainActivity extends Activity implements RecognitionListener 
         },450L);
     }
 
+    private void openWindowsScreen() {
+        if(isWatchDevice) {
+            setStatus("Перегляд екрана Windows доступний на Pixel.");
+            return;
+        }
+        if(!JarvisDeviceRelay.enabled(this)) {
+            setStatus("Для перегляду Windows увімкни 🔗 зв'язок пристроїв "+
+                "у налаштуваннях JARVIS на Pixel.");
+            return;
+        }
+        AiChatClient connection=new AiChatClient(this);
+        if(!connection.isConfigured()) {
+            setStatus("Спочатку підключи приватний Cloudflare Worker.");
+            return;
+        }
+        try {
+            startActivity(new Intent(this,JarvisWindowsScreenActivity.class));
+        }catch(RuntimeException error) {
+            setStatus("Не вдалося відкрити перегляд екрана Windows.");
+        }
+    }
+
     private void runWatchMusicRequest(JarvisWatchLocalCommands.Request music) {
         if(music.playsSpotify())
             JarvisWatchSpotifyTrace.mark(this,"VOICE_COMMAND_PARSED");
@@ -5253,6 +5283,13 @@ public final class MainActivity extends Activity implements RecognitionListener 
 
     private void dispatchCommand(String raw) {
         if (raw == null || raw.trim().isEmpty()) return;
+        // Screen viewing is an explicit Pixel UI command, even if the user
+        // previously selected remote COMPUTER mode. Never send this phrase
+        // to AI, Spotify, macro execution or the remote command queue.
+        if(!isWatchDevice && JarvisScreenViewCommands.open(raw)) {
+            openWindowsScreen();
+            return;
+        }
         if (!isWatchDevice && JarvisMacros.cancelIfRequested(raw, result -> {
             appendDialogue("Дімон", result);
             setStatus(result);
