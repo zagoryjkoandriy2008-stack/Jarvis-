@@ -127,3 +127,21 @@ test('stale images are never returned as live',async()=>{
     'https://worker.test/device/v1/screen/frame?session='+id));
   assert.equal(r.status,404);
 });
+
+test('Windows owner revocation drops the active viewer and frame instantly',async()=>{
+  let now=100_000;
+  const screen=new ScreenRelayState(()=>now);
+  await jsonCall(screen,'POST','/device/v1/screen/view',
+    {device:'phone',session:id});
+  await upload(screen,id);
+  assert.ok(screen.frame);
+  const revoked=await jsonCall(screen,'POST','/device/v1/screen/revoke',
+    {session:id});
+  assert.equal(revoked.status,200);
+  assert.equal(screen.frame,null);
+  assert.equal(screen.session,null);
+  assert.equal((await screen.fetch(new Request(
+    'https://worker.test/device/v1/screen/frame?session='+id))).status,403);
+  assert.equal((await jsonCall(screen,'GET',
+    '/device/v1/screen/state')).body.active,false);
+});
