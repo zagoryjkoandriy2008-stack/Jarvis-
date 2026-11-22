@@ -6,7 +6,8 @@ globalThis.crypto??=webcrypto;
 function storage() {
  const map=new Map();
  return {map,async get(key){return map.get(key)},
- async put(key,value){map.set(key,value)},async delete(key){map.delete(key)}};
+ async put(key,value){map.set(key,value)},async delete(key){map.delete(key)},
+ async list({prefix}){return new Map([...map].filter(([key])=>key.startsWith(prefix)))}};
 }
 async function identity() {
  const pair=await crypto.subtle.generateKey(
