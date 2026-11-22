@@ -241,6 +241,9 @@ public sealed class WindowsScreenPublisher : IDisposable {
         }
     }
 
+    // Same bounded RAM-only JPEG capture; caller must require local user approval.
+    internal static byte[] CaptureForAi()=>CapturePrimaryScreen();
+
     private static byte[] CapturePrimaryScreen() {
         var screen=Screen.PrimaryScreen ??
             throw new InvalidOperationException("Не знайдено головний монітор.");
