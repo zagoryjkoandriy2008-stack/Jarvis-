@@ -86,6 +86,9 @@ test('revoked phone cannot send, poll or read receipts; Watch is delegated only 
  await storage.put('v2:device:computer',{enabled:true,publicKey:pc.spki});
  const broker=new DeviceCommandBrokerV2(storage,()=>now);
  const watch={...command(),origin:'watch',replyTo:'watch'};
+ assert.equal((await post(broker,'/device/v2/commands/send',watch,'phone',phone.privateKey)).status,403);
+ await storage.put('v2:grants:phone',{readOnly:true,media:false,apps:false,
+   locks:false,watchDelegation:true});
  assert.equal((await post(broker,'/device/v2/commands/send',watch,'phone',phone.privateKey)).status,202);
  await storage.put('v2:device:phone',{enabled:false,publicKey:phone.spki});
  assert.equal((await post(broker,'/device/v2/commands/send',command(),'phone',phone.privateKey)).status,403);
@@ -106,4 +109,28 @@ test('stale v2 requests are unknown, never newly delivered',async()=>{
  assert.equal(poll.result.items.length,0);
  const result=await post(broker,'/device/v2/commands/result',{requestId:id},'phone',phone.privateKey,tick);
  assert.equal(result.result.status,'unknown');
+});
+
+test('least privilege grants are fail-closed and cannot be inherited after revocation',async()=>{
+ const storage=fakeStorage(),phone=await keypair(),pc=await keypair();
+ await storage.put('v2:device:phone',{enabled:true,publicKey:phone.spki});
+ await storage.put('v2:device:computer',{enabled:true,publicKey:pc.spki});
+ const broker=new DeviceCommandBrokerV2(storage,()=>now);
+ const media={...command('media.next'),requestId:crypto.randomUUID()};
+ const openApp={...command('application.open'),requestId:crypto.randomUUID(),
+   payload:{name:'notepad'}};
+ const lock={...command('windows.lock'),requestId:crypto.randomUUID(),
+   requiresApproval:true};
+ for(const c of [media,openApp,lock])
+   assert.equal((await post(broker,'/device/v2/commands/send',
+     c,'phone',phone.privateKey)).status,403,'grants default OFF');
+ await storage.put('v2:grants:phone',{readOnly:true,media:true,apps:true,
+   locks:true,watchDelegation:false});
+ for(const c of [media,openApp,lock])
+   assert.equal((await post(broker,'/device/v2/commands/send',
+     c,'phone',phone.privateKey)).status,202,'explicit grant permits');
+ await storage.delete('v2:grants:phone');
+ for(const c of [media,openApp,lock])
+   assert.equal((await post(broker,'/device/v2/commands/send',
+     {...c,requestId:crypto.randomUUID()},'phone',phone.privateKey)).status,403);
 });

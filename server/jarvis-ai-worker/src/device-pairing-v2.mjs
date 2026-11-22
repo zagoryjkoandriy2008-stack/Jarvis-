@@ -10,6 +10,15 @@ const CODE=/^[0-9]{7}$/;
 const PAIR_TTL=300000;
 const SIGN_TTL=30000;
 const NONCE_TTL=65000;
+export const DEFAULT_DEVICE_GRANTS=Object.freeze({
+  readOnly:true,media:false,apps:false,locks:false,watchDelegation:false
+});
+function validGrants(grants) {
+  return grants && typeof grants==='object' && !Array.isArray(grants) &&
+    Object.keys(grants).sort().join(',')===
+      Object.keys(DEFAULT_DEVICE_GRANTS).sort().join(',') &&
+    Object.values(grants).every(v=>typeof v==='boolean');
+}
 function json(value,status=200) {
   return new Response(JSON.stringify(value),{status,headers:{
     'content-type':'application/json','cache-control':'no-store',
@@ -113,6 +122,9 @@ export class DevicePairingV2 {
              existing.publicKey,store,now,parsed.raw))
           return json({error:'Computer owner signature required'},403);
       }
+      const active=await store.list({prefix:'v2:pending:'});
+      if([...active.values()].filter(x=>x.expires>now).length>=3)
+        return json({error:'Too many pending pairing attempts'},429);
       const id=uniqueId(),code=generateCode();
       const pending={id,created:now,expires:now+PAIR_TTL,attempts:0,
         computerPublicKey:body.publicKey,codeHash:await digest(id+':'+code),
@@ -183,8 +195,28 @@ export class DevicePairingV2 {
         enabled:true,pairedAt:now});
       await store.put('v2:device:phone',{publicKey:pending.phonePublicKey,
         enabled:true,pairedAt:now});
+      await store.put('v2:grants:phone',{...DEFAULT_DEVICE_GRANTS});
       await store.delete('v2:pending:'+body.pairingId);
       return json({approved:true,devices:['computer','phone']},200);
+    }
+    if((path==='/device/v2/pair/grants/get' ||
+       path==='/device/v2/pair/grants/set') && request.method==='POST') {
+      if(!parsed || parsed.body.device!=='phone')
+        return json({error:'Invalid grant target'},400);
+      const computer=await store.get('v2:device:computer');
+      if(!computer?.enabled ||
+         !await verifySignedRequest(request,'computer',
+           computer.publicKey,store,now,parsed.raw))
+        return json({error:'Owner signature required'},403);
+      const phone=await store.get('v2:device:phone');
+      if(!phone?.enabled)return json({error:'Pixel not paired'},409);
+      if(path.endsWith('/set')){
+        if(!validGrants(parsed.body.permissions))
+          return json({error:'Invalid grant schema'},400);
+        await store.put('v2:grants:phone',{...parsed.body.permissions});
+      }
+      return json({device:'phone',permissions:
+        await store.get('v2:grants:phone')||{...DEFAULT_DEVICE_GRANTS}});
     }
     if(path==='/device/v2/pair/list' && request.method==='POST') {
       if(!parsed)return json({error:'Invalid request'},400);
@@ -208,6 +240,8 @@ export class DevicePairingV2 {
       const phone=await store.get('v2:device:phone');
       if(phone)await store.put('v2:device:phone',{...phone,enabled:false,
         revokedAt:now});
+      await store.delete('v2:grants:phone');
+      await store.delete('v2:live:phone');
       return json({revoked:true,device:'phone'});
     }
     if(path==='/device/v2/pair/verify' && request.method==='POST') {

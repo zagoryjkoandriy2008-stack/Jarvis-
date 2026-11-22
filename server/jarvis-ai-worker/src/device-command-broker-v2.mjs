@@ -1,4 +1,4 @@
-import {verifySignedRequest} from './device-pairing-v2.mjs';
+import {verifySignedRequest,DEFAULT_DEVICE_GRANTS} from './device-pairing-v2.mjs';
 import {validateDeviceRequest,validateDeviceReceipt,classifyDeviceAction}
   from './device-protocol-v2.mjs';
 
@@ -72,6 +72,15 @@ export class DeviceCommandBrokerV2 {
          !senderFor(body.origin,device)||
          !allowRole(body.kind,body.origin,body.target))
         return json({error:'Command or permissions rejected'},403);
+      const grants=await store.get('v2:grants:phone')||DEFAULT_DEVICE_GRANTS;
+      if(device==='phone' && (
+         (body.origin==='watch'&&!grants.watchDelegation) ||
+         (classifyDeviceAction(body.kind)==='readOnly' && !grants.readOnly) ||
+         ((body.kind.startsWith('media.')||body.kind==='volume.set') &&
+           !grants.media) ||
+         (body.kind==='application.open'&&!grants.apps) ||
+         (['windows.lock','monitor.off'].includes(body.kind)&&!grants.locks)
+      ))return json({error:'Device permission not granted'},403);
       const key='v2:command:'+body.requestId;
       const existing=await store.get(key);
       if(existing) {
