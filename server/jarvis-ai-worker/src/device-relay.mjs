@@ -87,8 +87,15 @@ export class DeviceRelay {
         await store.put(key,{id:body.id,origin:body.origin,target:body.target,
           command:body.command,created:now,leaseUntil:0,state:'pending',
           ok:null,detail:''});
-        // Ensure payloads are removed even if no client ever polls again.
-        if(typeof store.setAlarm==='function')await store.setAlarm(now+TTL+2000);
+        // An alarm belongs to the EARLIEST expiry. New requests must not
+        // push the alarm forward and retain old command/finance text longer
+        // than its intended lifetime if every client goes offline.
+        if(typeof store.setAlarm==='function') {
+          const due=now+TTL+2000;
+          const prior=typeof store.getAlarm==='function'
+            ?await store.getAlarm():null;
+          if(prior==null || prior>due)await store.setAlarm(due);
+        }
         return sendJson({id:body.id,state:'pending'},202);
       }
 
