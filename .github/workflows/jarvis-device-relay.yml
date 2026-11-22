@@ -1,0 +1,27 @@
+name: JARVIS private device relay contracts
+on:
+  push:
+    paths:
+      - 'server/jarvis-ai-worker/**'
+      - '.github/workflows/jarvis-device-relay.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  relay-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test Worker contracts including phone/PC/Watch relay
+        working-directory: server/jarvis-ai-worker
+        run: npm test
+      - name: Check Cloudflare Durable Object binding without deploying
+        run: |
+          grep -Fq 'new_sqlite_classes = ["DeviceRelay"]' server/jarvis-ai-worker/wrangler.toml
+          grep -Fq "export {DeviceRelay} from './device-relay.mjs';" server/jarvis-ai-worker/src/index.mjs
+          grep -Fq '/device/v1/' server/jarvis-ai-worker/src/index.mjs
+          grep -Fq 'safeBearer' server/jarvis-ai-worker/src/index.mjs
