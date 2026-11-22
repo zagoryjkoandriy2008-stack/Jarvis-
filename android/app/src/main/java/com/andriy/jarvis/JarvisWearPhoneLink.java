@@ -604,7 +604,10 @@ public final class JarvisWearPhoneLink {
         // the following request begins; callers keep their own copy.
     }
 
-    public void close() {
+    public void close() {closeInternal(false);}
+    /** Secondary Watch7 screens must preserve the global phone/PC mode. */
+    public void closePreservingMode(){closeInternal(true);}
+    private void closeInternal(boolean preserveCurrentMode) {
         closed = true;
         requestEpoch++; // Invalidate in-flight node lookups.
         requesting = false;
@@ -613,6 +616,6 @@ public final class JarvisWearPhoneLink {
         main.removeCallbacks(sync);
         messageClient.removeListener(replies);
         activeSession = "";
-        JarvisPhoneMode.setActive(false);
+        if(!preserveCurrentMode)JarvisPhoneMode.setActive(false);
     }
 }
