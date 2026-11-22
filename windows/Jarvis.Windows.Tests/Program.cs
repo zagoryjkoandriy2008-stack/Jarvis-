@@ -458,4 +458,32 @@ Check(powerGate.Suspend() && powerGate.IsSuspended,"first suspend blocks operati
 Check(!powerGate.Suspend(),"duplicate suspend must not revoke twice");
 Check(powerGate.Resume() && !powerGate.IsSuspended,"resume restores passive listeners");
 Check(!powerGate.Resume(),"duplicate resume ignored");
+var auditDir=Path.Combine(Path.GetTempPath(),"jarvis-audit-"+Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(auditDir);
+try {
+    var auditFile=Path.Combine(auditDir,"audit.json");
+    var auditNow=DateTimeOffset.UtcNow;
+    var audit=new DeviceAuditJournal(auditFile,()=>auditNow,3);
+    var first=Guid.NewGuid();
+    audit.Record(first,"watch","media.next","completed",123);
+    audit.Record(first,"watch","media.next","completed",123);
+    Check(audit.Recent().Count==1,"audit deduplicates re-delivery");
+    try {
+        audit.Record(Guid.NewGuid(),"phone","media.next\\nsecret","failed",20);
+        throw new Exception("audit permitted injection");
+    }catch(ArgumentException){assertions++;}
+    audit.Record(Guid.NewGuid(),"phone","system.status","failed",999,"DEVICE_REVOKED");
+    audit.Record(Guid.NewGuid(),"watch","volume.set","unknown",250,"RESULT_UNKNOWN");
+    audit.Record(Guid.NewGuid(),"phone","media.toggle","completed",100);
+    Check(audit.Recent().Count==3,"audit bounded capacity");
+    Check(audit.Recent()[0].ActionType=="media.toggle","audit most recent first");
+    var exported=Path.Combine(auditDir,"export.json");
+    audit.Export(exported);
+    var auditData=File.ReadAllText(exported);
+    Check(auditData.Contains("DEVICE_REVOKED") &&
+        !auditData.Contains("secret") && !auditData.Contains("clipboard"),
+        "audit export contains status only, not sensitive input");
+    auditNow=auditNow.AddDays(8);
+    Check(audit.Recent().Count==0,"audit retention expires old records");
+} finally {Directory.Delete(auditDir,true);}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
