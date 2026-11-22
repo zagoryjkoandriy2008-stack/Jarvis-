@@ -1150,6 +1150,30 @@ public final class MainActivity extends Activity implements RecognitionListener 
                 "Android може обмежити автозапуск після примусової зупинки.",
                 11,MUTED,Gravity.START,false);
             hero.addView(backgroundInfo);
+            CheckBox deviceRelayToggle = new CheckBox(this);
+            deviceRelayToggle.setText("🔗 Дозволити зв'язок JARVIS із комп'ютером та годинником");
+            deviceRelayToggle.setTextColor(MUTED);
+            deviceRelayToggle.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                isCompact?11:12);
+            deviceRelayToggle.setButtonTintList(ColorStateList.valueOf(CYAN));
+            deviceRelayToggle.setChecked(JarvisDeviceRelay.enabled(this));
+            deviceRelayToggle.setOnCheckedChangeListener((button,enabled)->{
+                JarvisDeviceRelay.setEnabled(this,enabled);
+                if(enabled) {
+                    JarvisCompanionService.startIfEnabled(this);
+                    setStatus("Зв'язок дозволено. Онови Cloudflare Worker і "+
+                        "запусти Windows JARVIS із тим самим кодом доступу.");
+                } else setStatus("Дистанційне керування пристроями вимкнено.");
+            });
+            LinearLayout.LayoutParams deviceParams=new LinearLayout.LayoutParams(-1,-2);
+            deviceParams.topMargin=dp(7);
+            hero.addView(deviceRelayToggle,deviceParams);
+            TextView remoteInfo=makeText(
+                "Команди з Windows і Watch7 проходять лише через твій "+
+                "авторизований Cloudflare Relay. JARVIS Finance зберігається "+
+                "в одній захищеній базі на Pixel.",
+                11,MUTED,Gravity.START,false);
+            hero.addView(remoteInfo);
             Button batterySettings = secondaryButton(
                 "🔋 Налаштування батареї для фонової роботи",
                 () -> {
