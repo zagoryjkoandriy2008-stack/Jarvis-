@@ -12,6 +12,10 @@
     <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="System.Speech" Version="9.0.11" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
     <PackageReference Include="NAudio" Version="2.2.1" />
