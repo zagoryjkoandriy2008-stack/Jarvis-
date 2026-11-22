@@ -343,4 +343,22 @@ try {
     throw new Exception("v2 blank app name accepted");
 } catch(ArgumentException){assertions++;}
 
+
+var foregroundGate=new MacroForegroundTransition();
+foregroundGate.Baseline("chrome");
+Check(!foregroundGate.TryObserve("chrome",out _),
+    "foreground process unchanged must not trigger");
+Check(foregroundGate.TryObserve("jarvis.windows",out var ownAppEvent)
+      && ownAppEvent=="app.active:jarvis.windows",
+    "switching into Jarvis updates foreground baseline");
+Check(foregroundGate.TryObserve("chrome",out var resumedAppEvent)
+      && resumedAppEvent=="app.active:chrome",
+    "switching back to same app after Jarvis triggers again");
+Check(!foregroundGate.TryObserve("chrome",out _),
+    "same foreground app must not launch macro twice");
+Check(!foregroundGate.TryObserve("../../cmd",out _),
+    "unsafe process identifier rejected");
+foregroundGate.Reset();
+Check(foregroundGate.TryObserve("notepad",out _),
+    "foreground reset permits next explicit transition");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
