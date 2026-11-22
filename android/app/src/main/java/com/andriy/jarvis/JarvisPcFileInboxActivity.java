@@ -48,7 +48,7 @@ public final class JarvisPcFileInboxActivity extends Activity {
         status=new TextView(this);
         status.setTextColor(Color.WHITE);
         status.setTextSize(16);
-        status.setText("📂 Файли з Windows\nДані доступні до 2 хвилин. Ліміт 1 МіБ.");
+        status.setText("📂 Обмін файлами Windows ↔ Pixel\nДані доступні до 2 хвилин. Ліміт 1 МіБ.");
         layout.addView(status);
         Button refresh=new Button(this);
         refresh.setText("🔄 Перевірити файл");
