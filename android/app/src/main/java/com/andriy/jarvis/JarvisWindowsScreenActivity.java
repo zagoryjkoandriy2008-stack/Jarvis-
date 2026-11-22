@@ -148,8 +148,11 @@ public final class JarvisWindowsScreenActivity extends Activity {
                         }else ready.recycle();
                     });
                 } else if(System.currentTimeMillis()-lastFrame>5000) {
-                    showStatus(session,"Немає кадрів. На Windows увімкни "+
-                        "«Дозволити перегляд екрана» і залиш JARVIS відкритим.");
+                    // Never leave an old screenshot looking live after the
+                    // desktop stops publishing or the phone loses transport.
+                    clearFrame(session);
+                    showStatus(session,"Немає нових кадрів. Перегляд призупинено. "+
+                        "На Windows перевір дозвіл передачі екрана.");
                     lastFrame=System.currentTimeMillis();
                 }
                 errors=0;
@@ -159,6 +162,14 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 break;
             }catch(Exception failure) {
                 if(!visible||!session.equals(activeSession))break;
+                if(failure instanceof IllegalStateException &&
+                   failure.getMessage()!=null &&
+                   failure.getMessage().contains("Сеанс перегляду завершився")) {
+                    clearFrame(session);
+                    showStatus(session,"Windows або Pixel завершив перегляд. "+
+                        "Для нового сеансу закрий і відкрий екран знову.");
+                    break;
+                }
                 errors++;
                 if(errors>=4) {
                     showStatus(session,"Зв'язок з екраном перервано: "+
@@ -176,6 +187,13 @@ public final class JarvisWindowsScreenActivity extends Activity {
         if(!displayed && visible && session.equals(activeSession))
             showStatus(session,"Немає зображення. Перевір дозвіл на Windows "+
                 "та налаштування приватного Cloudflare Relay.");
+    }
+
+    private void clearFrame(String session) {
+        ui.post(()->{
+            if(visible && session.equals(activeSession) && screen!=null)
+                screen.setImageDrawable(null);
+        });
     }
 
     private void showStatus(String session,String message) {
