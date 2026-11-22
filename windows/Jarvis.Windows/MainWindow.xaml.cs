@@ -250,6 +250,16 @@ public partial class MainWindow : Window {
             FileExchangeStatus.Text="Передавання не виконано: "+error.Message;
         }
     }
+    private async void RefreshSystemStatus_Click(object sender,RoutedEventArgs e) {
+        try {
+            SystemStatusReport.Text="Зчитую навантаження Windows…";
+            SystemStatusReport.Text=await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token);
+        }catch(OperationCanceledException) {
+            SystemStatusReport.Text="Перевірку скасовано.";
+        }catch(Exception error) {
+            SystemStatusReport.Text="Не вдалося отримати показники: "+error.Message;
+        }
+    }
     private async void AnalyzeScreenButton_Click(object sender,RoutedEventArgs e) {
         await HandleUtteranceAsync("проаналізуй екран",forceComputer:true);
     }
@@ -314,7 +324,9 @@ public partial class MainWindow : Window {
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
             case CommandKind.SystemStatus:
-                Reply(await WindowsSystemMonitor.SnapshotAsync(token),false);break;
+                var systemReport=await WindowsSystemMonitor.SnapshotAsync(token);
+                SystemStatusReport.Text=systemReport;
+                Reply(systemReport,false);break;
             case CommandKind.Wait:
                 await Task.Delay(TimeSpan.FromSeconds(command.Value),token);
                 Reply("Пауза завершилась.",false);break;
@@ -604,7 +616,7 @@ public partial class MainWindow : Window {
     }
 
     /** Execute remote commands only from the authenticated private relay,
-     * not from AI output. Never remotely type into another app, run macros,
+     * not from AI output. Only predefined safe macros; never type into another app,
      * launch arbitrary programs, or mutate finance on this Windows machine. */
     private async Task<DeviceRelayClient.RemoteResult> HandleRemoteOnUiAsync(
         DeviceRelayClient.RemoteCommand request) {
@@ -637,8 +649,11 @@ public partial class MainWindow : Window {
                 await RunMacroAsync(remoteMacro,_lifetime.Token);
                 return new(true,"Windows виконав макрос: "+remoteMacro.Trigger);
             }
-            if(command.Kind==CommandKind.SystemStatus)
-                return new(true,await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token));
+            if(command.Kind==CommandKind.SystemStatus) {
+                var report=await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token);
+                SystemStatusReport.Text=report;
+                return new(true,report);
+            }
             await ExecuteAsync(command,_lifetime.Token);
             return new(true,"Windows обробив: "+request.Command);
         }catch(OperationCanceledException) {
