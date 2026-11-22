@@ -1,9 +1,7 @@
 name: JARVIS Windows (portable desktop prototype)
+# Building a downloadable EXE/ZIP is MANUAL ONLY by explicit user command.
+# Source edits must never automatically compile/publish desktop releases.
 on:
-  push:
-    paths:
-      - 'windows/**'
-      - '.github/workflows/jarvis-windows.yml'
   workflow_dispatch:
 
 permissions:
