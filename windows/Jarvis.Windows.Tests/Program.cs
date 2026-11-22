@@ -138,4 +138,20 @@ foreach(var (phrase,expected) in new (string,string)[]{
     Check(DeviceRouting.EffectiveTarget(JarvisDevice.Watch,parsed.Kind)
         ==JarvisDevice.Watch,"saved playlist remains on Watch when selected");
 }
+foreach(var (speech,kind,value,name) in new (string,CommandKind,int,string)[]{
+    ("натисни кнопку Пошук",CommandKind.ClickNamed,0,"Пошук"),
+    ("натисни на кнопку Відтворити",CommandKind.ClickNamed,0,"Відтворити"),
+    ("клікни Нова вкладка",CommandKind.ClickNamed,0,"Нова вкладка"),
+    ("прокрути вниз",CommandKind.ScrollPage,1,""),
+    ("свайпни вгору",CommandKind.ScrollPage,0,""),
+    ("пролистай вверх",CommandKind.ScrollPage,0,"")
+}) {
+    var parsed=CommandRouter.Parse(speech);
+    Check(parsed.Kind==kind,"Windows UIA command parse: "+speech);
+    Check(parsed.Value==value,"scroll direction: "+speech);
+    if(name.Length>0)Check(parsed.Argument==name,
+        "UIA control name must preserve exact text: "+speech);
+}
+Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,CommandKind.ClickNamed)
+    ==JarvisDevice.Computer,"UI automation stays local on PC");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
