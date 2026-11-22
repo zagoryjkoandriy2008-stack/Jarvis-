@@ -300,4 +300,27 @@ Check(SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","windows.lock",true
 signedPolicy.EnableSignedRelay=false;
 Check(!SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","system.status",false),
     "v2 locally disabled blocks read-only too");
+
+var nowMacro=DateTimeOffset.UtcNow;
+var eventMacro=MacroV2Engine.New("Мережева подія","мережевий тест","","",
+    "гучність 20","network.online",120);
+Check(MacroV2Engine.EventDue(eventMacro,"network.online",nowMacro),
+    "v2 event trigger fires once when first enabled");
+Check(!MacroV2Engine.EventDue(eventMacro,"network.offline",nowMacro),
+    "v2 unrelated network event does not fire");
+eventMacro.LastRun=nowMacro;
+Check(!MacroV2Engine.EventDue(eventMacro,"network.online",nowMacro.AddSeconds(40)),
+    "v2 event cooldown blocks repeat");
+Check(MacroV2Engine.EventDue(eventMacro,"network.online",nowMacro.AddSeconds(121)),
+    "v2 event cooldown allows next event");
+Check(!MacroV2Engine.CooldownElapsed(eventMacro,nowMacro.AddSeconds(-1)),
+    "v2 clock rollback fails closed");
+try {
+    MacroV2Engine.New("Мережева подія","тест","","","гучність 20","network.unknown");
+    throw new Exception("unknown macro event accepted");
+}catch(ArgumentException){assertions++;}
+try {
+    MacroV2Engine.New("Мережева подія","тест","","","гучність 20","network.online",-1);
+    throw new Exception("negative macro cooldown accepted");
+}catch(ArgumentException){assertions++;}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
