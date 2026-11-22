@@ -143,6 +143,10 @@
             <TextBox x:Name="MacroV2Name" Margin="0,6" ToolTip="Назва: Робочий режим"/>
             <TextBox x:Name="MacroV2Trigger" Margin="0,6" ToolTip="Голосовий тригер: робота"/>
             <TextBox x:Name="MacroV2Schedule" Margin="0,6" ToolTip="Розклад HH:mm або порожньо"/>
+            <TextBlock Text="Тригер за подією: network.online або network.offline (необов'язково)" TextWrapping="Wrap"/>
+            <TextBox x:Name="MacroV2Event" Margin="0,6" ToolTip="network.online / network.offline"/>
+            <TextBlock Text="Мінімальна пауза між запусками (секунди, 0–86400)"/>
+            <TextBox x:Name="MacroV2Cooldown" Text="60" Margin="0,6"/>
             <TextBlock Text="Умови: день=пн,вт; час=09:00-18:00; інтернет=так; процес=notepad"/>
             <TextBox x:Name="MacroV2Conditions" Height="70" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" Margin="0,6"/>

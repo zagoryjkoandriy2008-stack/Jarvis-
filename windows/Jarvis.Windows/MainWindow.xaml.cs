@@ -61,6 +61,7 @@ public partial class MainWindow : Window {
     private HwndSource? _source;
     private bool _busy;
     private bool _runningMacro;
+    private readonly MacroEventService _macroEvents=new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint pid);
@@ -90,9 +91,13 @@ public partial class MainWindow : Window {
             if(!macro.Conditions.All(MacroCondition)) {
                 Status("Умови запуску v2 не виконані.");return;
             }
-            if(scheduled) {
-                macro.LastRun=DateTimeOffset.Now;_store.Save(_state);
+            if(!MacroV2Engine.CooldownElapsed(macro,DateTimeOffset.Now)) {
+                Status("Макрос v2: обмеження частоти запусків ще активне.");return;
             }
+            // Claim before any side effect; restart or network bounce cannot
+            // cause a duplicate sequence while cooldown is active.
+            macro.LastRun=DateTimeOffset.Now;_store.Save(_state);
+            if(scheduled)Status("Запускаю макрос v2 за розкладом: "+macro.Name);
             await RunMacroV2Async(macro,operation.Token);
             Reply("Макрос v2 виконано: "+macro.Name,false);
         }catch(OperationCanceledException) {Status("Макрос v2 скасовано.");}
@@ -221,6 +226,18 @@ public partial class MainWindow : Window {
         RefreshFinance();
         RefreshMacros();
         _=RunMacroV2ScheduleAsync(_lifetime.Token);
+        _macroEvents.Triggered+=eventName=>{
+            if(Dispatcher.HasShutdownStarted)return;
+            Dispatcher.BeginInvoke(new Action(async()=>{
+                if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+                var eligible=_state.MacrosV2.Where(m=>
+                    MacroV2Engine.EventDue(m,eventName,DateTimeOffset.Now))
+                    .Take(3).ToArray();
+                foreach(var candidate in eligible)
+                    await RunMacroV2ExclusiveAsync(candidate,false);
+            }));
+        };
+        _macroEvents.Start();
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
         _floating=new FloatingOrb();
         _floating.ListenRequested+=ToggleListening;
@@ -267,6 +284,7 @@ public partial class MainWindow : Window {
         if(!_allowExit && _state.Settings.MinimizeToTray) {
             e.Cancel=true;Hide();return;
         }
+        _macroEvents.Dispose();
         _wakeGeneration++;
         _wake.Dispose();
         _tray?.Dispose();_tray=null;
@@ -406,6 +424,11 @@ public partial class MainWindow : Window {
             var macro2=MacroV2Engine.Match(_state,raw);
             var macro=MacroEngine.Match(_state,raw);
             if(macro2!=null && _target==JarvisDevice.Computer) {
+                if(!MacroV2Engine.CooldownElapsed(macro2,DateTimeOffset.Now))
+                    throw new InvalidOperationException("Макрос v2: cooldown ще активний.");
+                if(!macro2.Conditions.All(MacroCondition))
+                    throw new InvalidOperationException("Умови макросу v2 не виконані.");
+                macro2.LastRun=DateTimeOffset.Now;_store.Save(_state);
                 await RunMacroV2Async(macro2,operation.Token);
                 Reply("Макрос v2 «"+macro2.Name+"» виконано.");
             } else if(macro!=null && _target==JarvisDevice.Computer) {
@@ -627,7 +650,9 @@ public partial class MainWindow : Window {
         MacroV2List.ItemsSource=null;
         MacroV2List.ItemsSource=_state.MacrosV2.Select(m=>
             m.Name+" | голос: "+m.Trigger+
-            (m.ScheduleLocal.Length>0?" | щодня "+m.ScheduleLocal:"")).ToArray();
+            (m.ScheduleLocal.Length>0?" | щодня "+m.ScheduleLocal:"")+
+            (m.EventTrigger.Length>0?" | подія "+m.EventTrigger:"")+
+            " | cooldown "+m.CooldownSeconds+" с").ToArray();
         MacroList.ItemsSource=null;
         MacroList.ItemsSource=_state.Macros.Select(m=>
             m.Trigger+" → "+string.Join(" → ",m.Actions)).ToList();
@@ -682,8 +707,11 @@ public partial class MainWindow : Window {
     }
     private void SaveMacroV2Button_Click(object sender,RoutedEventArgs e) {
         try {
+            if(!int.TryParse(MacroV2Cooldown.Text.Trim(),out var cooldownSeconds))
+                throw new ArgumentException("Cooldown: число секунд від 0 до 86400.");
             var macro=MacroV2Engine.New(MacroV2Name.Text,MacroV2Trigger.Text,
-                MacroV2Schedule.Text,MacroV2Conditions.Text,MacroV2Steps.Text);
+                MacroV2Schedule.Text,MacroV2Conditions.Text,MacroV2Steps.Text,
+                MacroV2Event.Text,cooldownSeconds);
             _state.MacrosV2.RemoveAll(m=>m.Name.Equals(macro.Name,StringComparison.OrdinalIgnoreCase));
             _state.MacrosV2.Add(macro);_store.Save(_state);
             RefreshMacros();Status("Макрос v2 збережено.");
