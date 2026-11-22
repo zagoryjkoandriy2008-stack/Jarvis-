@@ -1,9 +1,27 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
 using Jarvis.Windows.Core;
 namespace Jarvis.Windows;
 
 public partial class FloatingOrb : Window {
+    private const int GwlExstyle=-20;
+    private const int WsExNoActivate=0x08000000;
+    [DllImport("user32.dll",EntryPoint="GetWindowLongW",SetLastError=true)]
+    private static extern int GetWindowLong(IntPtr hwnd,int index);
+    [DllImport("user32.dll",EntryPoint="SetWindowLongW",SetLastError=true)]
+    private static extern int SetWindowLong(IntPtr hwnd,int index,int style);
+
+    protected override void OnSourceInitialized(EventArgs e) {
+        base.OnSourceInitialized(e);
+        // Clicking the floating microphone must NOT steal foreground focus
+        // from Spotify, Explorer, or the app whose button JARVIS will click.
+        var hwnd=new WindowInteropHelper(this).Handle;
+        int style=GetWindowLong(hwnd,GwlExstyle);
+        SetWindowLong(hwnd,GwlExstyle,style|WsExNoActivate);
+    }
+
     public event Action? ListenRequested;
     public event Action? ShowRequested;
     public event Action? HideRequested;
