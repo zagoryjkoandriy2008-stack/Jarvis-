@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 public final class JarvisDeviceCenterActivity extends Activity {
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private TextView status,watchText;
+    private JarvisWearPhoneLink watchLink;
     private void addButton(LinearLayout p,String text,Class<?> destination) {
         Button b=new Button(this);b.setText(text);
         b.setOnClickListener(v->startActivity(new Intent(this,destination)));
@@ -32,7 +33,7 @@ public final class JarvisDeviceCenterActivity extends Activity {
         super.onCreate(saved);
         if(getPackageManager().hasSystemFeature(
            android.content.pm.PackageManager.FEATURE_WATCH)){
-            finish();return;
+            showWatchCenter();return;
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         ScrollView scroll=new ScrollView(this);
@@ -72,6 +73,72 @@ public final class JarvisDeviceCenterActivity extends Activity {
         setContentView(scroll);
         refresh();
     }
+    /** Wear OS device hub uses Pixel as the only authenticated cloud bridge. */
+    private void showWatchCenter() {
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        ScrollView scroll=new ScrollView(this);
+        LinearLayout panel=new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(18,14,18,18);
+        panel.setBackgroundColor(Color.rgb(12,25,44));
+        scroll.addView(panel);
+        TextView heading=new TextView(this);
+        heading.setText("⌚ JARVIS · Пристрої");
+        heading.setTextColor(Color.WHITE);
+        heading.setTextSize(16);
+        panel.addView(heading);
+        TextView local=new TextView(this);
+        local.setTextColor(Color.LTGRAY);
+        local.setTextSize(13);
+        local.setText("Watch7: заряд "+battery()+".");
+        panel.addView(local);
+        TextView linkStatus=new TextView(this);
+        linkStatus.setTextSize(13);
+        linkStatus.setTextColor(Color.WHITE);
+        linkStatus.setText("Pixel: зв'язок ще не перевірено.");
+        panel.addView(linkStatus);
+        TextView pcStatus=new TextView(this);
+        pcStatus.setTextSize(13);
+        pcStatus.setTextColor(Color.WHITE);
+        pcStatus.setText("Windows: ще не запитано.");
+        panel.addView(pcStatus);
+        Button refresh=new Button(this);
+        refresh.setText("⟳ Перевірити");
+        refresh.setOnClickListener(v->{
+            pcStatus.setText("Запитую Windows через Pixel…");
+            local.setText("Watch7: заряд "+battery()+".");
+            Wearable.getNodeClient(this).getConnectedNodes()
+                .addOnSuccessListener(nodes->{
+                    if(isFinishing()||isDestroyed())return;
+                    linkStatus.setText(nodes!=null&&!nodes.isEmpty()?
+                        "Wear Data Layer: "+nodes.size()+
+                        " вузол(ли); стан Pixel JARVIS ще невідомий.":
+                        "Pixel: немає підключених вузлів Wear Data Layer.");
+                }).addOnFailureListener(error->{
+                    if(!isFinishing()&&!isDestroyed())
+                        linkStatus.setText("Wear Data Layer: немає даних.");
+                });
+            if(watchLink==null)watchLink=new JarvisWearPhoneLink(this);
+            watchLink.assistant("__jarvis_pc__:покажи пристрої",(ok,detail)->
+                runOnUiThread(()->{
+                    if(!isFinishing()&&!isDestroyed())pcStatus.setText(
+                        (ok?"Windows: ":"Windows: не підтверджено. ")+
+                        (detail==null?"Немає відповіді.":detail));
+                }));
+        });
+        panel.addView(refresh);
+        Button back=new Button(this);
+        back.setText("← До JARVIS");
+        back.setOnClickListener(v->finish());
+        panel.addView(back);
+        TextView note=new TextView(this);
+        note.setTextColor(Color.LTGRAY);
+        note.setTextSize(11);
+        note.setText("Windows доступний через спарений Pixel. Закриття цієї панелі не вимикає JARVIS.");
+        panel.addView(note);
+        setContentView(scroll);
+    }
+
     private String battery(){
         try {
             Intent i=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
@@ -128,5 +195,9 @@ public final class JarvisDeviceCenterActivity extends Activity {
             });
         });
     }
-    @Override protected void onDestroy(){io.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){
+        if(watchLink!=null)watchLink.closePreservingMode();
+        io.shutdownNow();
+        super.onDestroy();
+    }
 }
