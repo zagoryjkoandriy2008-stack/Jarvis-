@@ -1,0 +1,41 @@
+name: JARVIS Android compile-only (NO APK, EXE, install, or deploy)
+# This task compiles Java and generated Android resources. It DOES NOT assemble
+# or publish any application package, run a release build, or install an app.
+on:
+  push:
+    paths:
+      - 'android/app/src/main/java/**'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/build.gradle'
+      - '.github/workflows/jarvis-android-java-compile-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-java-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+      - uses: android-actions/setup-android@v3
+      - name: Install API 36 compiler and build tools (no emulator)
+        run: |
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Compile Java and Android resources only (NEVER assemble APK)
+        run: |
+          gradle -p android :app:compileDebugJavaWithJavac --no-daemon --stacktrace
+      - name: Verify that no Android package was produced
+        if: always()
+        run: |
+          if find android/app/build -type f \( -iname '*.apk' -o -iname '*.aab' -o -iname '*.exe' \) 2>/dev/null | grep -q .; then
+            echo "::error::Unexpected packaged application. Do not publish."
+            exit 1
+          fi
+          echo 'No APK, AAB or EXE generated; Java compile-only check complete.'
