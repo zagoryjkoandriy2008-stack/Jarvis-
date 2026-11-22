@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Jarvis.Windows/Core/CommandRouter.cs" Link="Core/CommandRouter.cs" />
+    <Compile Include="../Jarvis.Windows/Core/LocalState.cs" Link="Core/LocalState.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroEngine.cs" Link="Core/MacroEngine.cs" />
+    <Compile Include="../Jarvis.Windows/Core/AiClient.cs" Link="Core/AiClient.cs" />
+  </ItemGroup>
+</Project>
