@@ -99,4 +99,31 @@ Check(CommandRouter.Parse("нотатка купити каву").Argument=="к�
 Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,
     CommandRouter.Parse("скільки витратив за місяць").Kind)==JarvisDevice.Phone,
     "Finance queries still on Pixel");
+// A process crash or lost ACK may cause Cloudflare to redeliver the same
+// remote request. The Windows side effect must not execute twice.
+var receiptPath=System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+    "jarvis-receipt-test-"+Guid.NewGuid().ToString("N")+".json");
+try {
+    var first=new DeviceReceiptJournal(receiptPath);
+    var commandId=Guid.NewGuid();
+    Check(first.TryClaim(commandId,out var original)&&original==null,
+        "first remote request claims once");
+    var restartedBeforeAck=new DeviceReceiptJournal(receiptPath);
+    Check(!restartedBeforeAck.TryClaim(commandId,out var pending)&&
+        pending is {Ok:null},
+        "unconfirmed command does not reexecute after restart");
+    first.Complete(commandId,true,"команду виконано");
+    var restartedAfterAck=new DeviceReceiptJournal(receiptPath);
+    Check(!restartedAfterAck.TryClaim(commandId,out var completed) &&
+        completed is {Ok:true,Detail:"команду виконано"},
+        "successful command reuses original ACK after restart");
+    restartedAfterAck.Complete(commandId,false,"false duplicate");
+    var finalJournal=new DeviceReceiptJournal(receiptPath);
+    Check(!finalJournal.TryClaim(commandId,out var finalReceipt)&&
+        finalReceipt?.Ok==true,
+        "later failures must not overwrite original success");
+} finally {
+    if(System.IO.File.Exists(receiptPath))
+        System.IO.File.Delete(receiptPath);
+}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
