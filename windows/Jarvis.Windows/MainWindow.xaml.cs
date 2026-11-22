@@ -58,6 +58,54 @@ public partial class MainWindow : Window {
     private HwndSource? _source;
     private bool _busy;
     private bool _runningMacro;
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint pid);
+    private static string ActiveProcess() {
+        try {
+            var window=GetForegroundWindow();
+            if(window==IntPtr.Zero)return "";
+            GetWindowThreadProcessId(window,out var pid);
+            return System.Diagnostics.Process.GetProcessById((int)pid).ProcessName;
+        }catch(Exception){return "";}
+    }
+    private static bool MacroCondition(string condition) =>
+        MacroV2Engine.EvaluateCondition(condition,DateTimeOffset.Now,
+            System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable(),ActiveProcess());
+    private async Task RunMacroV2Async(MacroDefinitionV2 macro,CancellationToken cancel) {
+        if(!macro.Conditions.All(MacroCondition))
+            throw new InvalidOperationException("Умови запуску макросу v2 не виконані.");
+        await MacroV2Engine.RunAsync(macro,cmd=>ExecuteAsync(cmd,cancel),
+            MacroCondition,cancel);
+    }
+    private async Task RunMacroV2ExclusiveAsync(MacroDefinitionV2 macro,bool scheduled) {
+        if(_busy||_automationPaused)return;
+        _busy=true;
+        using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _operation=operation;
+        try {
+            if(!macro.Conditions.All(MacroCondition)) {
+                Status("Умови запуску v2 не виконані.");return;
+            }
+            if(scheduled) {
+                macro.LastRun=DateTimeOffset.Now;_store.Save(_state);
+            }
+            await RunMacroV2Async(macro,operation.Token);
+            Reply("Макрос v2 виконано: "+macro.Name,false);
+        }catch(OperationCanceledException) {Status("Макрос v2 скасовано.");}
+        catch(Exception ex){Reply("Макрос v2: "+ex.Message,false);}
+        finally{_busy=false;_operation=null;}
+    }
+    private async Task RunMacroV2ScheduleAsync(CancellationToken cancel) {
+        using var timer=new PeriodicTimer(TimeSpan.FromSeconds(30));
+        try {
+            while(await timer.WaitForNextTickAsync(cancel)) {
+                if(_busy||_automationPaused)continue;
+                var due=_state.MacrosV2.FirstOrDefault(m=>
+                    MacroV2Engine.ScheduleDue(m,DateTimeOffset.Now));
+                if(due!=null)await RunMacroV2ExclusiveAsync(due,true);
+            }
+        }catch(OperationCanceledException){}
+    }
     private bool _hotkeyRegistered;
     private const int HotkeyId=0x4A51;
     private const int WmHotkey=0x0312;
@@ -159,6 +207,7 @@ public partial class MainWindow : Window {
         _wake.Detected+=()=>Dispatcher.BeginInvoke(new Action(WakeDetected));
         RefreshFinance();
         RefreshMacros();
+        _=RunMacroV2ScheduleAsync(_lifetime.Token);
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
         _floating=new FloatingOrb();
         _floating.ListenRequested+=ToggleListening;
@@ -340,8 +389,12 @@ public partial class MainWindow : Window {
                 SetTarget(change.Value);
                 Reply("Обрано режим "+DeviceRouting.Label(change.Value)+".");
             } else {
+            var macro2=MacroV2Engine.Match(_state,raw);
             var macro=MacroEngine.Match(_state,raw);
-            if(macro!=null && _target==JarvisDevice.Computer) {
+            if(macro2!=null && _target==JarvisDevice.Computer) {
+                await RunMacroV2Async(macro2,operation.Token);
+                Reply("Макрос v2 «"+macro2.Name+"» виконано.");
+            } else if(macro!=null && _target==JarvisDevice.Computer) {
                 if(_runningMacro)throw new InvalidOperationException("Макрос уже виконується.");
                 await RunMacroAsync(macro,operation.Token);
                 Reply("Макрос «"+macro.Trigger+"» виконано.");
@@ -512,6 +565,10 @@ public partial class MainWindow : Window {
         "Локальні записи ранньої Preview (не синхронізовані, лише перегляд):\n"+
         _finance.Report()+"\nДля єдиного JARVIS Finance використовуй з'єднання з Pixel.";
     private void RefreshMacros() {
+        MacroV2List.ItemsSource=null;
+        MacroV2List.ItemsSource=_state.MacrosV2.Select(m=>
+            m.Name+" | голос: "+m.Trigger+
+            (m.ScheduleLocal.Length>0?" | щодня "+m.ScheduleLocal:"")).ToArray();
         MacroList.ItemsSource=null;
         MacroList.ItemsSource=_state.Macros.Select(m=>
             m.Trigger+" → "+string.Join(" → ",m.Actions)).ToList();
@@ -563,6 +620,21 @@ public partial class MainWindow : Window {
             _state.Macros.Add(macro);_store.Save(_state);
             RefreshMacros();Status("Макрос збережено.");
         }catch(Exception ex) {Reply(ex.Message,false);}
+    }
+    private void SaveMacroV2Button_Click(object sender,RoutedEventArgs e) {
+        try {
+            var macro=MacroV2Engine.New(MacroV2Name.Text,MacroV2Trigger.Text,
+                MacroV2Schedule.Text,MacroV2Conditions.Text,MacroV2Steps.Text);
+            _state.MacrosV2.RemoveAll(m=>m.Name.Equals(macro.Name,StringComparison.OrdinalIgnoreCase));
+            _state.MacrosV2.Add(macro);_store.Save(_state);
+            RefreshMacros();Status("Макрос v2 збережено.");
+        }catch(Exception ex){Reply("Макрос v2: "+ex.Message,false);}
+    }
+    private async void RunMacroV2Button_Click(object sender,RoutedEventArgs e) {
+        var macro=_state.MacrosV2.FirstOrDefault(m=>
+            m.Name.Equals(MacroV2Name.Text.Trim(),StringComparison.OrdinalIgnoreCase));
+        if(macro==null){Reply("Спочатку збережи макрос v2.",false);return;}
+        await RunMacroV2ExclusiveAsync(macro,false);
     }
     private async void RunMacroButton_Click(object sender,RoutedEventArgs e) {
         var macro=MacroEngine.Match(_state,MacroTrigger.Text);
