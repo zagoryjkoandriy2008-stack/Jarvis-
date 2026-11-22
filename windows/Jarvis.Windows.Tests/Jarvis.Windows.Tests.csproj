@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Jarvis.Windows/Core/CommandRouter.cs" Link="Core/CommandRouter.cs" />
+    <Compile Include="../Jarvis.Windows/Core/WindowsRemoteCommandPolicy.cs" Link="Core/WindowsRemoteCommandPolicy.cs" />
     <Compile Include="../Jarvis.Windows/Core/DeviceRouting.cs" Link="Core/DeviceRouting.cs" />
     <Compile Include="../Jarvis.Windows/Core/DeviceReceiptJournal.cs" Link="Core/DeviceReceiptJournal.cs" />
     <Compile Include="../Jarvis.Windows/Core/FinanceCommandClassifier.cs" Link="Core/FinanceCommandClassifier.cs" />
