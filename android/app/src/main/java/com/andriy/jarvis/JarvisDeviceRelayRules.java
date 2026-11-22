@@ -72,9 +72,10 @@ public final class JarvisDeviceRelayRules {
         if(s.contains("пароль")||s.contains("pin")||s.contains("токен")||
            s.contains("api key")||s.contains("розблок"))return false;
         return isFinance(utterance) || isNotes(utterance) ||
-            s.matches("^(?:увімкни|включи|ввімкни|умімкни)\\s+(?:пісню|песню|плейлист|плейліст)\\s+.+$") ||
-            s.equals("наступна пісня") || s.equals("інша пісня") ||
-            s.equals("не та пісня") ||
+            // Reuse the REAL Spotify parser, not a narrower regex. Includes
+            // "увімкни реп", "увімкни українське", title-only playlist
+            // aliases, and recognized Russian/English variants.
+            SpotifyMusicCommands.parse(utterance)!=null ||
             s.matches("^(?:постав таймер на|таймер)\\s+[0-9]{1,4}\\s+.+$") ||
             s.startsWith("гучність ") || s.startsWith("постав гучність на ") ||
             s.equals("ліхтарик") || s.equals("увімкни ліхтарик") ||
@@ -85,7 +86,7 @@ public final class JarvisDeviceRelayRules {
         if(utterance==null || utterance.length()>250)return false;
         String s=utterance.toLowerCase(Locale.ROOT).trim();
         return !s.contains("пароль") && !s.contains("pin") &&
-            (s.matches("(?iu)^(?:(?:джарвіс|дімон)\\s+)?(?:увімкни|включи|ввімкни|умімкни)\\s+(?:пісню|песню|плейлист|плейліст)\\s+.+$") ||
+            (JarvisWatchLocalCommands.spotifyOnWatch(utterance)!=null ||
             s.matches("(?iu)^(?:відкрий|відкрити)\\s+(?:spotify|спотіфай)$") ||
             s.matches("(?iu)^(?:знайди дорогу до|проклади маршрут до)\\s+.+$") ||
             s.matches("(?iu)^(?:скажи)\\s+.{1,100}$"));
