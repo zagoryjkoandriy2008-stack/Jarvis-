@@ -34,10 +34,11 @@ jobs:
           grep -Fq 'mapsRouteChoicesVisible()' android/app/src/main/java/com/andriy/jarvis/JarvisWatchMapsController.java
           grep -Fq 'SHORT_SWIPE_UP' android/app/src/main/java/com/andriy/jarvis/JarvisWatchMapsController.java
           grep -Fq 'MAPS_WALKING_FALLBACK_Y' android/app/src/main/java/com/andriy/jarvis/JarvisWatchUiRules.java
-          # Regression: Watch7 Spotify navigation is DOWN-ONLY; no right/up moves.
-          grep -Fq 'WatchSearchRecovery.DOWN_AGAIN' android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java
-          grep -Fq 'spotifySwipeDown(completion)' android/app/src/main/java/com/andriy/jarvis/JarvisWatchScreenService.java
-          ! grep -Eq 'SWIPE_HOME|SEARCH_RECOVER_RIGHT|SEARCH_RECOVER_UP|RETURN_FROM_SEARCH_PLAYLIST|spotifySwipeHome|spotifyRevealNavigation' android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java android/app/src/main/java/com/andriy/jarvis/JarvisWatchScreenService.java
+          # Current source: song search uses UP, without RIGHT.
+          # A named library playlist retains a separate DOWN scroll.
+          grep -Fq 'WatchSearchRecovery.UP_AGAIN' android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java
+          grep -Fq 'spotifySwipeUp(completion)' android/app/src/main/java/com/andriy/jarvis/JarvisWatchScreenService.java
+          ! grep -Eq 'SWIPE_HOME|SEARCH_RECOVER_RIGHT|SEARCH_RECOVER_DOWN|RETURN_FROM_SEARCH_PLAYLIST|spotifySwipeHome|spotifyRevealNavigation' android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java android/app/src/main/java/com/andriy/jarvis/JarvisWatchScreenService.java
           # Regression: Watch7 Maps route = confirmed destination -> short UP -> walking card.
           grep -Fq 'destinationSelected=true;' android/app/src/main/java/com/andriy/jarvis/JarvisWatchMapsController.java
           grep -Fq 'shortSwipeCompleted=true;' android/app/src/main/java/com/andriy/jarvis/JarvisWatchMapsController.java

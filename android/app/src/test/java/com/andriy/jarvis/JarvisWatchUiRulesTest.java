@@ -152,14 +152,14 @@ public final class JarvisWatchUiRulesTest {
         yes(JarvisWatchUiRules.allowBottomRouteModeTap(
             true,true,false,false,8000L),"fallback remains eligible until timeout");
         yes(JarvisWatchUiRules.watchSearchRecovery(0,false,true,false)==
-            JarvisWatchUiRules.WatchSearchRecovery.DOWN_AGAIN,
-            "after first DOWN reveal, second swipe is DOWN");
+            JarvisWatchUiRules.WatchSearchRecovery.UP_AGAIN,
+            "after first UP reveal, second swipe is UP");
         yes(JarvisWatchUiRules.watchSearchRecovery(1,false,true,false)==
-            JarvisWatchUiRules.WatchSearchRecovery.DOWN_AGAIN,
-            "third swipe is DOWN, never RIGHT or UP");
+            JarvisWatchUiRules.WatchSearchRecovery.UP_AGAIN,
+            "third swipe is UP, never RIGHT or DOWN");
         yes(JarvisWatchUiRules.watchSearchRecovery(2,false,true,false)==
             JarvisWatchUiRules.WatchSearchRecovery.EXHAUSTED,
-            "after three DOWNs the controller must stop");
+            "after three UPs the controller must stop");
         yes(JarvisWatchUiRules.watchSearchRecovery(0,true,true,false)==
             JarvisWatchUiRules.WatchSearchRecovery.NONE,
             "visible Search means no swipe at all");

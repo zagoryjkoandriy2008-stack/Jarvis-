@@ -507,7 +507,7 @@ public final class JarvisWatchScreenService extends AccessibilityService {
         REVEAL_NAV, FIND_LIBRARY_PLAYLIST, SCROLL_LIBRARY_PLAYLISTS,
         OPEN_SEARCH, FOCUS_SEARCH, SET_QUERY, VERIFY_QUERY,
         SUBMIT_QUERY, SELECT_RESULT, PLAY_PLAYLIST, VERIFY_PLAYLIST,
-        SEARCH_RECOVER_DOWN
+        SEARCH_RECOVER_UP
     }
     private static final String SPOTIFY_PKG="com.spotify.music";
 
@@ -666,8 +666,8 @@ public final class JarvisWatchScreenService extends AccessibilityService {
             root=service.spotifyRootUnderKeyboard();
         if(root==null)return Result.WAIT;
         switch(step) {
-            case SEARCH_RECOVER_DOWN:
-                return service.spotifySwipeDown(completion);
+            case SEARCH_RECOVER_UP:
+                return service.spotifySwipeUp(completion);
             case FIND_LIBRARY_PLAYLIST:
                 return service.spotifyFindLibraryPlaylist(root,title,completion);
             case SCROLL_LIBRARY_PLAYLISTS:
@@ -678,7 +678,10 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                 return search==null?Result.WAIT:
                     service.spotifyTapNode(search,completion);
             case REVEAL_NAV:
-                return service.spotifySwipeDown(completion);
+                // Song search reveals the Search icon with one UP gesture.
+                // Named library playlists keep their original DOWN flow.
+                return playlist?service.spotifySwipeDown(completion):
+                    service.spotifySwipeUp(completion);
             case FOCUS_SEARCH:
                 return service.spotifyFocusSearch(root,completion);
             case SET_QUERY:
@@ -799,6 +802,20 @@ public final class JarvisWatchScreenService extends AccessibilityService {
         p.moveTo(m.widthPixels*.5f,m.heightPixels*.18f);
         p.lineTo(m.widthPixels*.5f,m.heightPixels*.85f);
         return gesture(SPOTIFY_PKG,p,500L,cb);
+    }
+
+    /** Long UP gesture from the bottom of the Watch7 Spotify screen.
+     * This is used ONLY by the song-search reveal/recovery path; never
+     * perform RIGHT swipe or a blind Home reset. */
+    private Result spotifySwipeUp(Completion cb) {
+        if(appRoot(SPOTIFY_PKG)==null || spotifyImeVisible())
+            return Result.WAIT;
+        android.util.DisplayMetrics m=getResources().getDisplayMetrics();
+        if(m.widthPixels<160 || m.heightPixels<160)return Result.BLOCKED;
+        Path p=new Path();
+        p.moveTo(m.widthPixels*.50f,m.heightPixels*.85f);
+        p.lineTo(m.widthPixels*.50f,m.heightPixels*.16f);
+        return gesture(SPOTIFY_PKG,p,520L,cb);
     }
 
     private Result spotifySwipeDown(Completion cb) {

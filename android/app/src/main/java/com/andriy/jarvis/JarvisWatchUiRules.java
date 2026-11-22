@@ -107,17 +107,18 @@ public final class JarvisWatchUiRules {
                 .toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+"," "));
     }
 
-    /** Wear Spotify navigation is DOWN-ONLY. After one initial DOWN
-     * reveal, at most two additional DOWN gestures may run, only while
-     * the search icon is absent and Spotify has the foreground. */
-    public enum WatchSearchRecovery { NONE, DOWN_AGAIN, EXHAUSTED }
+    /** Wear Spotify SONG search is UP-ONLY. After the initial UP
+     * reveal, at most two further UP swipes are allowed only while
+     * Search is absent and Spotify remains foreground. Library playlist
+     * scrolling remains a separate, unchanged DOWN gesture. */
+    public enum WatchSearchRecovery { NONE, UP_AGAIN, EXHAUSTED }
 
     public static WatchSearchRecovery watchSearchRecovery(int missingSearchRounds,
             boolean searchVisible,boolean spotifyForeground,boolean imeVisible) {
         if(searchVisible || !spotifyForeground || imeVisible)
             return WatchSearchRecovery.NONE;
         return missingSearchRounds>=0 && missingSearchRounds<2
-            ?WatchSearchRecovery.DOWN_AGAIN:WatchSearchRecovery.EXHAUSTED;
+            ?WatchSearchRecovery.UP_AGAIN:WatchSearchRecovery.EXHAUSTED;
     }
 
     /** A result title belongs to its category subtitle only when both are

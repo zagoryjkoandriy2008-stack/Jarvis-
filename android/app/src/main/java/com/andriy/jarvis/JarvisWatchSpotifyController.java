@@ -160,8 +160,9 @@ public final class JarvisWatchSpotifyController {
             if(JarvisWatchScreenService.foreground(PACKAGE)) {
                 JarvisWatchSpotifyTrace.mark(context,"SPOTIFY_FOREGROUND");
                 if(kind==SpotifyMusicCommands.Kind.TRACK) {
-                    // Next result reuses visible search; otherwise find Search
-                    // by its icon or reveal it with DOWN-only gestures.
+                    // Reuse the previous results when possible. To find the
+                    // Spotify Search icon, reveal navigation with UP only;
+                    // no right/back Home-reset swipes on Watch7.
                     if(followup && JarvisWatchScreenService.spotifySearchResultsVisible(title))
                         run(JarvisWatchScreenService.SpotifyStep.SELECT_RESULT);
                     else if(JarvisWatchScreenService.spotifySearchAvailable())
@@ -169,7 +170,8 @@ public final class JarvisWatchSpotifyController {
                     else
                         run(JarvisWatchScreenService.SpotifyStep.REVEAL_NAV);
                 } else {
-                    // Library playlists use the same DOWN-only navigation.
+                    // Named library playlists retain their separate DOWN
+                    // navigation. The SONG-search path above is UP-only.
                     run(JarvisWatchScreenService.SpotifyStep.REVEAL_NAV);
                 }
                 return;
@@ -215,7 +217,7 @@ public final class JarvisWatchSpotifyController {
         private JarvisWatchScreenService.SpotifyStep next(
             JarvisWatchScreenService.SpotifyStep step) {
             switch(step) {
-                case SEARCH_RECOVER_DOWN:
+                case SEARCH_RECOVER_UP:
                     return JarvisWatchScreenService.SpotifyStep.OPEN_SEARCH;
                 case REVEAL_NAV:
                     return kind==SpotifyMusicCommands.Kind.PLAYLIST
@@ -303,16 +305,16 @@ public final class JarvisWatchSpotifyController {
                                 JarvisWatchScreenService.spotifySearchAvailable(),
                                 JarvisWatchScreenService.foreground(PACKAGE),
                                 JarvisWatchScreenService.spotifyKeyboardVisible());
-                        if(plan==JarvisWatchUiRules.WatchSearchRecovery.DOWN_AGAIN) {
+                        if(plan==JarvisWatchUiRules.WatchSearchRecovery.UP_AGAIN) {
                             searchRecoveryRound++;
-                            status("Пошуку не видно. Повторюю тільки свайп униз ("+
+                            status("Пошуку не видно. Повторюю тільки свайп угору ("+
                                 (searchRecoveryRound+1)+"/3)...");
                             MAIN.postDelayed(()->run(
-                                JarvisWatchScreenService.SpotifyStep.SEARCH_RECOVER_DOWN),
+                                JarvisWatchScreenService.SpotifyStep.SEARCH_RECOVER_UP),
                                 600L);
                         } else if(plan==JarvisWatchUiRules.WatchSearchRecovery.EXHAUSTED) {
-                            done(false,"Після трьох свайпів униз іконки пошуку Spotify "+
-                                "не знайдено. Вправо та вгору не свайпаю.");
+                            done(false,"Після трьох свайпів угору іконки пошуку Spotify "+
+                                "не знайдено. Вправо не свайпаю.");
                         } else MAIN.postDelayed(()->run(step),650L);
                     } else if(step==JarvisWatchScreenService.SpotifyStep.FIND_LIBRARY_PLAYLIST) {
                         // Search visible playlist names directly. The scroll is
@@ -443,7 +445,9 @@ public final class JarvisWatchSpotifyController {
             if(step==JarvisWatchScreenService.SpotifyStep.SCROLL_LIBRARY_PLAYLISTS)
                 playlistScrolls++;
             if(step==JarvisWatchScreenService.SpotifyStep.REVEAL_NAV)
-                status("Відкриваю пошук Spotify свайпом униз…");
+                status(kind==SpotifyMusicCommands.Kind.TRACK
+                    ?"Відкриваю пошук Spotify свайпом угору…"
+                    :"Відкриваю бібліотеку Spotify свайпом униз…");
             if(step==JarvisWatchScreenService.SpotifyStep.FIND_LIBRARY_PLAYLIST)
                 status("Знайшов плейлист «"+title+"». Відкриваю без пошуку.");
             if(step==JarvisWatchScreenService.SpotifyStep.OPEN_SEARCH)
@@ -455,7 +459,7 @@ public final class JarvisWatchSpotifyController {
             stageStart=SystemClock.elapsedRealtime();
             long delay=step==JarvisWatchScreenService.SpotifyStep.SUBMIT_QUERY?
                 1600L:step==JarvisWatchScreenService.SpotifyStep.REVEAL_NAV?
-                1400L:step==JarvisWatchScreenService.SpotifyStep.SEARCH_RECOVER_DOWN?
+                1400L:step==JarvisWatchScreenService.SpotifyStep.SEARCH_RECOVER_UP?
                 950L:step==JarvisWatchScreenService.SpotifyStep.SCROLL_LIBRARY_PLAYLISTS?
                 1100L:step==JarvisWatchScreenService.SpotifyStep.SET_QUERY?
                 1100L:step==JarvisWatchScreenService.SpotifyStep.SELECT_RESULT?
