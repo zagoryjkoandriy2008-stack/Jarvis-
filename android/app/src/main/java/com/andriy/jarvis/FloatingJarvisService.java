@@ -1194,6 +1194,27 @@ public final class FloatingJarvisService extends Service {
 
     private void executeCommand(String raw) {
         if (closing) return;
+        // "Покажи екран комп'ютера" is a LOCAL Pixel viewer action.
+        // It is not a request for Windows to click/type or to send frames to AI.
+        if(JarvisScreenViewCommands.open(raw)) {
+            if(!JarvisDeviceRelay.enabled(this)) {
+                reply("Увімкни зв'язок пристроїв у JARVIS на Pixel.");
+                return;
+            }
+            if(!new AiChatClient(this).isConfigured()) {
+                reply("Спочатку налаштуй приватний Cloudflare Worker.");
+                return;
+            }
+            try {
+                startActivity(new android.content.Intent(this,
+                    JarvisWindowsScreenActivity.class)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                message("🖥 Відкриваю перегляд екрана Windows на Pixel.");
+            }catch(RuntimeException error) {
+                reply("Не вдалося відкрити перегляд екрана Windows.");
+            }
+            return;
+        }
         JarvisDeviceRelayRules.Target selected=JarvisDeviceRelayRules.select(raw);
         if(selected!=JarvisDeviceRelayRules.Target.NONE) {
             JarvisDeviceTargetSession.select(selected);
