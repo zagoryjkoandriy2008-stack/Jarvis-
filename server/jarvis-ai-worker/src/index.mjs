@@ -75,7 +75,7 @@ function validAttachment(a) {
 function validateInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
   const mode = body.mode ?? 'chat';
-  if (!['chat','web','image','analysis'].includes(mode)) return null;
+  if (!['chat','web','image','analysis','desktop'].includes(mode)) return null;
   const message = typeof body.message === 'string' ? body.message.trim() : '';
   if (!message || message.length > MAX_MESSAGE_CHARS) return null;
   if (body.effort != null && !['none','low','medium','high'].includes(body.effort)) return null;
@@ -174,7 +174,7 @@ function createPayload(body, input, env) {
     instructions:INSTRUCTIONS,
     input, store:false,
     reasoning:{effort: mode === 'image' ? 'none' : body.effort || 'medium'},
-    max_output_tokens:mode === 'image' ? 400 : 4000,
+    max_output_tokens:mode === 'image' ? 400 : mode === 'desktop' ? 900 : 4000,
   };
   if (mode === 'web') {
     payload.tools = [{type:'web_search',search_context_size:'medium'}];

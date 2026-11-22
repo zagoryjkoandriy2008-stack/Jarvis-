@@ -145,7 +145,7 @@ public sealed class AiDesktopAgent {
             var screenshot=vision?WindowsScreenPublisher.CaptureForAi():null;
             progress?.Invoke("ШІ аналізує крок "+(i+1)+"/15…");
             string raw;
-            try {raw=await ai.AskAsync(endpoint,token,prompt,"analysis",cancel,
+            try {raw=await ai.AskAsync(endpoint,token,prompt,"desktop",cancel,
                     screenshot,ephemeral:true);}
             finally {if(screenshot!=null)
                 System.Security.Cryptography.CryptographicOperations.ZeroMemory(screenshot);}
