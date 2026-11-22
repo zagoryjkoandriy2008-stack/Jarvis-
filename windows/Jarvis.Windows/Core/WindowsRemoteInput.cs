@@ -13,6 +13,7 @@ namespace Jarvis.Windows.Core;
 public static class WindowsRemoteInput {
     private const uint InputMouse=0,InputKeyboard=1;
     private const uint MouseMove=0x0001,MouseLeftDown=0x0002,MouseLeftUp=0x0004;
+    private const uint MouseRightDown=0x0008,MouseRightUp=0x0010;
     private const uint MouseWheel=0x0800,MouseAbsolute=0x8000,MouseVirtual=0x4000;
     private const uint KeyUp=0x0002,KeyUnicode=0x0004;
     private const uint VkControl=0x11;
@@ -97,6 +98,10 @@ public static class WindowsRemoteInput {
             Send(Mouse(MouseLeftDown),Mouse(MouseLeftUp));
         }
     }
+    private static void RightClick(double x,double y) {
+        Move(x,y);
+        Send(Mouse(MouseRightDown),Mouse(MouseRightUp));
+    }
     private static void Drag(double x,double y,double x2,double y2) {
         Move(x,y);
         Send(Mouse(MouseLeftDown));
@@ -143,6 +148,9 @@ public static class WindowsRemoteInput {
                 break;
             case "double":
                 Tap(Number(e,"x"),Number(e,"y"),true);
+                break;
+            case "right":
+                RightClick(Number(e,"x"),Number(e,"y"));
                 break;
             case "drag":
                 Drag(Number(e,"x"),Number(e,"y"),
