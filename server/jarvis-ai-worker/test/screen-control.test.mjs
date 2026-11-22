@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {ScreenControlState,validScreenInput} from '../src/screen-control.mjs';
 import {ScreenRelayState} from '../src/screen-relay.mjs';
 const a='35c8d264-bca6-4a33-9155-84224d2fef11',b='35c8d264-bca6-4a33-9155-84224d2fef12';
+const c='35c8d264-bca6-4a33-9155-84224d2fef13';
 const event=(kind,rest={})=>({id:a,kind,...rest});
 async function call(relay,method,path,body){
   const res=await relay.fetch(new Request('https://example.test'+path,{
@@ -52,7 +53,7 @@ test('all remote input requires explicit Windows approval after active Pixel vie
   assert.equal((await call(relay,'GET',route('control/poll'))).json.events[0].kind,
     'right','right click delivered without replay');
   now+=130;
-  assert.equal((await call(relay,'POST',route('control/input'),{...event('key',{key:'ENTER'}),id:b})).code,202);
+  assert.equal((await call(relay,'POST',route('control/input'),{...event('key',{key:'ENTER'}),id:c})).code,202);
   now+=4600;
   assert.equal((await call(relay,'GET',route('control/poll'))).json.events.length,0,
       'delayed input must never click after reconnect');
