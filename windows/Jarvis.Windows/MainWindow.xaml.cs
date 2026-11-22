@@ -377,6 +377,7 @@ public partial class MainWindow : Window {
         _state.Settings.EnableScreenShare=false;
         EnableScreenShare.IsChecked=false;
         _store.Save(_state);
+        _=_screenPublisher.RevokeAsync();
         ScreenShareIndicator.Visibility=Visibility.Collapsed;
         StopScreenShareButton.Visibility=Visibility.Collapsed;
         _floating?.SetStreaming(false);
@@ -393,8 +394,11 @@ public partial class MainWindow : Window {
             _state.Settings.OnTop=StayOnTop.IsChecked==true;
             if(EnableScreenShare.IsChecked==true && EnableDeviceRelay.IsChecked!=true)
                 throw new InvalidOperationException("Спочатку дозволь зв'язок пристроїв через Cloudflare.");
+            bool previouslySharingAllowed=_state.Settings.EnableScreenShare;
             _state.Settings.EnableDeviceRelay=EnableDeviceRelay.IsChecked==true;
             _state.Settings.EnableScreenShare=EnableScreenShare.IsChecked==true;
+            if(previouslySharingAllowed && !_state.Settings.EnableScreenShare)
+                _=_screenPublisher.RevokeAsync();
             _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
             _state.Settings.VoiceName=VoiceChoices.SelectedItem as string??"";
             _state.Settings.RecognizerCulture=RecognizerChoices.SelectedItem as string??"";
