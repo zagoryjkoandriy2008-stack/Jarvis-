@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window {
     private readonly JarvisState _state;
     private readonly VoiceService _voice=new();
     private readonly AiClient _ai=new();
+    private readonly WindowsFileExchange _fileExchange=new();
     private readonly FinanceService _finance;
     private DeviceRelayClient? _relay;
     private readonly WindowsScreenPublisher _screenPublisher;
@@ -161,6 +163,7 @@ public partial class MainWindow : Window {
         _relay?.Dispose();
         _screenPublisher.Dispose();
         _ai.Dispose();
+        _fileExchange.Dispose();
         _lifetime.Dispose();
     }
 
@@ -200,6 +203,24 @@ public partial class MainWindow : Window {
         ChatHistory.ScrollToEnd();
     }
     private void Status(string detail)=>StatusText.Text=detail;
+    private async void SendFileToPixel_Click(object sender,RoutedEventArgs e) {
+        if(!_state.Settings.EnableDeviceRelay) {
+            FileExchangeStatus.Text="Спочатку ввімкни приватний Relay у налаштуваннях.";
+            return;
+        }
+        var picker=new OpenFileDialog {
+            Title="JARVIS — вибери файл для Pixel (до 1 МіБ)",
+            Multiselect=false,CheckFileExists=true,Filter="Усі файли|*.*"
+        };
+        if(picker.ShowDialog(this)!=true)return;
+        try {
+            FileExchangeStatus.Text="Надсилаю вибраний файл в тимчасовий Relay…";
+            FileExchangeStatus.Text=await _fileExchange.SendToPixelAsync(
+                picker.FileName,_state.Settings,_store,_lifetime.Token);
+        }catch(Exception error) {
+            FileExchangeStatus.Text="Передавання не виконано: "+error.Message;
+        }
+    }
     private async void AnalyzeScreenButton_Click(object sender,RoutedEventArgs e) {
         await HandleUtteranceAsync("проаналізуй екран");
     }
