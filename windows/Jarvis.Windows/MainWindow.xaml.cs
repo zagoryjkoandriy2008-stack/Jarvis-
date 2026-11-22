@@ -277,8 +277,8 @@ public partial class MainWindow : Window {
                 Reply("Макрос «"+macro.Trigger+"» виконано.");
             } else {
                 var cmd=CommandRouter.Parse(raw);
-                var destination=forceComputer?JarvisDevice.Computer:
-                    DeviceRouting.EffectiveTarget(_target,cmd.Kind);
+                var destination=forceComputer || cmd.Kind==CommandKind.AnalyzeScreen
+                    ?JarvisDevice.Computer:DeviceRouting.EffectiveTarget(_target,cmd.Kind);
                 if(destination!=JarvisDevice.Computer) {
                     if(!_state.Settings.EnableDeviceRelay || _relay==null)
                         throw new InvalidOperationException("Увімкни Cloudflare Relay у Налаштуваннях для керування іншими пристроями.");
@@ -617,33 +617,36 @@ public partial class MainWindow : Window {
             return new(false,"Користувач Windows вимкнув дистанційне керування.");
         if(_busy)return new(false,"JARVIS Windows зайнятий.");
         if(request.Origin is not ("phone" or "watch") ||
-           request.Target!="computer" || request.Command.Length>250)
+           request.Target!="computer" || request.Command.Length is <1 or >250 ||
+           request.Command.Any(char.IsControl))
             return new(false,"Джерело або команда не дозволені.");
+
+        // Evaluate only preconfigured owner macros or narrow built-in actions.
+        // A voice relay cannot create macros, type text, click UI or invoke AI.
         var remoteMacro=MacroEngine.Match(_state,request.Command);
-        if(remoteMacro!=null) {
-            try {
-                await RunMacroAsync(remoteMacro,_lifetime.Token);
-                return new(true,"Windows виконав макрос: "+remoteMacro.Trigger);
-            }catch(Exception error) {
-                return new(false,"Макрос Windows не виконано: "+error.Message);
-            }
-        }
         var command=CommandRouter.Parse(request.Command);
-        if(command.Kind is not (CommandKind.OpenApp or CommandKind.OpenSettings
-           or CommandKind.Volume or CommandKind.MediaToggle or CommandKind.MediaNext
-           or CommandKind.MediaPrevious or CommandKind.Speak or CommandKind.Timer
-           or CommandKind.WebSearch or CommandKind.SpotifySearch
-           or CommandKind.SpotifyPlaylist or CommandKind.SystemStatus))
+        if(remoteMacro==null && !WindowsRemoteCommandPolicy.IsAllowed(command.Kind))
             return new(false,"Команда не дозволена для дистанційного Windows. "+
                 "Фінанси завжди виконуються на Pixel.");
+
+        // Local and remote operations share the same busy gate, including
+        // remote macros. Release it even on cancellation or unexpected failure.
+        _busy=true;
         try {
+            if(remoteMacro!=null) {
+                await RunMacroAsync(remoteMacro,_lifetime.Token);
+                return new(true,"Windows виконав макрос: "+remoteMacro.Trigger);
+            }
             if(command.Kind==CommandKind.SystemStatus)
                 return new(true,await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token));
             await ExecuteAsync(command,_lifetime.Token);
             return new(true,"Windows обробив: "+request.Command);
+        }catch(OperationCanceledException) {
+            return new(false,"Windows: дистанційну дію скасовано.");
         }catch(Exception failure) {
             return new(false,"Windows: "+failure.Message);
+        }finally {
+            _busy=false;
         }
     }
-
 }
