@@ -21,6 +21,7 @@ public sealed class WindowsScreenPublisher : IDisposable {
     private readonly StateStore _store;
     private readonly HttpClient _http = new() {Timeout=TimeSpan.FromSeconds(10)};
     private bool _sharing;
+    private string? _lastSession;
     private bool _lastPermission;
     public event Action<bool,string>? ShareStatus;
     private static readonly int[] CaptureWidths={960,800,640,480};
@@ -52,6 +53,7 @@ public sealed class WindowsScreenPublisher : IDisposable {
         while(!cancellation.IsCancellationRequested) {
             try {
                 if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare) {
+                    if(_lastSession!=null)await RevokeAsync();
                     if(_sharing)Report(false,"Передавання екрана вимкнено.");
                     await Task.Delay(1500,cancellation);
                     continue;
@@ -69,6 +71,7 @@ public sealed class WindowsScreenPublisher : IDisposable {
                     using var json=JsonDocument.Parse(
                         await response.Content.ReadAsStringAsync(cancellation));
                     if(!json.RootElement.GetProperty("active").GetBoolean()) {
+                        _lastSession=null;
                         if(_sharing)Report(false,"Телефон завершив перегляд.");
                         await Task.Delay(1200,cancellation);
                         continue;
@@ -80,7 +83,12 @@ public sealed class WindowsScreenPublisher : IDisposable {
                     // capturing, including when changed in Windows Settings.
                     if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare)
                         continue;
+                    _lastSession=session;
                     var jpeg=CapturePrimaryScreen();
+                    if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare) {
+                        await RevokeAsync();
+                        continue;
+                    }
                     using var upload=new HttpRequestMessage(HttpMethod.Post,
                         new Uri(root,"/device/v1/screen/frame?session="+session));
                     upload.Headers.Authorization=
@@ -103,6 +111,30 @@ public sealed class WindowsScreenPublisher : IDisposable {
             catch(OperationCanceledException) {break;}
         }
         if(_sharing)Report(false,"Трансляцію завершено.");
+    }
+
+    /** An owner local-stop purges Cloudflare's last frame immediately, not
+     * after the five-second snapshot TTL. A disconnected client still expires. */
+    public async Task RevokeAsync() {
+        var session=Interlocked.Exchange(ref _lastSession,null);
+        if(string.IsNullOrEmpty(session))return;
+        try {
+            var (root,token)=Connection();
+            using var request=new HttpRequestMessage(HttpMethod.Post,
+                new Uri(root,"/device/v1/screen/revoke"));
+            request.Headers.Authorization=
+                new AuthenticationHeaderValue("Bearer",token);
+            request.Content=new StringContent(
+                JsonSerializer.Serialize(new {session}),System.Text.Encoding.UTF8,
+                "application/json");
+            using var response=await _http.SendAsync(request);
+            if(!response.IsSuccessStatusCode)
+                ShareStatus?.Invoke(false,
+                    "Екран вимкнено локально; Cloudflare очистить кадр після TTL.");
+        } catch(Exception) {
+            ShareStatus?.Invoke(false,
+                "Екран вимкнено локально; кадр у Cloudflare автоматично застаріє.");
+        }
     }
 
     private static byte[] CapturePrimaryScreen() {
