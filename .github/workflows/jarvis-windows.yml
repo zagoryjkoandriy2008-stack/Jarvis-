@@ -1,0 +1,50 @@
+name: JARVIS Windows (portable desktop prototype)
+on:
+  push:
+    paths:
+      - 'windows/**'
+      - '.github/workflows/jarvis-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jarvis-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test voice command parser and safe macro contracts
+        shell: pwsh
+        run: dotnet run --project windows/Jarvis.Windows.Tests/Jarvis.Windows.Tests.csproj --configuration Release
+      - name: Compile native WPF desktop application
+        shell: pwsh
+        run: dotnet build windows/Jarvis.Windows/Jarvis.Windows.csproj --configuration Release -p:TreatWarningsAsErrors=false
+      - name: Publish self-contained Windows x64 application
+        shell: pwsh
+        run: >
+          dotnet publish windows/Jarvis.Windows/Jarvis.Windows.csproj
+          --configuration Release --runtime win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:PublishTrimmed=false
+          --output output/win-x64
+      - name: Verify published EXE and include installation guidance
+        shell: pwsh
+        run: |
+          if (!(Test-Path output/win-x64/Jarvis.Windows.exe)) { throw 'Windows exe is missing' }
+          Copy-Item windows/README-WINDOWS.md output/win-x64/README-WINDOWS.md
+          Compress-Archive -Path output/win-x64/* -DestinationPath Jarvis-Windows-0.1.0-preview-win-x64.zip
+          Get-FileHash Jarvis-Windows-0.1.0-preview-win-x64.zip -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jarvis-Windows-0.1.0-preview-win-x64
+          path: Jarvis-Windows-0.1.0-preview-win-x64.zip
+          if-no-files-found: error
+          retention-days: 30
