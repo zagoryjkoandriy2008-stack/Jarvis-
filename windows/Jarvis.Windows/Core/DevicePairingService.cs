@@ -85,6 +85,20 @@ public sealed class DevicePairingService : IDisposable {
     }
     public Task<JsonDocument> SignedPostAsync(string path,object body,CancellationToken cancel) =>
         PostAsync(path,body,signed:true,cancel);
+    public sealed record AuthenticatedPresence(string Device,bool Online,
+        long? LastSeenMs,long TtlMs);
+    public async Task<AuthenticatedPresence> GetAuthenticatedPresenceAsync(
+            string device,CancellationToken cancel) {
+        if(device is not ("computer" or "phone" or "watch"))
+            throw new ArgumentException("Unknown device.");
+        using var data=await PostAsync("/device/v2/commands/status",
+            new {device},signed:true,cancel);
+        var value=data.RootElement;
+        return new(device,value.GetProperty("online").GetBoolean(),
+            value.GetProperty("lastSeenMs").ValueKind==JsonValueKind.Null?null:
+                value.GetProperty("lastSeenMs").GetInt64(),
+            value.GetProperty("ttlMs").GetInt64());
+    }
     public sealed record PhoneGrants(bool ReadOnly,bool Media,bool Apps,
         bool Locks,bool WatchDelegation);
     private static PhoneGrants ParseGrants(JsonElement root) {

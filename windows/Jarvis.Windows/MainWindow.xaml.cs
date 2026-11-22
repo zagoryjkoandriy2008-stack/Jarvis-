@@ -913,6 +913,27 @@ public partial class MainWindow : Window {
             return;
         }
         try {
+            if(_state.Settings.EnableSignedRelay) {
+                var phoneV2=await _pairing.GetAuthenticatedPresenceAsync(
+                    "phone",_lifetime.Token);
+                var pcV2=await _pairing.GetAuthenticatedPresenceAsync(
+                    "computer",_lifetime.Token);
+                static string Label(DevicePairingService.AuthenticatedPresence p) =>
+                    p.Online?"підписаний heartbeat, "+
+                        ((DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()-
+                          p.LastSeenMs.GetValueOrDefault())/1000)+" с тому":
+                        "не підтверджено; останній зв'язок "+
+                        (p.LastSeenMs.HasValue?
+                            DateTimeOffset.FromUnixTimeMilliseconds(
+                                p.LastSeenMs.Value).ToLocalTime().ToString("HH:mm:ss"):
+                            "немає даних");
+                DeviceStatusReport.Text="🖥 Windows v2: "+Label(pcV2)+
+                    "\n📱 Pixel v2: "+Label(phoneV2)+
+                    "\n⌚ Watch7: без окремого підписаного heartbeat. "+
+                    "Доступність Wear Data Layer перевіряє Pixel."+
+                    "\nСтарий Relay v1 не враховується в цьому статусі.";
+                return;
+            }
             var phone=await _relay.GetPresenceAsync(JarvisDevice.Phone,_lifetime.Token);
             var watch=await _relay.GetPresenceAsync(JarvisDevice.Watch,_lifetime.Token);
             DeviceStatusReport.Text="🖥 Windows: активний\n📱 Pixel: "+FormatPresence(phone)+
