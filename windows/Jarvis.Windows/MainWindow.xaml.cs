@@ -188,6 +188,7 @@ public partial class MainWindow : Window {
         SpeakReplies.IsChecked=_state.Settings.SpeakReplies;
         StayOnTop.IsChecked=_state.Settings.OnTop;
         EnableDeviceRelay.IsChecked=_state.Settings.EnableDeviceRelay;
+        EnableSignedRelay.IsChecked=_state.Settings.EnableSignedRelay;
         EnableScreenShare.IsChecked=_state.Settings.EnableScreenShare;
         EnableRemoteControl.IsChecked=_state.Settings.EnableRemoteControl;
         ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
@@ -751,6 +752,7 @@ public partial class MainWindow : Window {
             bool previouslySharingAllowed=_state.Settings.EnableScreenShare;
             bool previouslyControlAllowed=_state.Settings.EnableRemoteControl;
             _state.Settings.EnableDeviceRelay=EnableDeviceRelay.IsChecked==true;
+            _state.Settings.EnableSignedRelay=EnableSignedRelay.IsChecked==true;
             _state.Settings.EnableScreenShare=EnableScreenShare.IsChecked==true;
             _state.Settings.EnableRemoteControl=EnableRemoteControl.IsChecked==true;
             if(previouslyControlAllowed && !_state.Settings.EnableRemoteControl) {

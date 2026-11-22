@@ -190,6 +190,7 @@
             <TextBox x:Name="WorkerUrl" Margin="0,5,0,12"/>
             <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A4B4CD"/>
             <PasswordBox x:Name="WorkerToken" Background="#1D304A" Foreground="White" Padding="10" Margin="0,5,0,12"/>
+            <CheckBox x:Name="EnableSignedRelay" Content="Використовувати підписані команди v2 з Pixel/Watch7 після спарювання (потрібне налаштування на Pixel)" Margin="0,8"/>
             <CheckBox x:Name="EnableDeviceRelay" Content="Дозволити з'єднання з Pixel і Watch7 через приватний Cloudflare Relay" Margin="0,8" ToolTip="Команди передаються через твій Cloudflare Worker. Увімкни тільки для власного акаунта."/>
             <CheckBox x:Name="EnableScreenShare" Content="🖥 Дозволити Pixel переглядати мій екран (тільки за активного запиту)" Margin="0,8" ToolTip="Містить усі видимі вікна, включно з особистими даними; передається HTTPS через твій Cloudflare Worker."/>
             <TextBlock Text="🔒 Кадри не зберігаються. Для початку потрібна кнопка на Pixel; індикатор трансляції видно у Windows. Працює лише поки JARVIS відкритий." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>

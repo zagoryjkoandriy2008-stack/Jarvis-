@@ -83,6 +83,8 @@ public sealed class DevicePairingService : IDisposable {
         await using var stream=await response.Content.ReadAsStreamAsync(cancel);
         return await JsonDocument.ParseAsync(stream,cancellationToken:cancel);
     }
+    public Task<JsonDocument> SignedPostAsync(string path,object body,CancellationToken cancel) =>
+        PostAsync(path,body,signed:true,cancel);
     public sealed record PairingStart(Guid Id,string Code,int ExpiresMs);
     public sealed record PendingState(string State,string? PhoneFingerprint,int ExpiresMs);
     public async Task<PairingStart> BeginAsync(CancellationToken cancel) {

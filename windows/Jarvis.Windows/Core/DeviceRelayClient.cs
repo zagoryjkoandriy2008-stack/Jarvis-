@@ -17,6 +17,7 @@ public sealed class DeviceRelayClient : IDisposable {
     private readonly StateStore _store;
     private readonly JarvisSettings _settings;
     private readonly DeviceReceiptJournal _receipts=new();
+    private readonly DevicePairingService _signed;
     public event Func<RemoteCommand,Task<RemoteResult>>? CommandReceived;
     public event Action<string>? Status;
 
@@ -24,6 +25,7 @@ public sealed class DeviceRelayClient : IDisposable {
     public sealed record RemoteResult(bool Ok,string Detail);
     public DeviceRelayClient(StateStore store,JarvisSettings settings) {
         _store=store;_settings=settings;
+        _signed=new DevicePairingService(store,settings);
     }
     private (Uri Url,string Token) Credentials() {
         var endpoint=_settings.WorkerUrl;
@@ -106,6 +108,71 @@ public sealed class DeviceRelayClient : IDisposable {
         return new(false,"Команду доставлено до черги, але пристрій не підтвердив виконання за 30 с.");
     }
 
+    private static string SignedCommandText(JsonElement value) {
+        var kind=value.GetProperty("kind").GetString()??"";
+        var payload=value.GetProperty("payload");
+        return kind switch {
+            "system.status"=>"стан комп'ютера",
+            "devices.list"=>"покажи пристрої",
+            "media.toggle"=>"пауза",
+            "media.next"=>"наступна пісня",
+            "media.previous"=>"попередня пісня",
+            "volume.set" when payload.TryGetProperty("value",out var percent)
+                && percent.TryGetInt32(out var amount) && amount is >=0 and <=100 =>
+                    "гучність "+amount,
+            "windows.lock"=>"заблокуй windows",
+            "monitor.off"=>"вимкни монітор",
+            _=>"" // unknown type: NEVER turn into freeform model/voice command
+        };
+    }
+    private async Task PollSignedAsync(CancellationToken cancel) {
+        using var pending=await _signed.SignedPostAsync(
+            "/device/v2/commands/poll",new {device="computer"},cancel);
+        var items=pending.RootElement.GetProperty("items");
+        foreach(var item in items.EnumerateArray()){
+            cancel.ThrowIfCancellationRequested();
+            var id=Guid.Parse(item.GetProperty("requestId").GetString()!);
+            var now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var expires=item.GetProperty("expiresAt").GetInt64();
+            var origin=item.GetProperty("origin").GetString()??"";
+            var raw=SignedCommandText(item);
+            var risk=item.GetProperty("requiresApproval").GetBoolean();
+            var kind=item.GetProperty("kind").GetString()??"";
+            var status="failed";var errorCode="POLICY_DENIED";var detail="Дія недозволена.";
+            if(expires>now && origin is "watch" or "phone" && raw.Length>0 &&
+                (kind is not ("windows.lock" or "monitor.off") || risk)) {
+                if(!_receipts.TryClaim(id,out var prior)) {
+                    status=prior?.Ok.HasValue==true?(prior.Ok.Value?"completed":"failed"):"unknown";
+                    errorCode=prior?.Ok.HasValue==true?"":"RESULT_UNKNOWN";
+                    detail=prior?.Ok.HasValue==true?prior.Detail:
+                        "Попереднє виконання не підтверджене. Повтор не запускаю.";
+                } else {
+                    var command=new RemoteCommand(id,origin,"computer",raw);
+                    RemoteResult result;
+                    if(CommandReceived==null)result=new(false,"Windows не приймає команди.");
+                    else try{result=await CommandReceived.Invoke(command);}
+                    catch(Exception){result=new(false,"Не вдалося виконати дію на Windows.");}
+                    _receipts.Complete(id,result.Ok,result.Detail);
+                    status=result.Ok?"completed":"failed";
+                    errorCode=result.Ok?"":"EXECUTION_FAILED";
+                    detail=result.Detail;
+                }
+            } else if(expires<=now) {
+                status="unknown";errorCode="EXPIRED";
+                detail="Команда прострочена й не виконувалася.";
+            }
+            try {
+                using var ack=await _signed.SignedPostAsync("/device/v2/commands/ack",new {
+                    version=2,requestId=id.ToString(),status,errorCode,
+                    detail=detail[..Math.Min(480,detail.Length)],
+                    timestamp=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                },cancel);
+            }catch(Exception error){
+                Status?.Invoke("Підписане підтвердження команди не доставлене: "+error.GetType().Name);
+            }
+        }
+    }
+
     public async Task ListenAsync(CancellationToken cancellation) {
         var consecutiveErrors=0;
         while(!cancellation.IsCancellationRequested) {
@@ -115,6 +182,12 @@ public sealed class DeviceRelayClient : IDisposable {
                 continue; // opt-in required; no network traffic when off
             }
             try {
+                if(_settings.EnableSignedRelay) {
+                    await PollSignedAsync(cancellation);
+                    consecutiveErrors=0;
+                    try{await Task.Delay(3000,cancellation);}catch(OperationCanceledException){break;}
+                    continue;
+                }
                 var (url,token)=Credentials();
                 using var received=await SendAsync(Request(HttpMethod.Get,
                     new Uri(url,"/device/v1/poll?device=computer").ToString(),token),cancellation);
@@ -165,5 +238,5 @@ public sealed class DeviceRelayClient : IDisposable {
             catch(OperationCanceledException) {break;}
         }
     }
-    public void Dispose()=>_http.Dispose();
+    public void Dispose(){_signed.Dispose();_http.Dispose();}
 }
