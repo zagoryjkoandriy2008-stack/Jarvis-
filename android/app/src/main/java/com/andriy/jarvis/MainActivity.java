@@ -1522,7 +1522,7 @@ public final class MainActivity extends Activity implements RecognitionListener 
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(-1, -2);
         listParams.topMargin = dp(12);
         notesPanel.addView(notesList, listParams);
-        TextView noteHint = makeText("Зберігаються тільки на цьому пристрої, без синхронізації.",
+        TextView noteHint = makeText("Нотатки зберігаються на Pixel. Windows і Watch7 можуть читати та додавати їх через JARVIS, коли є з'єднання.",
             isCompact ? 11 : 12, MUTED, Gravity.START, false);
         LinearLayout.LayoutParams noteHintParams = new LinearLayout.LayoutParams(-1, -2);
         noteHintParams.topMargin = dp(12);
