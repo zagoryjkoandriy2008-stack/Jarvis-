@@ -27,7 +27,9 @@ public static class DeviceRouting {
     }
     /** The phone owns the single authoritative finance journal. */
     public static JarvisDevice EffectiveTarget(JarvisDevice selected,
-        CommandKind kind) => kind is CommandKind.FinanceAdd or CommandKind.FinanceReport or CommandKind.FinanceRemote
+        CommandKind kind) => kind is
+        CommandKind.FinanceAdd or CommandKind.FinanceReport or CommandKind.FinanceRemote or
+        CommandKind.NoteAdd or CommandKind.NoteRead or CommandKind.NoteDelete
         ? JarvisDevice.Phone : selected;
     public static bool IsSensitive(CommandKind kind) => kind is
         CommandKind.TypeIntoActiveWindow;
