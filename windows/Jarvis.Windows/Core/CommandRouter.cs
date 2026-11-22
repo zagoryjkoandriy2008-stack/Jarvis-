@@ -5,7 +5,7 @@ namespace Jarvis.Windows.Core;
 
 public enum CommandKind {
     Ai, OpenApp, WebSearch, SpotifySearch, SpotifyPlaylist, Volume,
-    Speak, NoteAdd, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
+    Speak, NoteAdd, NoteRead, NoteDelete, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
     MediaNext, MediaPrevious, TypeIntoActiveWindow, OpenSettings
 }
 
@@ -70,7 +70,15 @@ public static class CommandRouter {
             return new(CommandKind.FinanceRemote, text);
         match = Regex.Match(text, @"^(?:скажи|промов)\s+(.+)$", RegexOptions.IgnoreCase);
         if (match.Success) return new(CommandKind.Speak, match.Groups[1].Value.Trim());
-        match = Regex.Match(text, @"^(?:запиши\s+нотатку|створи\s+нотатку|нотатка)\s+(.+)$",
+        // Pixel owns notes, just like the existing Watch7 notes page.
+        // Keep the original utterance for the phone's parser.
+        if(s is "покажи нотатки" or "мої нотатки" or
+           "прочитай нотатки" or "покажи мої нотатки")
+            return new(CommandKind.NoteRead);
+        if(s is "видали останню нотатку")
+            return new(CommandKind.NoteDelete);
+        match = Regex.Match(text,
+            @"^(?:запиши\s+нотатку|створи\s+нотатку|додай\s+нотатку|нотатка|занотуй)\s+(.{1,180})$",
             RegexOptions.IgnoreCase);
         if (match.Success) return new(CommandKind.NoteAdd, match.Groups[1].Value.Trim());
         match = Regex.Match(text, @"^(?:напиши|введи)\s+(.+)$", RegexOptions.IgnoreCase);
