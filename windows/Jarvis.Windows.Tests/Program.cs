@@ -439,4 +439,16 @@ Check(MacroV2Engine.EventDue(usbMacro,usbAttach,DateTimeOffset.UtcNow),
       "USB event triggers only matching enabled macro");
 Check(!MacroV2Engine.EventDue(usbMacro,usbDetach,DateTimeOffset.UtcNow),
       "USB removal does not trigger insertion macro");
+var loginNow=DateTimeOffset.UtcNow;
+var loginMacro=MacroV2Engine.New("Старт Windows","після входу","","",
+    "гучність 30","jarvis.login",0);
+Check(MacroV2Engine.EventDue(loginMacro,"jarvis.login",loginNow),
+    "explicit login trigger is enabled on first launch");
+loginMacro.LastRun=loginNow;
+Check(!MacroV2Engine.EventDue(loginMacro,"jarvis.login",loginNow.AddSeconds(15)),
+    "login trigger cannot duplicate on rapid process restart even when cooldown 0");
+Check(MacroV2Engine.EventDue(loginMacro,"jarvis.login",loginNow.AddSeconds(65)),
+    "login trigger can fire after one-minute safety interval");
+Check(!MacroV2Engine.EventDue(loginMacro,"network.online",loginNow.AddSeconds(65)),
+    "login does not react to network events");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

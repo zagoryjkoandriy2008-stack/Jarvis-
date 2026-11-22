@@ -31,6 +31,7 @@ public partial class App : System.Windows.Application {
             // the main window visible on automatic startup.
             new WindowInteropHelper(window).EnsureHandle();
             window.HideFloatingForBackground();
+            window.RunLoginMacros();
         } else window.Show();
     }
     private void SignalExisting() {

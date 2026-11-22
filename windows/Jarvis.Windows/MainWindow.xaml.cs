@@ -106,6 +106,21 @@ public partial class MainWindow : Window {
         catch(Exception ex){Reply("Макрос v2: "+ex.Message,false);}
         finally{_busy=false;_operation=null;}
     }
+    /// <summary>Runs only when the per-user Windows HKCU Run entry launched
+    /// JARVIS with --minimized. No service, autologin or silent escalation.
+    /// Persisted LastRun is claimed before any action by the shared runner.
+    /// </summary>
+    public void RunLoginMacros() {
+        if(!_state.Settings.LaunchAtSignIn||_lifetime.IsCancellationRequested)return;
+        Dispatcher.BeginInvoke(new Action(async()=>{
+            if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+            var due=_state.MacrosV2.Where(m=>
+                MacroV2Engine.EventDue(m,"jarvis.login",DateTimeOffset.Now))
+                .Take(3).ToArray();
+            foreach(var macro in due)await RunMacroV2ExclusiveAsync(macro,false);
+        }));
+    }
+
     private async Task RunMacroV2ScheduleAsync(CancellationToken cancel) {
         using var timer=new PeriodicTimer(TimeSpan.FromSeconds(30));
         try {

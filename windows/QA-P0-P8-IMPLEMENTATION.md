@@ -43,6 +43,8 @@
 - [x] **P5 — частково.** Макроси v2, розклад, умови, if/else, bounded repeat,
   стоп/тайм-аут, візуальний редактор, сумісність із v1. Тепер також тригери
   network.online/network.offline через Windows NetworkChange (без polling),
+  jarvis.login тільки через автозапуск HKCU із --minimized і з мінімальною
+  60-секундною гарантією від повтору навіть при cooldown=0,
   а також app.active:process через WinEventHook та app.start:process через
   події WMI Win32_ProcessStartTrace. Обидва слухачі працюють лише коли
   власник зберіг відповідний макрос, без постійного опитування. Зберігаємо LastRun/ID під час редагування, тому

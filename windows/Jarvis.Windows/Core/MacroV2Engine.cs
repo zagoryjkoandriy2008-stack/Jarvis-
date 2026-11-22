@@ -68,7 +68,7 @@ public static class MacroV2Engine {
                 macro.ScheduleLocal,"HH:mm",CultureInfo.InvariantCulture,
                 DateTimeStyles.None,out _))
             throw new ArgumentException("Розклад: HH:mm або порожнє поле.");
-        if(macro.EventTrigger is not ("" or "network.online" or "network.offline") &&
+        if(macro.EventTrigger is not ("" or "network.online" or "network.offline" or "jarvis.login") &&
            !System.Text.RegularExpressions.Regex.IsMatch(macro.EventTrigger,
               @"^app\.(?:active|start):[a-z0-9._-]{1,50}$") &&
            !MacroUsbEventName.TryParse(macro.EventTrigger,out _,out _))
@@ -141,7 +141,10 @@ public static class MacroV2Engine {
         macro.Enabled &&
         macro.EventTrigger.Length>0 &&
         macro.EventTrigger.Equals(eventName,StringComparison.OrdinalIgnoreCase) &&
-        CooldownElapsed(macro,now);
+        CooldownElapsed(macro,now) &&
+        (eventName!="jarvis.login" ||
+         !macro.LastRun.HasValue ||
+         now-macro.LastRun.Value>=TimeSpan.FromMinutes(1));
 
     public static bool ScheduleDue(MacroDefinitionV2 m,DateTimeOffset now) {
         if(!m.Enabled || m.ScheduleLocal.Length==0)return false;
