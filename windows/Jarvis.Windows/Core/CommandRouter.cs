@@ -6,7 +6,7 @@ namespace Jarvis.Windows.Core;
 public enum CommandKind {
     Ai, OpenApp, WebSearch, SpotifySearch, SpotifyPlaylist, Volume,
     Speak, NoteAdd, NoteRead, NoteDelete, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
-    MediaNext, MediaPrevious, TypeIntoActiveWindow, OpenSettings
+    MediaNext, MediaPrevious, ClickNamed, ScrollPage, TypeIntoActiveWindow, OpenSettings
 }
 
 public sealed record ParsedCommand(CommandKind Kind, string Argument = "",
@@ -96,6 +96,21 @@ public static class CommandRouter {
             return new(CommandKind.MediaPrevious);
         if (s is "пауза" or "продовж музику" or "відтворення" or "призупини музику")
             return new(CommandKind.MediaToggle);
+        // Local Windows screen control. Text labels are resolved through
+        // UI Automation in the active NON-JARVIS window, never by coordinates.
+        match = Regex.Match(text,
+            @"^(?:натисни|нажми|клікни|кликни)\s+(?:(?:на\s+)?(?:кнопку|кнопка|поле)\s+)?(.{1,100})$",
+            RegexOptions.IgnoreCase);
+        if(match.Success) return new(CommandKind.ClickNamed,
+            match.Groups[1].Value.Trim());
+        match = Regex.Match(text,
+            @"^(?:прокрути|пролистай|свайпни|гортай)\s+(вгору|вверх|догори|вниз|донизу)$",
+            RegexOptions.IgnoreCase);
+        if(match.Success) {
+            var direction=match.Groups[1].Value.ToLowerInvariant();
+            return new(CommandKind.ScrollPage,
+                Value:direction is "вниз" or "донизу"?1:0);
+        }
         match = Regex.Match(text, @"^(?:відкрий|відкрити|запусти)\s+(.+)$",
             RegexOptions.IgnoreCase);
         if (match.Success) {
