@@ -353,6 +353,18 @@ public final class AiChatClient {
     JSONObject deviceRelayRequest(String route,String method,
                                   JSONObject payload,
                                   java.util.Map<String,String> extraHeaders) throws Exception {
+        return deviceRelayRequest(route,method,payload,extraHeaders,null);
+    }
+    /** rawJson binds the exact UTF-8 bytes sent to the preceding P-256
+     * signature. Do not serialize an org.json object again after signing.
+     */
+    JSONObject deviceRelayRequest(String route,String method,
+                                  JSONObject payload,
+                                  java.util.Map<String,String> extraHeaders,
+                                  String rawJson) throws Exception {
+        if(rawJson!=null && (!"POST".equals(method) ||
+            !JarvisDeviceV2Paths.signedPhonePath(route)))
+            throw new IllegalArgumentException("Signed bytes require a v2 POST endpoint.");
         if(android.os.Looper.myLooper()==android.os.Looper.getMainLooper())
             throw new IllegalStateException("Device relay requires a background thread.");
         if(!isConfigured())throw new IllegalStateException(
@@ -383,7 +395,8 @@ public final class AiChatClient {
                 connection.setRequestProperty(entry.getKey(),entry.getValue());
             }
             if("POST".equals(method)) {
-                byte[] data=(payload==null?"{}":payload.toString())
+                byte[] data=(rawJson!=null?rawJson:
+                    payload==null?"{}":payload.toString())
                     .getBytes(StandardCharsets.UTF_8);
                 if(data.length>("/device/v1/files/send".equals(route)?1500000:8192))throw new IllegalArgumentException(
                     "Повідомлення для Relay завелике.");

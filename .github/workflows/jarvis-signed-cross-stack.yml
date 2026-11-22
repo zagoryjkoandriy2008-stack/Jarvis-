@@ -11,6 +11,8 @@ on:
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceIdentity.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceV2Paths.java'
       - 'android/app/src/main/java/com/andriy/jarvis/AiChatClient.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDevicePairingActivity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceCenterActivity.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisWakeOnLan.java'
       - 'android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java'
       - 'android/app/src/main/java/com/andriy/jarvis/MainActivity.java'

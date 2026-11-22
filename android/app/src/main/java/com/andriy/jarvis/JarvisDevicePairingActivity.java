@@ -72,11 +72,12 @@ public final class JarvisDevicePairingActivity extends Activity {
         verify.setOnClickListener(v->io.execute(()->{
             try{
                 JSONObject body=new JSONObject();
+                final String raw=body.toString();
                 java.util.Map<String,String> headers=JarvisDeviceIdentity.signedHeaders(
                     "/device/v2/pair/verify",
-                    new JarvisDeviceIdentity.JSONObjectWrapper(body.toString()));
+                    new JarvisDeviceIdentity.JSONObjectWrapper(raw));
                 JSONObject result=new AiChatClient(this).deviceRelayRequest(
-                    "/device/v2/pair/verify","POST",body,headers);
+                    "/device/v2/pair/verify","POST",body,headers,raw);
                 output(result.optBoolean("verified")?
                     "✅ Сервер перевірив підпис ключа Pixel. "+
                     "Розширені дії через Relay v2 ще не увімкнені.":

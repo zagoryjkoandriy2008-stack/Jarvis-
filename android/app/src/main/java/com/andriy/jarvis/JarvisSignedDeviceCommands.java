@@ -114,8 +114,9 @@ public final class JarvisSignedDeviceCommands {
     }
     private static JSONObject signed(AiChatClient ai,String route,JSONObject body)
         throws Exception {
+        final String raw=body.toString();
         java.util.Map<String,String> headers=JarvisDeviceIdentity.signedHeaders(
-            route,new JarvisDeviceIdentity.JSONObjectWrapper(body.toString()));
-        return ai.deviceRelayRequest(route,"POST",body,headers);
+            route,new JarvisDeviceIdentity.JSONObjectWrapper(raw));
+        return ai.deviceRelayRequest(route,"POST",body,headers,raw);
     }
 }

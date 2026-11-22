@@ -48,6 +48,13 @@ assert "JarvisSignedDeviceCommands.send" in android_relay
 assert '"computer".equals(target) && JarvisSignedDeviceCommands.enabled(app)' in android_relay
 assert "JarvisSecureCommandMap.fromVoice" in android_signed
 assert "JarvisDeviceIdentity.signedHeaders" in android_signed
+assert "new JarvisDeviceIdentity.JSONObjectWrapper(raw)" in android_signed
+assert 'deviceRelayRequest(route,"POST",body,headers,raw)' in android_signed
+assert "String rawJson" in android_http and "rawJson!=null?rawJson" in android_http
+android_pairing=read("android/app/src/main/java/com/andriy/jarvis/JarvisDevicePairingActivity.java")
+android_center=read("android/app/src/main/java/com/andriy/jarvis/JarvisDeviceCenterActivity.java")
+assert '"/device/v2/pair/verify","POST",body,headers,raw' in android_pairing
+assert "new JarvisDeviceIdentity.JSONObjectWrapper(raw)),raw" in android_center
 assert "v2/commands/send" in android_signed and "v2/commands/result" in android_signed
 assert "Не повторюю" not in android_signed or "автоматично не запускаю" in android_signed
 assert 'private static final String FLAG="signed_v2_enabled"' in android_signed

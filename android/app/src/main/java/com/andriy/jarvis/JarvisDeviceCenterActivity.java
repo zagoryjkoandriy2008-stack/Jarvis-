@@ -103,10 +103,11 @@ public final class JarvisDeviceCenterActivity extends Activity {
             try {
                 AiChatClient api=new AiChatClient(this);
                 JSONObject query=new JSONObject();query.put("device","computer");
+                final String raw=query.toString();
                 JSONObject data=api.deviceRelayRequest("/device/v2/commands/status",
                     "POST",query,JarvisDeviceIdentity.signedHeaders(
                         "/device/v2/commands/status",
-                        new JarvisDeviceIdentity.JSONObjectWrapper(query.toString())));
+                        new JarvisDeviceIdentity.JSONObjectWrapper(raw)),raw);
                 boolean online=data.optBoolean("online",false);
                 long heartbeat=data.optLong("lastSeenMs",0);
                 String last=heartbeat>0?
