@@ -45,6 +45,20 @@ public final class JarvisDeviceRelayRules {
             s.equals("фінансовий звіт") || s.equals("звіти") ||
             s.matches("^(?:скільки|покажи|який|яка)\\s+.*(?:витрат|дохід|баланс|бюджет|капітал|чайов|крипто|платіж|грошей).*$");
     }
+    /** Notes live in the same phone preferences as the original watch
+     * companion; commands arriving from Windows do not fork a second copy. */
+    public static boolean isNotes(String utterance) {
+        if(utterance==null || utterance.isEmpty() || utterance.length()>250)return false;
+        String s=utterance.toLowerCase(Locale.forLanguageTag("uk-UA")).trim()
+            .replaceFirst("^(?:джарвіс|джарвис|jarvis|дімон|димон|dimon)\\s+","");
+        return s.equals("покажи нотатки") || s.equals("мої нотатки") ||
+            s.equals("прочитай нотатки") || s.equals("покажи мої нотатки") ||
+            s.equals("видали останню нотатку") ||
+            s.matches("^(?:запиши|створи|додай)\\s+нотатку\\s+.{1,180}$") ||
+            s.matches("^нотатка\\s+.{1,180}$") ||
+            s.matches("^занотуй\\s+.{1,180}$");
+    }
+
     /** Only user-initiated, bounded, low-privilege remote commands.
      * The receiver validates the command AGAIN before doing any action.
      * No arbitrary shell, passwords, screen-unlock, Telegram sending or AI. */
@@ -56,7 +70,7 @@ public final class JarvisDeviceRelayRules {
             .replaceFirst("^(?:джарвіс|джарвис|jarvis|дімон|димон|dimon)\\s+","");
         if(s.contains("пароль")||s.contains("pin")||s.contains("токен")||
            s.contains("api key")||s.contains("розблок"))return false;
-        return isFinance(utterance) ||
+        return isFinance(utterance) || isNotes(utterance) ||
             s.matches("^(?:увімкни|включи|ввімкни|умімкни)\\s+(?:пісню|песню|плейлист|плейліст)\\s+.+$") ||
             s.equals("наступна пісня") || s.equals("інша пісня") ||
             s.equals("не та пісня") ||
