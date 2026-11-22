@@ -53,6 +53,8 @@ on:
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchLocalCommands.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchLocalController.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyLaunchPolicy.java'
+      - 'android/app/src/test/java/com/andriy/jarvis/JarvisWatchSpotifyLaunchPolicyTest.java'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisWatchScreenService.java'
       - 'android/app/src/test/java/com/andriy/jarvis/JarvisWatchUiRulesTest.java'
       - 'android/app/src/test/java/com/andriy/jarvis/JarvisWatchMapsCommandsTest.java'
@@ -220,6 +222,15 @@ jobs:
           grep -Fq 'p.lineTo(m.widthPixels*.50f,m.heightPixels*.16f);' "$screen"
           grep -Fq 'done(true,"Плейлист' "$controller"
           ! grep -Eq 'SWIPE_HOME|SEARCH_RECOVER_RIGHT|SEARCH_RECOVER_DOWN|RETURN_FROM_SEARCH_PLAYLIST|spotifySwipeHome|spotifyRevealNavigation' "$controller" "$screen"
+      - name: Watch7 Spotify fresh-task launch without losing next result (no APK)
+        run: |
+          watch=android/app/src/main/java/com/andriy/jarvis
+          grep -Fq 'JarvisWatchSpotifyLaunchPolicy.freshTaskForMusic(kind,followup)' "$watch/JarvisWatchSpotifyController.java"
+          grep -Fq 'JarvisWatchSpotifyLaunchPolicy.freshTaskForOpenCommand()' "$watch/JarvisWatchLocalController.java"
+          grep -Fq 'Intent.FLAG_ACTIVITY_CLEAR_TASK' "$watch/JarvisWatchSpotifyController.java"
+          grep -Fq 'Intent.FLAG_ACTIVITY_CLEAR_TASK' "$watch/JarvisWatchLocalController.java"
+          grep -Fq 'Intent.FLAG_ACTIVITY_REORDER_TO_FRONT' "$watch/JarvisWatchSpotifyController.java"
+          ! grep -Fq 'SWIPE_HOME' "$watch/JarvisWatchSpotifyController.java"
       - name: Spotify Remote Pixel-to-Watch7 alias snapshot contract (no APK)
         run: |
           base=android/app/src/main/java/com/andriy/jarvis
@@ -285,6 +296,8 @@ jobs:
             android/app/src/test/java/com/andriy/jarvis/FinanceManagerUiLabelsTest.java \
             android/app/src/test/java/com/andriy/jarvis/TelegramReplyCommandsTest.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyMusicCommands.java \
+            android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyLaunchPolicy.java \
+            android/app/src/test/java/com/andriy/jarvis/JarvisWatchSpotifyLaunchPolicyTest.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyUiLabels.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyTrackSearchRules.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyVisibleResultOrder.java \
@@ -387,6 +400,7 @@ jobs:
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.CommandPatternsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisInstantCommandsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyMusicCommandsTest
+          java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchSpotifyLaunchPolicyTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyUiLabelsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyTrackSearchRulesTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyVisibleResultOrderTest
