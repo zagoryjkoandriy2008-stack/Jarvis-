@@ -51,6 +51,13 @@ public static class CommandRouter {
             @"^(?:увімкни|умімкни|ввімкни|включи|запусти)\s+(?:мій\s+|мою\s+)?(?:плейлист|плейліст|playlist)\s+(.+)$",
             RegexOptions.IgnoreCase);
         if (match.Success) return new(CommandKind.SpotifyPlaylist, match.Groups[1].Value.Trim());
+        // Pixel and Watch7 keep these saved Spotify playlist aliases. The
+        // requested utterance is forwarded verbatim to either device.
+        match = Regex.Match(text,
+            @"^(?:увімкни|умімкни|ввімкни|включи|запусти)\s+(реп|репчик|rap|українське|украинское|українську\s+музику|украинскую\s+музыку)$",
+            RegexOptions.IgnoreCase);
+        if(match.Success) return new(CommandKind.SpotifyPlaylist,
+            match.Groups[1].Value.Trim());
         match = Regex.Match(text, @"^(?:гучність|постав\s+гучність\s+на|встанови\s+гучність\s+на)\s+(\d{1,3})\s*%?$",
             RegexOptions.IgnoreCase);
         if (match.Success && int.TryParse(match.Groups[1].Value, out var volume) &&
