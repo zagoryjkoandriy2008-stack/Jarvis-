@@ -279,7 +279,23 @@ public partial class MainWindow : Window {
         await HandleUtteranceAsync(FinanceInput.Text);
         FinanceInput.Clear();
     }
-    private void RefreshFinanceButton_Click(object sender,RoutedEventArgs e)=>RefreshFinance();
+    private async void RefreshFinanceButton_Click(object sender,RoutedEventArgs e) {
+        if(!_state.Settings.EnableDeviceRelay || _relay==null) {
+            FinanceReport.Text="JARVIS Finance на Pixel недоступний: увімкни "+
+                "Cloudflare Relay на обох пристроях. Локальні попередні записи "+
+                "не синхронізуються з Pixel.";
+            return;
+        }
+        try {
+            FinanceReport.Text="📱 Запитую фінансовий звіт у Pixel…";
+            var result=await _relay.SendCommandAsync(JarvisDevice.Computer,
+                JarvisDevice.Phone,"звіти",_lifetime.Token);
+            FinanceReport.Text=result.Ok?result.Detail:
+                "Pixel не повернув звіт: "+result.Detail;
+        }catch(Exception failure){
+            FinanceReport.Text="JARVIS Finance недоступний: "+failure.Message;
+        }
+    }
     private void SaveNotesButton_Click(object sender,RoutedEventArgs e) {
         _state.Notes=NotesText.Text;_store.Save(_state);
         Status("Нотатки збережено.");
