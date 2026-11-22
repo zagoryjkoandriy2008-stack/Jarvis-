@@ -16,7 +16,13 @@ public sealed class MacroForegroundTransition {
     public void Reset()=>_previous=null;
     public bool TryObserve(string? name,out string eventName) {
         eventName="";
-        if(name==null || !System.Text.RegularExpressions.Regex.IsMatch(
+        if(name==null) {
+            // Unknown/protected foreground still breaks the previous app
+            // transition. Never emit an event for an unknown process.
+            _previous=null;
+            return false;
+        }
+        if(!System.Text.RegularExpressions.Regex.IsMatch(
            name,@"^[a-z0-9._-]{1,50}$"))return false;
         if(name==_previous)return false;
         _previous=name;

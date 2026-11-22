@@ -358,6 +358,11 @@ Check(!foregroundGate.TryObserve("chrome",out _),
     "same foreground app must not launch macro twice");
 Check(!foregroundGate.TryObserve("../../cmd",out _),
     "unsafe process identifier rejected");
+foregroundGate.Baseline("chrome");
+Check(!foregroundGate.TryObserve(null,out _),
+    "unreadable or protected foreground is not executed");
+Check(foregroundGate.TryObserve("chrome",out _),
+    "switch back after an unknown foreground is recognized");
 foregroundGate.Reset();
 Check(foregroundGate.TryObserve("notepad",out _),
     "foreground reset permits next explicit transition");
