@@ -26,3 +26,30 @@ test('file names, types and oversized payloads are rejected',()=>{
   assert.equal(validFile({...body,data:'!!!'}),false);
   assert.equal(validFile({...body,data:Buffer.alloc(MAX_FILE_BYTES+1).toString('base64')}),false);
 });
+
+test('independent bidirectional inboxes and ACK with target scope',async()=>{
+  let time=42;const state=new FileRelayState(()=>time);
+  const post=(p,b)=>new Request(url(p),{method:'POST',headers:{
+    'content-type':'application/json'},body:JSON.stringify(b)});
+  const outbound={...body,id:'33333333-3333-4333-8333-333333333333',
+    source:'phone',target:'computer',name:'pixel.jpg',mime:'image/jpeg'};
+  assert.equal(validFile(outbound),true);
+  assert.equal((await state.fetch(post('send',body))).status,202);
+  assert.equal((await state.fetch(post('send',outbound))).status,202);
+  let pc=await (await state.fetch(new Request(url('latest')+'?target=computer'))).json();
+  let phone=await (await state.fetch(new Request(url('latest')))).json();
+  assert.equal(pc.name,'pixel.jpg');assert.equal(phone.name,'звіт.txt');
+  // A device cannot ACK another device's file ID.
+  assert.equal((await state.fetch(post('ack',{id:outbound.id}))).status,404);
+  assert.equal((await state.fetch(post('ack',{id:outbound.id,target:'computer'}))).status,200);
+  assert.equal((await (await state.fetch(new Request(url('latest')+'?target=computer'))).json()).available,false);
+  assert.equal((await (await state.fetch(new Request(url('latest')))).json()).available,true);
+  time+=120001;
+  assert.equal((await (await state.fetch(new Request(url('latest')))).json()).available,false);
+});
+test('oversized streamed upload rejected independently of content-length',async()=>{
+  const state=new FileRelayState();
+  const request=new Request(url('send'),{method:'POST',
+    body:'x'.repeat(1_500_010)});
+  assert.equal((await state.fetch(request)).status,413);
+});
