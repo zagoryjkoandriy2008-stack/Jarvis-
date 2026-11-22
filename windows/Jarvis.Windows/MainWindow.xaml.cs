@@ -173,8 +173,14 @@ public partial class MainWindow : Window {
                     Status("Передаю команду: "+DeviceRouting.Label(destination)+"…");
                     var response=await _relay.SendCommandAsync(JarvisDevice.Computer,
                         destination,raw,operation.Token);
-                    if(cmd.Kind is CommandKind.FinanceAdd or CommandKind.FinanceReport &&
-                       response.Ok)FinanceReport.Text=response.Detail;
+                    if(cmd.Kind is CommandKind.FinanceAdd or
+                       CommandKind.FinanceReport or CommandKind.FinanceRemote)
+                        FinanceReport.Text=response.Ok ? response.Detail :
+                            "Pixel не підтвердив фінансову команду: "+response.Detail;
+                    if(cmd.Kind is CommandKind.NoteAdd or
+                       CommandKind.NoteRead or CommandKind.NoteDelete)
+                        PhoneNotesReport.Text=response.Ok ? response.Detail :
+                            "Нотатки Pixel не оновлено: "+response.Detail;
                     Reply((response.Ok?"Підтверджено: ":"Не виконано: ")+response.Detail);
                 } else await ExecuteAsync(cmd,operation.Token);
             }
@@ -196,11 +202,12 @@ public partial class MainWindow : Window {
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
             case CommandKind.NoteAdd:
-                if(command.Argument.Length>2000)throw new InvalidOperationException("Нотатка надто довга.");
-                _state.Notes+=(_state.Notes.Length>0?"\r\n":"")+
-                    DateTime.Now.ToString("dd.MM HH:mm")+" · "+command.Argument;
-                _store.Save(_state);NotesText.Text=_state.Notes;
-                Reply("Нотатку збережено локально.");break;
+            case CommandKind.NoteRead:
+            case CommandKind.NoteDelete:
+            case CommandKind.FinanceRemote:
+                throw new InvalidOperationException(
+                    "Ця команда потребує Pixel. Активуй приватний JARVIS Relay "+
+                    "та повтори команду. Windows не створює дублікати даних.");
             case CommandKind.OpenApp:
                 WindowsActions.OpenKnownApp(command.Argument);
                 Reply("Відкриваю: "+command.Argument);break;
@@ -264,8 +271,8 @@ public partial class MainWindow : Window {
     }
 
     private void RefreshFinance()=>FinanceReport.Text=
-        "Локальні записи ранньої Preview (не синхронізовані, лише перегляд):\\n"+
-        _finance.Report()+"\\nДля єдиного JARVIS Finance використовуй з'єднання з Pixel.";
+        "Локальні записи ранньої Preview (не синхронізовані, лише перегляд):\n"+
+        _finance.Report()+"\nДля єдиного JARVIS Finance використовуй з'єднання з Pixel.";
     private void RefreshMacros() {
         MacroList.ItemsSource=null;
         MacroList.ItemsSource=_state.Macros.Select(m=>
@@ -273,11 +280,13 @@ public partial class MainWindow : Window {
     }
     private async void AddFinanceButton_Click(object sender,RoutedEventArgs e) {
         var parsed=CommandRouter.Parse(FinanceInput.Text);
-        if(parsed.Kind!=CommandKind.FinanceAdd) {
-            Reply("Приклад: витратив 150 готівка транспорт автобус",false);return;
+        if(parsed.Kind is not (CommandKind.FinanceAdd or
+           CommandKind.FinanceRemote or CommandKind.FinanceReport)) {
+            Reply("Приклад: витратив 150 готівка транспорт автобус; "+
+                "або «залишок бюджету на місяць».",false);return;
         }
+        // Preserve the typed amount if the remote operation fails.
         await HandleUtteranceAsync(FinanceInput.Text);
-        FinanceInput.Clear();
     }
     private async void RefreshFinanceButton_Click(object sender,RoutedEventArgs e) {
         if(!_state.Settings.EnableDeviceRelay || _relay==null) {
@@ -296,9 +305,18 @@ public partial class MainWindow : Window {
             FinanceReport.Text="JARVIS Finance недоступний: "+failure.Message;
         }
     }
-    private void SaveNotesButton_Click(object sender,RoutedEventArgs e) {
-        _state.Notes=NotesText.Text;_store.Save(_state);
-        Status("Нотатки збережено.");
+    private async void AddPhoneNote_Click(object sender,RoutedEventArgs e) {
+        var note=PhoneNoteInput.Text.Trim();
+        if(note.Length is <1 or >180 || note.Any(char.IsControl)) {
+            Reply("Нотатка має бути 1–180 символів без керувальних знаків.",false);
+            return;
+        }
+        await HandleUtteranceAsync("запиши нотатку "+note);
+        // Do not clear the input automatically: if Pixel is offline the
+        // user can retry, rather than silently lose the note text.
+    }
+    private async void LoadPhoneNotes_Click(object sender,RoutedEventArgs e) {
+        await HandleUtteranceAsync("покажи нотатки");
     }
     private void SaveMacroButton_Click(object sender,RoutedEventArgs e) {
         try {
