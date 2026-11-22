@@ -116,6 +116,10 @@ on:
       - 'android/app/src/main/java/com/andriy/jarvis/SpotifyDirectSettings.java'
       - 'android/app/src/main/java/com/andriy/jarvis/SpotifyAppRemoteBridge.java'
       - 'android/app/src/main/java/com/andriy/jarvis/SpotifyDirectSettingsActivity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/SpotifyPlaylistSync.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/SpotifyPlaylistSyncRules.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWearSpotifySyncReceiver.java'
+      - 'android/app/src/test/java/com/andriy/jarvis/SpotifyPlaylistSyncRulesTest.java'
       - 'android/app/src/test/java/com/andriy/jarvis/SpotifyUriRulesTest.java'
       - 'android/app/src/test/java/com/andriy/jarvis/SpotifyMusicCommandsTest.java'
       - 'android/app/src/test/java/com/andriy/jarvis/SpotifyUiLabelsTest.java'
@@ -216,6 +220,16 @@ jobs:
           grep -Fq 'p.lineTo(m.widthPixels*.50f,m.heightPixels*.16f);' "$screen"
           grep -Fq 'done(true,"Плейлист' "$controller"
           ! grep -Eq 'SWIPE_HOME|SEARCH_RECOVER_RIGHT|SEARCH_RECOVER_DOWN|RETURN_FROM_SEARCH_PLAYLIST|spotifySwipeHome|spotifyRevealNavigation' "$controller" "$screen"
+      - name: Spotify Remote Pixel-to-Watch7 alias snapshot contract (no APK)
+        run: |
+          base=android/app/src/main/java/com/andriy/jarvis
+          grep -Fq 'SpotifyPlaylistSync.publishFromPhone(this);' "$base/MainActivity.java"
+          grep -Fq 'SpotifyPlaylistSync.publishFromPhone(this);' "$base/SpotifyDirectSettingsActivity.java"
+          grep -Fq 'SpotifyPlaylistSync.resolveOnWatch(context,kind,title' "$base/JarvisWatchSpotifyController.java"
+          grep -Fq 'SpotifyPlaylistSyncRules.playlistLink(syncedPlaylistUri)' "$base/JarvisWatchSpotifyController.java"
+          grep -Fq 'spotifySelectedPlaylistPageReady(' "$base/JarvisWatchSpotifyController.java"
+          grep -Fq 'android:name=".JarvisWearSpotifySyncReceiver"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/jarvis/spotify-playlists/v1"' android/app/src/main/AndroidManifest.xml
       - name: Watch7 Maps gentle UP then pedestrian card regression (no APK)
         run: |
           controller=android/app/src/main/java/com/andriy/jarvis/JarvisWatchMapsController.java
@@ -276,6 +290,8 @@ jobs:
             android/app/src/main/java/com/andriy/jarvis/SpotifyVisibleResultOrder.java \
             android/app/src/test/java/com/andriy/jarvis/SpotifyVisibleResultOrderTest.java \
             android/app/src/main/java/com/andriy/jarvis/SpotifyUriRules.java \
+            android/app/src/main/java/com/andriy/jarvis/SpotifyPlaylistSyncRules.java \
+            android/app/src/test/java/com/andriy/jarvis/SpotifyPlaylistSyncRulesTest.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisSearchRouting.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisVoicePause.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisSpeechLanguages.java \
@@ -376,6 +392,7 @@ jobs:
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyVisibleResultOrderTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyResultCursorTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyUriRulesTest
+          java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyPlaylistSyncRulesTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisSearchRoutingTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisVoicePauseTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisSpeechLanguagesTest
