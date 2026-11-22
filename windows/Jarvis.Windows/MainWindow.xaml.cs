@@ -350,6 +350,31 @@ public partial class MainWindow : Window {
                 RefreshFinance();break;
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
+            case CommandKind.DeviceList:
+                if(_relay==null||!_state.Settings.EnableDeviceRelay) {
+                    Reply("Зв'язок пристроїв вимкнений. Windows працює локально.",false);break;
+                }
+                var phonePresence=await _relay.GetPresenceAsync(JarvisDevice.Phone,token);
+                var watchPresence=await _relay.GetPresenceAsync(JarvisDevice.Watch,token);
+                var statusDevices="Windows: активний; Pixel: "+FormatPresence(phonePresence)+
+                    "; Watch7: "+FormatPresence(watchPresence);
+                DeviceStatusReport.Text=statusDevices;Reply(statusDevices,false);break;
+            case CommandKind.LockWindows:
+            case CommandKind.MonitorOff:
+                RestoreFromTray();
+                var commandLabel=command.Kind==CommandKind.LockWindows?"заблокувати Windows":"вимкнути монітор";
+                if(System.Windows.MessageBox.Show("Підтвердити на цьому комп'ютері: "+commandLabel+"?",
+                    "JARVIS — дозвіл на системну дію",MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning)!=MessageBoxResult.Yes)
+                    throw new OperationCanceledException("Власник відхилив дію.");
+                if(command.Kind==CommandKind.LockWindows)WindowsActions.LockCurrentSession();
+                else WindowsActions.TurnOffMonitor();
+                Reply("Windows: "+commandLabel+".",false);break;
+            case CommandKind.MacroRun:
+                var called=MacroEngine.Match(_state,command.Argument)
+                    ?? throw new InvalidOperationException("Збережений макрос не знайдено.");
+                await RunMacroAsync(called,token);
+                Reply("Макрос виконано: "+called.Trigger,false);break;
             case CommandKind.SystemStatus:
                 var systemReport=await WindowsSystemMonitor.SnapshotAsync(token);
                 SystemStatusReport.Text=systemReport;
@@ -667,8 +692,10 @@ public partial class MainWindow : Window {
 
         // Evaluate only preconfigured owner macros or narrow built-in actions.
         // A voice relay cannot create macros, type text, click UI or invoke AI.
-        var remoteMacro=MacroEngine.Match(_state,request.Command);
         var command=CommandRouter.Parse(request.Command);
+        var remoteMacro=MacroEngine.Match(_state,request.Command);
+        if(remoteMacro==null && command.Kind==CommandKind.MacroRun)
+            remoteMacro=MacroEngine.Match(_state,command.Argument);
         if(remoteMacro==null && !WindowsRemoteCommandPolicy.IsAllowed(command.Kind))
             return new(false,"Команда не дозволена для дистанційного Windows. "+
                 "Фінанси завжди виконуються на Pixel.");

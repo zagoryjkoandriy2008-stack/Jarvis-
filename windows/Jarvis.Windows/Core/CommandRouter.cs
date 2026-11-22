@@ -7,7 +7,7 @@ public enum CommandKind {
     Ai, OpenApp, WebSearch, SpotifySearch, SpotifyPlaylist, Volume,
     Speak, NoteAdd, NoteRead, NoteDelete, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
     MediaNext, MediaPrevious, ClickNamed, ScrollPage, TypeIntoActiveWindow, OpenSettings,
-    SystemStatus, AnalyzeScreen, Wait
+    SystemStatus, AnalyzeScreen, Wait, DeviceList, LockWindows, MonitorOff, MacroRun
 }
 
 public sealed record ParsedCommand(CommandKind Kind, string Argument = "",
@@ -26,7 +26,21 @@ public static class CommandRouter {
         if (string.IsNullOrWhiteSpace(raw) || raw.Length > 4000)
             return new(CommandKind.Ai, raw?.Trim() ?? "");
         var text = StripWake(raw);
+        // A spoken destination suffix must not become part of a program name.
+        text=Regex.Replace(text,@"\s+(?:на|у|в)\s+(?:комп'ютері|комп’ютері|компютері|пк|windows)$",
+            "",RegexOptions.IgnoreCase).Trim();
         var s = text.ToLowerInvariant().Trim();
+        if(s is "покажи пристрої" or "список пристроїв" or "статус пристроїв" or "мої пристрої")
+            return new(CommandKind.DeviceList);
+        if(s is "заблокуй windows" or "заблокуй комп'ютер" or "заблокуй пк")
+            return new(CommandKind.LockWindows);
+        if(s is "вимкни монітор" or "виключи монітор" or "погаси екран" or "вимкни екран пк")
+            return new(CommandKind.MonitorOff);
+        var macroCall=Regex.Match(text,@"^(?:запусти|виконай|увімкни)\s+макрос\s+(.{2,100})$",RegexOptions.IgnoreCase);
+        if(macroCall.Success)return new(CommandKind.MacroRun,macroCall.Groups[1].Value.Trim());
+        var pcVolume=Regex.Match(s,@"^(?:зроби|постав|встанови)?\s*гучність\s+(?:пк|windows|комп'ютера)\s+(\d{1,3})\s*%?$");
+        if(pcVolume.Success && int.TryParse(pcVolume.Groups[1].Value,out var pcPercent)
+           && pcPercent is >=0 and <=100)return new(CommandKind.Volume,Value:pcPercent);
         if(s is "стан комп'ютера" or "стан комп’ютера" or "стан компютера" or
            "статус пк" or "стан пк" or "навантаження комп'ютера" or
            "статус комп'ютера" or "комп'ютер статус")
