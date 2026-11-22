@@ -1194,6 +1194,19 @@ public final class FloatingJarvisService extends Service {
 
     private void executeCommand(String raw) {
         if (closing) return;
+        JarvisDeviceRelayRules.Target selected=JarvisDeviceRelayRules.select(raw);
+        if(selected!=JarvisDeviceRelayRules.Target.NONE) {
+            JarvisDeviceTargetSession.select(selected);
+            if(selected==JarvisDeviceRelayRules.Target.COMPUTER ||
+               selected==JarvisDeviceRelayRules.Target.WATCH) {
+                if(JarvisPhoneMode.isActive())JarvisPhoneModeManager.exit();
+                reply(JarvisDeviceRelayRules.icon(selected)+
+                    " Режим вибрано. Наступні команди передаватиму вибраному пристрою.");
+                return;
+            }
+            // Existing 'телефон' behavior executes below unchanged.
+        }
+
         if (JarvisMacros.cancelIfRequested(raw, result -> {
             if (!closing) reply(result);
         })) return;
@@ -1246,6 +1259,18 @@ public final class FloatingJarvisService extends Service {
             reply(FinanceVoiceCommands.shortIncomeIntent(raw)
                 ? "Не розпізнав дохід. Скажи: «Заробив 350 готівка чайові столик 5»."
                 : "Не розпізнав витрату. Скажи: «Витратив 150 готівка транспорт таксі».");
+            return;
+        }
+        JarvisDeviceRelayRules.Target remote=JarvisDeviceTargetSession.get();
+        if(selected==JarvisDeviceRelayRules.Target.NONE &&
+           (remote==JarvisDeviceRelayRules.Target.COMPUTER ||
+            remote==JarvisDeviceRelayRules.Target.WATCH)) {
+            String dest=remote==JarvisDeviceRelayRules.Target.COMPUTER
+                ?"computer":"watch";
+            message(JarvisDeviceRelayRules.icon(remote)+" Команда на іншому пристрої…");
+            JarvisDeviceRelay.send(this,"phone",dest,raw,(ok,detail)->{
+                if(!closing)reply((ok?"Виконано: ":"Не виконано: ")+detail);
+            });
             return;
         }
         JarvisPhoneMode.Transition transition = JarvisPhoneMode.transition(raw);
