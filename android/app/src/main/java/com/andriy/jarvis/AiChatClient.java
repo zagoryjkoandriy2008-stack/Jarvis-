@@ -353,7 +353,7 @@ public final class AiChatClient {
         if(!isConfigured())throw new IllegalStateException(
             "Спочатку налаштуй Cloudflare AI Worker на Pixel.");
         if(route==null || !route.matches(
-            "^/device/v1/(?:send|poll|ack|result|online)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
+            "^/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
             throw new IllegalArgumentException("Неправильний шлях JARVIS Relay.");
         if(!"GET".equals(method) && !"POST".equals(method))
             throw new IllegalArgumentException("Недопустимий метод Relay.");
@@ -398,6 +398,64 @@ public final class AiChatClient {
                 return new JSONObject(limited.toString("UTF-8"));
             }
         }finally{if(connection!=null)connection.disconnect();}
+    }
+
+    /** Fetch ONLY a short-lived JPEG from a private, viewer-specific screen
+     * session. The encrypted Worker bearer stays inside this class.
+     * Call from a worker thread; do not cache JPEG bytes to Android storage. */
+    byte[] screenFrame(String viewerSession) throws Exception {
+        if(Looper.myLooper()==Looper.getMainLooper())
+            throw new IllegalStateException("Screen snapshots require a background thread.");
+        if(!isConfigured())throw new IllegalStateException(
+            "Налаштуй Cloudflare Worker у JARVIS на Pixel.");
+        if(viewerSession==null || !viewerSession.matches(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+            throw new IllegalArgumentException("Неправильна сесія екрана.");
+        URL configured=new URL(endpoint());
+        URL url=new URL(configured.getProtocol(),configured.getHost(),
+            configured.getPort(),"/device/v1/screen/frame?session="+viewerSession);
+        HttpURLConnection connection=null;
+        try {
+            connection=(HttpURLConnection)url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(6500);
+            connection.setReadTimeout(6500);
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestProperty("Authorization","Bearer "+
+                decrypt(prefs.getString("code_encrypted","")));
+            connection.setRequestProperty("Accept","image/jpeg");
+            connection.setRequestProperty("Cache-Control","no-store");
+            int status=connection.getResponseCode();
+            if(status==404)return null; // computer still preparing first frame
+            if(status==403)throw new IllegalStateException(
+                "Сеанс перегляду завершився. Відкрий екран повторно.");
+            if(status==401)throw new IllegalStateException(
+                "Код доступу до Cloudflare Worker не збігається.");
+            if(status<200 || status>=300)
+                throw new IllegalStateException("Екран Windows: HTTP "+status);
+            if(!"image/jpeg".equals(connection.getContentType()))
+                throw new IllegalStateException("Сервер не повернув JPEG.");
+            if(connection.getContentLength()>240000)
+                throw new IllegalStateException("Кадр перевищує ліміт.");
+            try(InputStream body=connection.getInputStream()) {
+                ByteArrayOutputStream limited=new ByteArrayOutputStream(64000);
+                byte[] bytes=new byte[8192];int amount;
+                while((amount=body.read(bytes))!=-1) {
+                    if(limited.size()+amount>240000)
+                        throw new IllegalStateException("Кадр занадто великий.");
+                    limited.write(bytes,0,amount);
+                }
+                byte[] image=limited.toByteArray();
+                if(image.length<20 || (image[0]&255)!=255 ||
+                   (image[1]&255)!=216 ||
+                   (image[image.length-2]&255)!=255 ||
+                   (image[image.length-1]&255)!=217)
+                    throw new IllegalStateException("Пошкоджений кадр JPEG.");
+                return image;
+            }
+        } finally {
+            if(connection!=null)connection.disconnect();
+        }
     }
 
     private static SecretKey getKey() throws Exception {
