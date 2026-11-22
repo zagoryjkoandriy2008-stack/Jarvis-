@@ -213,6 +213,12 @@ public partial class MainWindow : Window {
                 RefreshFinance();break;
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
+            case CommandKind.ClickNamed:
+                Reply(WindowsScreenControl.ClickNamed(command.Argument));
+                break;
+            case CommandKind.ScrollPage:
+                Reply(WindowsScreenControl.ScrollPage(command.Value==1));
+                break;
             case CommandKind.NoteAdd:
             case CommandKind.NoteRead:
             case CommandKind.NoteDelete:
