@@ -425,6 +425,9 @@ public final class MainActivity extends Activity implements RecognitionListener 
                 catch(IllegalArgumentException ignored) { pendingWatchMusicKind=null; }
         }
         isWatchDevice = getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+        // Migrate already-saved Spotify Remote aliases on the first phone launch
+        // after upgrading; later settings saves publish fresh snapshots.
+        if (!isWatchDevice) SpotifyPlaylistSync.publishFromPhone(this);
         // Samsung "Knock knock → Open an app → Jarvis" arrives as a normal
         // launcher intent. There is no public Samsung double-pinch callback.
         watchLauncherVoicePending = isWatchLauncherIntent(getIntent());
