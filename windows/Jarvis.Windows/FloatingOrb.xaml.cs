@@ -25,6 +25,7 @@ public partial class FloatingOrb : Window {
     public event Action? ListenRequested;
     public event Action? ShowRequested;
     public event Action? HideRequested;
+    public event Action? StopSharingRequested;
     public event Action<JarvisDevice>? TargetRequested;
     private bool _dragging;
     private Point _pressed;
@@ -47,12 +48,20 @@ public partial class FloatingOrb : Window {
             new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(83,215,234));
     }
+    public void SetStreaming(bool streaming) {
+        ScreenCastBadge.Visibility=streaming?Visibility.Visible:Visibility.Collapsed;
+        OrbRing.BorderBrush=streaming
+            ?System.Windows.Media.Brushes.OrangeRed
+            :new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(83,215,234));
+    }
     private void OrbButton_Click(object sender,RoutedEventArgs e)=>ListenRequested?.Invoke();
     private void Phone_Click(object sender,RoutedEventArgs e)=>TargetRequested?.Invoke(JarvisDevice.Phone);
     private void Watch_Click(object sender,RoutedEventArgs e)=>TargetRequested?.Invoke(JarvisDevice.Watch);
     private void Pc_Click(object sender,RoutedEventArgs e)=>TargetRequested?.Invoke(JarvisDevice.Computer);
     private void ShowMain_Click(object sender,RoutedEventArgs e)=>ShowRequested?.Invoke();
     private void HideOrb_Click(object sender,RoutedEventArgs e)=>HideRequested?.Invoke();
+    private void StopScreen_Click(object sender,RoutedEventArgs e)=>StopSharingRequested?.Invoke();
     private void Orb_Drag(object sender,MouseButtonEventArgs e) {
         if(e.ChangedButton!=MouseButton.Left)return;
         _dragging=true;
