@@ -92,6 +92,9 @@ export class DeviceRelay {
     const store=this.state.storage;
     if(path.startsWith('/device/v2/pair/'))return this.pairing.fetch(request);
     if(path.startsWith('/device/v2/commands/'))return this.v2Commands.fetch(request);
+    if(path.startsWith('/device/v1/') &&
+       await store.get('v2:legacy-disabled')===true)
+      return sendJson({error:'Legacy Relay revoked; signed v2 required'},403);
     // Screenshots exist ONLY in short-lived object RAM. Do not touch durable
     // storage, history, logs or AI when serving screen viewer/frame calls.
     if(path.startsWith('/device/v1/screen/'))

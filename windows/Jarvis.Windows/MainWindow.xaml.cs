@@ -897,13 +897,13 @@ public partial class MainWindow : Window {
     }
     private async void PairRevoke_Click(object sender,RoutedEventArgs e) {
         if(System.Windows.MessageBox.Show("Відкликати криптографічний ключ Pixel? "+
-            "Це не вимикає старий Relay v1 до завершення міграції.",
+            "Також ЗАБЛОКУЄ старий Relay v1 на Worker: перегляд екрана, файли і старі команди перестануть працювати. Продовжити?",
             "JARVIS — відкликання доступу",MessageBoxButton.YesNo,
             MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
         try{
             var revoked=await _pairing.RevokePhoneAsync(_lifetime.Token);
-            PairingCodeReport.Text=revoked?"Ключ Pixel v2 відкликано. "+
-                "Вимкни старий Relay v1 в налаштуваннях Windows і Pixel.":
+            PairingCodeReport.Text=revoked?"Ключ Pixel v2 відкликано, Relay v1 заблоковано на Worker. "+
+                "Повторне підключення потребує окремого безпечного налаштування.":
                 "Відкликання не підтверджене.";
         }catch(Exception ex){PairingCodeReport.Text="Помилка відкликання: "+ex.Message;}
     }

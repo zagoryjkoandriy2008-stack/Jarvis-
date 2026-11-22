@@ -93,6 +93,7 @@ test('P-256 pairing needs code and explicit signed Windows approval',async()=>{
     {device:'phone'},'computer',pc.key));
  assert.equal(revoked.body.revoked,true);
  assert.equal(s.map.has('v2:grants:phone'),false,'revoke clears old device grants');
+ assert.equal(s.map.get('v2:legacy-disabled'),true,'revoke disables legacy v1 fallback');
  assert.equal((await call(p,await signed('/device/v2/pair/verify',
     {},'phone',phone.key))).status,403);
 });

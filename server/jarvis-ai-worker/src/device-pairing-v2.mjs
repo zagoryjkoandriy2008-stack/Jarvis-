@@ -242,7 +242,10 @@ export class DevicePairingV2 {
         revokedAt:now});
       await store.delete('v2:grants:phone');
       await store.delete('v2:live:phone');
-      return json({revoked:true,device:'phone'});
+      // Revocation is meaningless if the same shared bearer still exposes
+      // v1 screen, file and command endpoints. Fail closed across protocols.
+      await store.put('v2:legacy-disabled',true);
+      return json({revoked:true,device:'phone',legacyDisabled:true});
     }
     if(path==='/device/v2/pair/verify' && request.method==='POST') {
       if(!parsed)return json({error:'Invalid request'},400);

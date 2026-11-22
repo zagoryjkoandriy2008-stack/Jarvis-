@@ -134,3 +134,15 @@ test('least privilege grants are fail-closed and cannot be inherited after revoc
    assert.equal((await post(broker,'/device/v2/commands/send',
      {...c,requestId:crypto.randomUUID()},'phone',phone.privateKey)).status,403);
 });
+
+test('legacy v1 routes are denied after explicit owner revocation, not only typed v2',async()=>{
+ const {DeviceRelay}=await import('../src/device-relay.mjs');
+ const storage=fakeStorage();
+ storage.put('v2:legacy-disabled',true);
+ const relay=new DeviceRelay({storage},{});
+ for(const path of ['/device/v1/poll?device=computer','/device/v1/online?device=phone',
+    '/device/v1/screen/state','/device/v1/files/latest?target=phone']){
+   const response=await relay.fetch(new Request('https://worker.test'+path));
+   assert.equal(response.status,403,path);
+ }
+});
