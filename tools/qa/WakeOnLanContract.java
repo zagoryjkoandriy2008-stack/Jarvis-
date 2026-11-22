@@ -21,6 +21,19 @@ public final class WakeOnLanContract {
     invalid(()->WakeOnLanPacket.parseLocalBroadcast("8.8.8.255"));
     invalid(()->WakeOnLanPacket.parseLocalBroadcast("127.0.0.255"));
     invalid(()->WakeOnLanPacket.parseLocalBroadcast("192.168.1.1"));
+    byte[] local=new byte[]{(byte)192,(byte)168,1,40};
+    require(WakeOnLanPacket.matchesSubnet(local,24,
+        WakeOnLanPacket.parseLocalBroadcast("192.168.1.255")),"correct /24 LAN");
+    require(!WakeOnLanPacket.matchesSubnet(local,24,
+        WakeOnLanPacket.parseLocalBroadcast("192.168.2.255")),"other LAN rejected");
+    require(WakeOnLanPacket.matchesSubnet(local,25,
+        WakeOnLanPacket.parseLocalBroadcast("192.168.1.127")),"/25 broadcast");
+    require(!WakeOnLanPacket.matchesSubnet(local,25,
+        WakeOnLanPacket.parseLocalBroadcast("192.168.1.255")),"wrong /25 broadcast");
+    require(!WakeOnLanPacket.matchesSubnet(local,31,
+        WakeOnLanPacket.parseLocalBroadcast("192.168.1.255")),"point to point rejected");
+    require(!WakeOnLanPacket.matchesSubnet(new byte[]{8,8,8,8},24,
+        WakeOnLanPacket.parseLocalBroadcast("192.168.1.255")),"public local IP rejected");
     invalid(()->WakeOnLanPacket.parseMac("ff:ff:ff:ff:ff:ff"));
     invalid(()->WakeOnLanPacket.parseMac("01:23:45:67:89:ab"));
     invalid(()->WakeOnLanPacket.parseMac("00:00:00:00:00:00"));

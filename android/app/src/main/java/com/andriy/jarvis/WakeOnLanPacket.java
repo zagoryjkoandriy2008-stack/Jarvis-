@@ -33,9 +33,27 @@ public final class WakeOnLanPacket {
         boolean privateIp=v[0]==10 ||
             (v[0]==172 && v[1]>=16 && v[1]<=31) ||
             (v[0]==192 && v[1]==168);
-        if(!privateIp || v[3]!=255)
+        if(!privateIp || v[3]==0 || v[3]==1)
             throw new IllegalArgumentException("Потрібна приватна broadcast-адреса мережі.");
         return ipv4;
+    }
+    /** Validate broadcast against the Pixel's CURRENT IPv4 subnet, not just
+     * against an arbitrary private IP on the internet/cafe network. */
+    public static boolean matchesSubnet(byte[] phoneIp,int prefix,byte[] destination) {
+        if(phoneIp==null || destination==null || phoneIp.length!=4 ||
+           destination.length!=4 || prefix<8 || prefix>30)return false;
+        int privateFirst=phoneIp[0]&255,privateSecond=phoneIp[1]&255;
+        boolean privateIp=privateFirst==10 ||
+            (privateFirst==172 && privateSecond>=16 && privateSecond<=31) ||
+            (privateFirst==192 && privateSecond==168);
+        if(!privateIp)return false;
+        for(int i=0;i<4;i++) {
+            int bits=Math.max(0,Math.min(8,prefix-i*8));
+            int mask=bits==0?0:(0xff << (8-bits))&0xff;
+            int expected=(phoneIp[i]&255)|(~mask&0xff);
+            if(expected!=(destination[i]&255))return false;
+        }
+        return true;
     }
     public static byte[] build(String macAddress) {
         byte[] mac=parseMac(macAddress);

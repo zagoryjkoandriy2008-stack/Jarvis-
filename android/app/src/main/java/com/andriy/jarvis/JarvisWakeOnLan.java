@@ -4,6 +4,9 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.LinkProperties;
+import android.net.LinkAddress;
+import java.net.Inet4Address;
 import android.os.Handler;
 import android.os.Looper;
 import java.net.DatagramPacket;
@@ -55,10 +58,22 @@ public final class JarvisWakeOnLan {
                 if(caps==null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
                     throw new IllegalStateException(
                         "Pixel не у домашньому Wi-Fi. Для мобільного інтернету потрібен окремий домашній WoL шлюз.");
+                byte[] destinationBytes=WakeOnLanPacket.parseLocalBroadcast(broadcast);
+                LinkProperties networkInfo=conn.getLinkProperties(network);
+                boolean matched=false;
+                if(networkInfo!=null)for(LinkAddress local:networkInfo.getLinkAddresses()){
+                    if(local.getAddress() instanceof Inet4Address &&
+                       WakeOnLanPacket.matchesSubnet(local.getAddress().getAddress(),
+                         local.getPrefixLength(),destinationBytes)){
+                        matched=true;break;
+                    }
+                }
+                if(!matched)throw new IllegalStateException(
+                    "Поточний Wi-Fi Pixel не відповідає налаштованій локальній підмережі ПК.");
                 byte[] bytes=WakeOnLanPacket.build(mac);
-                InetAddress destination=InetAddress.getByAddress(
-                    WakeOnLanPacket.parseLocalBroadcast(broadcast));
+                InetAddress destination=InetAddress.getByAddress(destinationBytes);
                 try(DatagramSocket socket=new DatagramSocket()) {
+                    network.bindSocket(socket);
                     socket.setBroadcast(true);
                     socket.send(new DatagramPacket(bytes,bytes.length,destination,9));
                 }
