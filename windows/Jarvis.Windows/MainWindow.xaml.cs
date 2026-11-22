@@ -203,6 +203,35 @@ public partial class MainWindow : Window {
         ChatHistory.ScrollToEnd();
     }
     private void Status(string detail)=>StatusText.Text=detail;
+    private async void ReceiveFileFromPixel_Click(object sender,RoutedEventArgs e) {
+        try {
+            FileExchangeStatus.Text="Перевіряю файли з Pixel…";
+            var selected=await _fileExchange.GetFromPixelAsync(
+                _state.Settings,_store,_lifetime.Token);
+            if(selected==null) {
+                FileExchangeStatus.Text="Файла з Pixel немає. Спочатку передай його з телефону.";
+                return;
+            }
+            var picker=new SaveFileDialog {
+                Title="JARVIS — зберегти файл з Pixel",FileName=selected.Name,
+                OverwritePrompt=true,Filter="Усі файли|*.*"
+            };
+            if(picker.ShowDialog(this)!=true) {
+                FileExchangeStatus.Text="Збереження скасовано. Файл може залишатися у Relay до 2 хвилин.";
+                return;
+            }
+            await File.WriteAllBytesAsync(picker.FileName,selected.Bytes,_lifetime.Token);
+            FileExchangeStatus.Text="✅ Файл з Pixel збережено: "+selected.Name;
+            try {
+                await _fileExchange.ConfirmSavedAsync(
+                    selected.Id,_state.Settings,_store,_lifetime.Token);
+            }catch(Exception) {
+                FileExchangeStatus.Text+=" (Relay сам очистить тимчасову копію).";
+            }
+        }catch(Exception error) {
+            FileExchangeStatus.Text="Не вдалося отримати файл: "+error.Message;
+        }
+    }
     private async void SendFileToPixel_Click(object sender,RoutedEventArgs e) {
         if(!_state.Settings.EnableDeviceRelay) {
             FileExchangeStatus.Text="Спочатку ввімкни приватний Relay у налаштуваннях.";
