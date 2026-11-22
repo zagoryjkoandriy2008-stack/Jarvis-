@@ -82,6 +82,15 @@ public final class JarvisDeviceRelayRulesTest {
         ok(!JarvisDeviceRelayRules.permittedRemotePhone(
             "увімкни плейлист секретний пароль 123"),
             "remote Spotify cannot carry passwords");
+        ok(JarvisDeviceRelayRules.permittedRemoteWatch(
+            "постав таймер на 5 хвилин"),
+            "Windows->Watch7 native timer duration");
+        ok(JarvisDeviceRelayRules.permittedRemoteWatch(
+            "таймер на 30 секунд"),
+            "remote watch timer in seconds");
+        ok(!JarvisDeviceRelayRules.permittedRemoteWatch(
+            "постав таймер на 5 хвилин і надішли пароль"),
+            "unsafe concatenated timer command must be blocked");
         System.out.println("PASS JarvisDeviceRelayRulesTest");
     }
 }
