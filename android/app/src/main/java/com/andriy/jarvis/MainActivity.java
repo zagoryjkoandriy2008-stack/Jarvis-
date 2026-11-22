@@ -1064,6 +1064,11 @@ public final class MainActivity extends Activity implements RecognitionListener 
                 new LinearLayout.LayoutParams(-1,dp(48));
             windowsScreenParams.topMargin=dp(7);
             content.addView(windowsScreen,windowsScreenParams);
+            Button wolSettings=secondaryButton("⚡ Wake-on-LAN · увімкнення ПК",
+                ()->startActivity(new Intent(this,JarvisWakeOnLanActivity.class)));
+            LinearLayout.LayoutParams wolParams=new LinearLayout.LayoutParams(-1,dp(48));
+            wolParams.topMargin=dp(7);
+            content.addView(wolSettings,wolParams);
         }
         if(!isWatchDevice) {
             Button alarmPermissions=secondaryButton("⏰ Дозволи будильників Watch7",
@@ -5312,6 +5317,23 @@ public final class MainActivity extends Activity implements RecognitionListener 
             appendDialogue("Дімон", result);
             setStatus(result);
         })) return;
+        // A sleeping/offline PC cannot receive a cloud command. WoL is sent
+        // from the phone's LAN, even if computer mode was selected.
+        if(JarvisWakeOnLan.isWakeCommand(raw)) {
+            if(isWatchDevice) {
+                if(watchPhoneLink==null){setStatus("Pixel не підключений для Wake-on-LAN.");return;}
+                watchPhoneLink.assistant("__jarvis_pc__:"+raw,(ok,detail)->{
+                    if(isFinishing()||isDestroyed())return;
+                    appendDialogue("Дімон",detail);setStatus(detail);
+                    if(voiceEnabled)speakReply(detail);
+                });
+            }else JarvisWakeOnLan.send(this,(ok,detail)->{
+                if(isFinishing()||isDestroyed())return;
+                appendDialogue("Дімон",detail);setStatus(detail);
+                if(voiceEnabled)speakReply(detail);
+            });
+            return;
+        }
         JarvisPhoneMode.Transition modeTransition = JarvisPhoneMode.transition(raw);
         JarvisDeviceRelayRules.Target change=JarvisDeviceRelayRules.select(raw);
         if(change!=JarvisDeviceRelayRules.Target.NONE) {
