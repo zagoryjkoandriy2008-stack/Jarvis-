@@ -1207,6 +1207,26 @@ public final class FloatingJarvisService extends Service {
             // Existing 'телефон' behavior executes below unchanged.
         }
 
+        // Route to the selected remote device BEFORE local macro and
+        // Telegram handlers. Those have user-specific side effects and must
+        // never run on Pixel just because a same-named command exists.
+        // Finance and shared Notes remain explicitly Pixel-authoritative.
+        JarvisDeviceRelayRules.Target remote=JarvisDeviceTargetSession.get();
+        if(selected==JarvisDeviceRelayRules.Target.NONE &&
+           (remote==JarvisDeviceRelayRules.Target.COMPUTER ||
+            remote==JarvisDeviceRelayRules.Target.WATCH) &&
+           !JarvisDeviceRelayRules.isFinance(raw) &&
+           !JarvisDeviceRelayRules.isNotes(raw)) {
+            String dest=remote==JarvisDeviceRelayRules.Target.COMPUTER
+                ?"computer":"watch";
+            message(JarvisDeviceRelayRules.icon(remote)+
+                " Команда на іншому пристрої…");
+            JarvisDeviceRelay.send(this,"phone",dest,raw,(ok,detail)->{
+                if(!closing)reply((ok?"Виконано: ":"Не виконано: ")+detail);
+            });
+            return;
+        }
+
         if (JarvisMacros.cancelIfRequested(raw, result -> {
             if (!closing) reply(result);
         })) return;
@@ -1269,18 +1289,6 @@ public final class FloatingJarvisService extends Service {
                 (ok,detail)->{
                     if(!closing)reply((ok?"":"Не вдалося: ")+detail);
                 });
-            return;
-        }
-        JarvisDeviceRelayRules.Target remote=JarvisDeviceTargetSession.get();
-        if(selected==JarvisDeviceRelayRules.Target.NONE &&
-           (remote==JarvisDeviceRelayRules.Target.COMPUTER ||
-            remote==JarvisDeviceRelayRules.Target.WATCH)) {
-            String dest=remote==JarvisDeviceRelayRules.Target.COMPUTER
-                ?"computer":"watch";
-            message(JarvisDeviceRelayRules.icon(remote)+" Команда на іншому пристрої…");
-            JarvisDeviceRelay.send(this,"phone",dest,raw,(ok,detail)->{
-                if(!closing)reply((ok?"Виконано: ":"Не виконано: ")+detail);
-            });
             return;
         }
         JarvisPhoneMode.Transition transition = JarvisPhoneMode.transition(raw);
