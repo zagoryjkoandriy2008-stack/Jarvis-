@@ -245,6 +245,8 @@ jobs:
           grep -Fq 'JarvisDeviceRelayRules.permittedRemotePhone(raw)' "$base/JarvisWearPhoneAssistant.java"
           grep -Fq 'private static String phoneNotes(Context phone,String raw,String normalized)' "$base/JarvisWearPhoneAssistant.java"
           grep -Fq 'notes.clear();' "$base/MainActivity.java"
+          grep -Fq '!JarvisDeviceRelayRules.isNotes(raw)' "$base/MainActivity.java"
+          grep -Fq 'if(JarvisDeviceRelayRules.isNotes(raw)) {' "$base/FloatingJarvisService.java"
           grep -Fq 'JarvisDeviceTargetSession.get()' "$base/FloatingJarvisService.java"
           grep -Fq 'JarvisDeviceRelay.watchRequestPath()' "$base/JarvisWearMessageReceiver.java"
           grep -Fq 'String safeDetail=detail==null?' "$base/JarvisDeviceRelay.java"
