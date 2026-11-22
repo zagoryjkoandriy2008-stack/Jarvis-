@@ -40,3 +40,13 @@ test('vision never silently forwards screenshots to text-only fallback',async()=
   fetchImpl:()=>{throw Error('bad')}});
  assert.equal(v.ok,false);
 });
+
+test('compatible-only provider uses Cloudflare-held secret with no OpenAI key',async()=>{
+  const env={...goodCompat,JARVIS_AI_PRIMARY:'compatible1'};
+  const fetchImpl=async url=>{
+    assert.equal(url,'https://example.ai/v1/chat/completions');
+    return new Response(JSON.stringify({choices:[{message:{content:'ok'}}]}));
+  };
+  const r=await routeProviders({...base,env,fetchImpl});
+  assert.equal(r.ok,true);assert.equal(r.reply,'ok');
+});

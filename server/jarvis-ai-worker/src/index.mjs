@@ -218,7 +218,10 @@ export default {
       return object.fetch(request);
     }
     if (url.pathname !== '/chat' || request.method !== 'POST') return json({error:'Not found'},404);
-    if (!env.OPENAI_API_KEY || !env.JARVIS_CLIENT_TOKEN) return json({error:'Server is not configured'},503);
+    const routingEnabled=Boolean(env.JARVIS_AI_PRIMARY || env.JARVIS_AI_FALLBACK);
+    if (!env.JARVIS_CLIENT_TOKEN ||
+       (!routingEnabled && !env.OPENAI_API_KEY))
+      return json({error:'Server is not configured'},503);
     if (!safeBearer(request.headers.get('authorization'),env.JARVIS_CLIENT_TOKEN))
       return json({error:'Unauthorized'},401);
     const length = Number(request.headers.get('content-length'));
