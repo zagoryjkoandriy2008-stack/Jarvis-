@@ -133,11 +133,11 @@ public final class JarvisWatchSpotifyController {
             JarvisWatchSpotifyTrace.finish(context,ok);
             Toast.makeText(context,detail,Toast.LENGTH_SHORT).show();
             callback.finished(ok,detail);
-            // Every explicitly spoken Watch7 TRACK action returns to the
-            // Jarvis watch face so the microphone can capture "Не та пісня".
-            // Android forbids reliable background microphone access, so
-            // resume it only once our own Activity is foreground.
-            if(kind==SpotifyMusicCommands.Kind.TRACK)
+            // Restore the Jarvis watch face after all spoken playback
+            // commands (track, playlist, rap, Ukrainian), even on failure.
+            // Do not attempt background recording: MainActivity enables the
+            // microphone only once the assistant is foreground again.
+            if(SpotifyMusicCommands.resumeWatchListeningAfter(kind))
                 returnToJarvisForListening();
         }
 
