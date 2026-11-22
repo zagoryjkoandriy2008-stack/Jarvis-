@@ -62,6 +62,7 @@ public partial class MainWindow : Window {
     private bool _busy;
     private bool _runningMacro;
     private readonly MacroEventService _macroEvents=new();
+    private readonly MacroUsbDeviceService _usbEvents=new();
     private readonly MacroProcessStartService _processStarts=new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
@@ -263,6 +264,21 @@ public partial class MainWindow : Window {
         };
         _processStarts.SetEnabled(_state.MacrosV2.Any(m=>m.Enabled &&
             m.EventTrigger.StartsWith("app.start:",StringComparison.Ordinal)));
+        _usbEvents.Triggered+=eventName=>{
+            if(Dispatcher.HasShutdownStarted)return;
+            Dispatcher.BeginInvoke(new Action(async()=>{
+                if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+                var eligible=_state.MacrosV2.Where(m=>
+                    MacroV2Engine.EventDue(m,eventName,DateTimeOffset.Now))
+                    .Take(3).ToArray();
+                foreach(var candidate in eligible)
+                    await RunMacroV2ExclusiveAsync(candidate,false);
+            }));
+        };
+        _usbEvents.Unavailable+=message=>{
+            if(!Dispatcher.HasShutdownStarted)
+                Dispatcher.BeginInvoke(new Action(()=>Status(message)));
+        };
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
         _floating=new FloatingOrb();
         _floating.ListenRequested+=ToggleListening;
@@ -294,6 +310,8 @@ public partial class MainWindow : Window {
         _source=PresentationSource.FromVisual(this) as HwndSource;
         if(_source==null)return;
         _source.AddHook(HotkeyHook);
+        _usbEvents.SetEnabled(_source,_state.MacrosV2.Any(m=>m.Enabled &&
+            MacroUsbEventName.TryParse(m.EventTrigger,out _,out _)));
         _hotkeyRegistered=RegisterHotKey(_source.Handle,HotkeyId,
             ModControl|ModShift,(uint)KeyInterop.VirtualKeyFromKey(Key.J));
         if(!_hotkeyRegistered)Status("Ctrl+Shift+J зайнята іншою програмою. Можна натискати кнопку мікрофона.");
@@ -310,6 +328,7 @@ public partial class MainWindow : Window {
             e.Cancel=true;Hide();return;
         }
         _processStarts.Dispose();
+        _usbEvents.Dispose();
         _macroEvents.Dispose();
         _wakeGeneration++;
         _wake.Dispose();
@@ -774,6 +793,8 @@ public partial class MainWindow : Window {
                 m.Enabled && m.EventTrigger.StartsWith("app.active:",StringComparison.Ordinal)));
             _processStarts.SetEnabled(_state.MacrosV2.Any(m=>
                 m.Enabled && m.EventTrigger.StartsWith("app.start:",StringComparison.Ordinal)));
+            _usbEvents.SetEnabled(_source,_state.MacrosV2.Any(m=>
+                m.Enabled && MacroUsbEventName.TryParse(m.EventTrigger,out _,out _)));
             RefreshMacros();Status("Макрос v2 збережено.");
         }catch(Exception ex){Reply("Макрос v2: "+ex.Message,false);}
     }
