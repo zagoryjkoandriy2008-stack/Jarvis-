@@ -24,6 +24,7 @@
         <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="OrbToggleButton" Content="◎ Плаваючий" Click="OrbToggle_Click" ToolTip="Показати або приховати плаваючого JARVIS"/>
         <Button x:Name="MicButton" Click="MicButton_Click" Content="🎙 Слухати"/>
         <Button Click="StopButton_Click" Content="■ Стоп"/>
       </StackPanel>
@@ -43,10 +44,25 @@
           </StackPanel>
         </Grid>
       </TabItem>
+      <TabItem Header="Пристрої">
+        <StackPanel Margin="20">
+          <TextBlock Text="Обери пристрій для наступних голосових команд" FontSize="17" FontWeight="Bold" Margin="0,0,0,10"/>
+          <TextBlock Text="Команди «телефон», «годинник», «комп'ютер» змінюють ціль, а JARVIS Finance завжди використовує базу Pixel. Комп'ютер може приймати лише дозволені локальні дії." Foreground="#A4B4CD" TextWrapping="Wrap" Width="680" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+            <Button Content="📱 Телефон" Click="TargetPhone_Click"/>
+            <Button Content="⌚ Годинник" Click="TargetWatch_Click"/>
+            <Button Content="🖥 Комп'ютер" Click="TargetComputer_Click"/>
+          </StackPanel>
+          <TextBlock x:Name="CurrentDeviceLabel" Text="🖥 Комп'ютер" FontSize="19" Foreground="#53D7EA" FontWeight="Bold"/>
+          <Button Content="Перевірити підключення" Click="CheckDevices_Click" Width="230" HorizontalAlignment="Left" Margin="0,14,0,14"/>
+          <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="180" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
+          <TextBlock Text="На годиннику команди передає Pixel. Для цього потрібні оновлений Android-код, розгорнутий Cloudflare Relay та дозвіл приймати команди." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,12,0,0" Width="680" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </TabItem>
       <TabItem Header="JARVIS Finance">
         <Grid Margin="12">
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-          <TextBlock Text="Фінанси Windows — локальні записи (ще без синхронізації з Pixel)" Foreground="#A4B4CD" Margin="0,0,0,12"/>
+          <TextBlock Text="Єдина база JARVIS Finance — на Pixel. Підключення потрібне для записів і звітів з Windows. Локальні старі записи лише для перегляду." Foreground="#A4B4CD" Margin="0,0,0,12"/>
           <StackPanel Grid.Row="1" Orientation="Horizontal">
             <TextBox x:Name="FinanceInput" Width="540" ToolTip="витратив 150 готівка транспорт таксі"/>
             <Button Click="AddFinanceButton_Click" Content="Записати"/>
@@ -86,6 +102,8 @@
             <TextBox x:Name="WorkerUrl" Margin="0,5,0,12"/>
             <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A4B4CD"/>
             <PasswordBox x:Name="WorkerToken" Background="#1D304A" Foreground="White" Padding="10" Margin="0,5,0,12"/>
+            <CheckBox x:Name="EnableDeviceRelay" Content="Дозволити з'єднання з Pixel і Watch7 через приватний Cloudflare Relay" Margin="0,8" ToolTip="Команди передаються через твій Cloudflare Worker. Увімкни тільки для власного акаунта."/>
+            <CheckBox x:Name="ShowFloatingOrb" Content="Показувати плаваючого JARVIS" IsChecked="True" Margin="0,8"/>
             <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
             <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>
             <TextBlock Text="Голос Windows (список залежить від встановлених голосів)" Margin="0,14,0,5"/>
