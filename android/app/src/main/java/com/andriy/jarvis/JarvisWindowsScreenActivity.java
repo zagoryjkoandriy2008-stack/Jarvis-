@@ -46,6 +46,8 @@ public final class JarvisWindowsScreenActivity extends Activity {
     private TextView status;
     private LinearLayout controlTools;
     private Button requestControl;
+    private Button keyboardToggle;
+    private boolean keyboardExpanded;
     private EditText remoteText;
     private final ExecutorService remoteInput=Executors.newSingleThreadExecutor();
     private final AtomicInteger queuedInput=new AtomicInteger();
@@ -71,15 +73,17 @@ public final class JarvisWindowsScreenActivity extends Activity {
         // Prevent screen thumbnails/sensitive content from appearing in the
         // Android recent-apps preview or inadvertent Pixel screenshots.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        FrameLayout outer=new FrameLayout(this);
+        // Never overlay toolbars on top of the PC desktop. In landscape,
+        // an overlay would COVER taskbar icons and make them unclickable.
+        LinearLayout outer=new LinearLayout(this);
+        outer.setOrientation(LinearLayout.VERTICAL);
         outer.setBackgroundColor(BG);
         screen=new ImageView(this);
         screen.setScaleType(ImageView.ScaleType.FIT_CENTER);
         screen.setBackgroundColor(Color.BLACK);
         screen.setOnTouchListener((v,event)->handleTouch(event));
-        outer.addView(screen,new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT));
+        // Add the image BELOW the header after it has been constructed;
+        // FIT_CENTER mapping then uses exactly the visible screen area.
 
         LinearLayout top=new LinearLayout(this);
         top.setOrientation(LinearLayout.VERTICAL);
@@ -97,9 +101,10 @@ public final class JarvisWindowsScreenActivity extends Activity {
         status.setTextSize(13);
         status.setPadding(0,dp(6),0,0);
         top.addView(status);
-        FrameLayout.LayoutParams topParams=new FrameLayout.LayoutParams(
-            -1,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.TOP);
-        outer.addView(top,topParams);
+        outer.addView(top,new LinearLayout.LayoutParams(
+            -1,ViewGroup.LayoutParams.WRAP_CONTENT));
+        outer.addView(screen,new LinearLayout.LayoutParams(
+            -1,0,1));
         LinearLayout bottom=new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
         bottom.setPadding(dp(9),dp(4),dp(9),dp(8));
@@ -110,6 +115,17 @@ public final class JarvisWindowsScreenActivity extends Activity {
         requestControl.setText("🖱 Попросити керування");
         requestControl.setOnClickListener(v->requestControl());
         actions.addView(requestControl,new LinearLayout.LayoutParams(0,dp(50),1));
+        keyboardToggle=new Button(this);
+        keyboardToggle.setText("⌨ Клавіатура");
+        keyboardToggle.setVisibility(View.GONE);
+        keyboardToggle.setOnClickListener(v->{
+            keyboardExpanded=!keyboardExpanded;
+            controlTools.setVisibility(controlling&&keyboardExpanded
+                ?View.VISIBLE:View.GONE);
+            keyboardToggle.setText(keyboardExpanded
+                ?"⌨ Приховати":"⌨ Клавіатура");
+        });
+        actions.addView(keyboardToggle,new LinearLayout.LayoutParams(0,dp(50),1));
         Button stop=new Button(this);
         stop.setText("■ Завершити");
         stop.setTextColor(Color.WHITE);
@@ -185,9 +201,8 @@ public final class JarvisWindowsScreenActivity extends Activity {
         controlTools.addView(leaveControl,new LinearLayout.LayoutParams(
             -1,dp(44)));
         bottom.addView(controlTools);
-        FrameLayout.LayoutParams bottomParams=new FrameLayout.LayoutParams(
-            -1,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.BOTTOM);
-        outer.addView(bottom,bottomParams);
+        outer.addView(bottom,new LinearLayout.LayoutParams(
+            -1,ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(outer);
     }
 
@@ -206,6 +221,9 @@ public final class JarvisWindowsScreenActivity extends Activity {
         }
         controlling=false;
         freshFrameAt=0;
+        keyboardExpanded=false;
+        keyboardToggle.setText("⌨ Клавіатура");
+        keyboardToggle.setVisibility(View.GONE);
         requestControl.setEnabled(true);
         requestControl.setText("🖱 Попросити керування");
         requestControl.setVisibility(View.VISIBLE);
@@ -246,7 +264,10 @@ public final class JarvisWindowsScreenActivity extends Activity {
                     ui.post(()->{
                         if(!visible||!session.equals(activeSession))return;
                         controlling=approved;
-                        controlTools.setVisibility(approved?View.VISIBLE:View.GONE);
+                        controlTools.setVisibility(
+                            approved&&keyboardExpanded?View.VISIBLE:View.GONE);
+                        keyboardToggle.setVisibility(
+                            approved?View.VISIBLE:View.GONE);
                         requestControl.setVisibility(
                             approved?View.GONE:View.VISIBLE);
                         if(denied) {
@@ -347,7 +368,12 @@ public final class JarvisWindowsScreenActivity extends Activity {
         String session=activeSession;
         if(!visible||session==null)return;
         controlling=false;
+        keyboardExpanded=false;
         controlTools.setVisibility(View.GONE);
+        keyboardToggle.setVisibility(View.GONE);
+        requestControl.setVisibility(View.VISIBLE);
+        requestControl.setEnabled(false);
+        requestControl.setText("Керування завершено");
         status.setText("Дистанційне керування вимкнено на Pixel.");
         remoteInput.execute(()->{
             try {
@@ -558,6 +584,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
         visible=false;
         controlling=false;
         freshFrameAt=0;
+        keyboardExpanded=false;
         if(pendingTap!=null)ui.removeCallbacks(pendingTap);
         pendingTap=null;
         showBitmap(null);
