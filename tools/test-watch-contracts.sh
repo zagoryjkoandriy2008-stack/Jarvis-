@@ -14,6 +14,9 @@ javac -encoding UTF-8 -d /tmp/jarvis-voice-tests \
   android/app/src/main/java/com/andriy/jarvis/FinanceNumberWords.java \
   android/app/src/main/java/com/andriy/jarvis/FinanceVoiceFollowups.java \
   android/app/src/main/java/com/andriy/jarvis/FinanceInsightsCommands.java \
+  android/app/src/main/java/com/andriy/jarvis/FinanceVoiceQueryMatcher.java \
+  android/app/src/main/java/com/andriy/jarvis/FinanceVoiceFollowups.java \
+  android/app/src/main/java/com/andriy/jarvis/FinanceBatchCommands.java \
   android/app/src/main/java/com/andriy/jarvis/FinanceManagerUiLabels.java \
   android/app/src/main/java/com/andriy/jarvis/TelegramReplyCommands.java \
   android/app/src/main/java/com/andriy/jarvis/JarvisMicrophoneChoice.java \
