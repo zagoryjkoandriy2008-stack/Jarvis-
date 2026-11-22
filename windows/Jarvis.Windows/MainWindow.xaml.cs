@@ -14,6 +14,30 @@ public partial class MainWindow : Window {
     private readonly StateStore _store=new();
     private readonly JarvisState _state;
     private readonly VoiceService _voice=new();
+    private readonly VoiceWakeService _wake=new();
+    private int _wakeGeneration;
+    private async Task ResumeWakeAsync() {
+        var generation=++_wakeGeneration;
+        try {
+            for(int n=0;n<150;n++) {
+                await Task.Delay(200,_lifetime.Token);
+                if(generation!=_wakeGeneration||!_state.Settings.EnableWakeWord)return;
+                if(!_busy&&!_voice.IsListening&&!_voice.IsSpeaking) {
+                    _wake.Start(_state.Settings.RecognizerCulture);
+                    return;
+                }
+            }
+            Status("Wake word: очікування голосового модуля перевищило 30 с.");
+        }catch(OperationCanceledException){}
+    }
+    private void WakeDetected() {
+        if(_automationPaused||_busy||_voice.IsListening||_voice.IsSpeaking)return;
+        _voice.Start(_state.Settings.RecognizerCulture);
+        MicButton.Content=_voice.IsListening?"■ Слухаю…":"🎙 Слухати";
+        _tray?.SetListening(_voice.IsListening);
+        if(!_voice.IsListening)_=ResumeWakeAsync();
+    }
+
     private readonly AiClient _ai=new();
     private readonly WindowsFileExchange _fileExchange=new();
     private TrayStartupService? _tray;
@@ -116,6 +140,7 @@ public partial class MainWindow : Window {
         ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
         LaunchAtSignIn.IsChecked=_state.Settings.LaunchAtSignIn;
         MinimizeToTray.IsChecked=_state.Settings.MinimizeToTray;
+        EnableWakeWord.IsChecked=_state.Settings.EnableWakeWord;
         Topmost=_state.Settings.OnTop;
         NotesText.Text=_state.Notes;
         VoiceChoices.ItemsSource=_voice.Voices;
@@ -129,6 +154,9 @@ public partial class MainWindow : Window {
             await HandleUtteranceAsync(text);
         }));
         _voice.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
+        _voice.RecognitionEnded+=()=>Dispatcher.BeginInvoke(new Action(async()=>await ResumeWakeAsync()));
+        _wake.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
+        _wake.Detected+=()=>Dispatcher.BeginInvoke(new Action(WakeDetected));
         RefreshFinance();
         RefreshMacros();
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
@@ -140,6 +168,7 @@ public partial class MainWindow : Window {
         _floating.ShowRequested+=()=>{Show();WindowState=WindowState.Normal;Activate();};
         _floating.SetTarget(_target);
         if(_state.Settings.ShowFloatingOrb)_floating.Show();
+        if(_state.Settings.EnableWakeWord)_=ResumeWakeAsync();
         CurrentDeviceLabel.Text=DeviceRouting.Label(_target);
         SourceInitialized+=OnSourceInitialized;
         Closing+=OnClosing;
@@ -176,6 +205,8 @@ public partial class MainWindow : Window {
         if(!_allowExit && _state.Settings.MinimizeToTray) {
             e.Cancel=true;Hide();return;
         }
+        _wakeGeneration++;
+        _wake.Dispose();
         _tray?.Dispose();_tray=null;
         if(_source!=null) {
             if(_hotkeyRegistered)UnregisterHotKey(_source.Handle,HotkeyId);
@@ -193,6 +224,8 @@ public partial class MainWindow : Window {
     }
 
     private void ToggleListening() {
+        _wakeGeneration++;
+        _wake.Stop();
         if(_voice.IsListening) {
             _voice.StopListening(); MicButton.Content="🎙 Слухати";_tray?.SetListening(false);
         } else {
@@ -613,6 +646,9 @@ public partial class MainWindow : Window {
             TrayStartupService.ConfigureAutostart(LaunchAtSignIn.IsChecked==true);
             _state.Settings.LaunchAtSignIn=LaunchAtSignIn.IsChecked==true;
             _state.Settings.MinimizeToTray=MinimizeToTray.IsChecked==true;
+            _state.Settings.EnableWakeWord=EnableWakeWord.IsChecked==true;
+            if(!_state.Settings.EnableWakeWord){_wakeGeneration++;_wake.Stop();}
+            else if(!_voice.IsListening)_=ResumeWakeAsync();
             _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
             _state.Settings.VoiceName=VoiceChoices.SelectedItem as string??"";
             _state.Settings.RecognizerCulture=RecognizerChoices.SelectedItem as string??"";

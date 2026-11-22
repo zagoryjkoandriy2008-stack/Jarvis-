@@ -164,6 +164,9 @@
                 Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
             <CheckBox x:Name="LaunchAtSignIn" Content="Запускати JARVIS після входу у Windows (без адміністратора)" Margin="0,8"/>
             <CheckBox x:Name="MinimizeToTray" Content="Згортати в трей при закритті вікна" Margin="0,8"/>
+            <CheckBox x:Name="EnableWakeWord" Content="Офлайн-пробудження «Джарвіс» (потребує Windows-розпізнавача)" Margin="0,8"/>
+            <TextBlock Text="За відсутності мовного пакета режим не запускається; whisper.cpp буде додано окремо."
+                Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,6"/>
             <CheckBox x:Name="ShowFloatingOrb" Content="Показувати плаваючого JARVIS" IsChecked="True" Margin="0,8"/>
             <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
             <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>

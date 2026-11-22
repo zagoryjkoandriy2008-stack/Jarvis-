@@ -17,6 +17,7 @@ public sealed class JarvisSettings {
     public bool ShowFloatingOrb { get; set; } = true;
     public bool LaunchAtSignIn { get; set; }
     public bool MinimizeToTray { get; set; }
+    public bool EnableWakeWord { get; set; } // opt-in, no microphone in standby otherwise
 }
 public sealed class MoneyEntry {
     public Guid Id { get; set; } = Guid.NewGuid();
