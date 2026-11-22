@@ -38,6 +38,18 @@ jobs:
           route=(px/'JarvisScreenViewCommands.java').read_text()
           worker=Path('server/jarvis-ai-worker/src/screen-relay.mjs').read_text()
           manifest=ET.parse('android/app/src/main/AndroidManifest.xml').getroot()
+          # XML parse catches broken WPF tags from UI changes without
+          # invoking dotnet, Gradle, APK or EXE compilation.
+          win_xaml=ET.parse('windows/Jarvis.Windows/MainWindow.xaml').getroot()
+          orb_xaml=ET.parse('windows/Jarvis.Windows/FloatingOrb.xaml').getroot()
+          wpf_ns='{http://schemas.microsoft.com/winfx/2006/xaml/presentation}'
+          for name in ['EnableRemoteControl','ControlRequestPanel',
+                       'ControlActivePanel']:
+              assert any(node.attrib.get(
+                  '{http://schemas.microsoft.com/winfx/2006/xaml}Name')==name
+                  for node in win_xaml.iter()),f'Missing WPF control {name}'
+          assert 'Window' in win_xaml.tag and 'Window' in orb_xaml.tag
+
 
           assert 'public bool EnableScreenShare { get; set; }' in state, 'must default OFF'
           assert 'if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare)' in publisher
