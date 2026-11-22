@@ -24,6 +24,14 @@
     <PackageReference Include="System.Speech" Version="9.0.11" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
     <PackageReference Include="System.Management" Version="9.0.11" />
+    <!-- Work around net8.0-windows NuGet compile reference selection.
+         Reference the package's exact net8.0 assembly, not a machine-global DLL. -->
+    <Reference Include="System.Management" Condition="Exists('$(NuGetPackageRoot)system.management/9.0.11/ref/net8.0/System.Management.dll')">
+      <HintPath>$(NuGetPackageRoot)system.management/9.0.11/ref/net8.0/System.Management.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Management" Condition="!Exists('$(NuGetPackageRoot)system.management/9.0.11/ref/net8.0/System.Management.dll') And Exists('$(NuGetPackageRoot)system.management/9.0.11/lib/net8.0/System.Management.dll')">
+      <HintPath>$(NuGetPackageRoot)system.management/9.0.11/lib/net8.0/System.Management.dll</HintPath>
+    </Reference>
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 </Project>
