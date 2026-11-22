@@ -222,7 +222,7 @@ public partial class MainWindow : Window {
         }
     }
     private async void AnalyzeScreenButton_Click(object sender,RoutedEventArgs e) {
-        await HandleUtteranceAsync("проаналізуй екран");
+        await HandleUtteranceAsync("проаналізуй екран",forceComputer:true);
     }
     private void Reply(string detail,bool speak=true) {
         Append("JARVIS",detail);
@@ -230,7 +230,7 @@ public partial class MainWindow : Window {
         if(speak && SpeakReplies.IsChecked==true)_voice.Say(detail[..Math.Min(1200,detail.Length)]);
     }
 
-    private async Task HandleUtteranceAsync(string raw) {
+    private async Task HandleUtteranceAsync(string raw,bool forceComputer=false) {
         if(_busy) {Status("Попередня команда ще виконується.");return;}
         _busy=true;
         using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -248,7 +248,8 @@ public partial class MainWindow : Window {
                 Reply("Макрос «"+macro.Trigger+"» виконано.");
             } else {
                 var cmd=CommandRouter.Parse(raw);
-                var destination=DeviceRouting.EffectiveTarget(_target,cmd.Kind);
+                var destination=forceComputer?JarvisDevice.Computer:
+                    DeviceRouting.EffectiveTarget(_target,cmd.Kind);
                 if(destination!=JarvisDevice.Computer) {
                     if(!_state.Settings.EnableDeviceRelay || _relay==null)
                         throw new InvalidOperationException("Увімкни Cloudflare Relay у Налаштуваннях для керування іншими пристроями.");
@@ -589,6 +590,15 @@ public partial class MainWindow : Window {
         if(request.Origin is not ("phone" or "watch") ||
            request.Target!="computer" || request.Command.Length>250)
             return new(false,"Джерело або команда не дозволені.");
+        var remoteMacro=MacroEngine.Match(_state,request.Command);
+        if(remoteMacro!=null) {
+            try {
+                await RunMacroAsync(remoteMacro,_lifetime.Token);
+                return new(true,"Windows виконав макрос: "+remoteMacro.Trigger);
+            }catch(Exception error) {
+                return new(false,"Макрос Windows не виконано: "+error.Message);
+            }
+        }
         var command=CommandRouter.Parse(request.Command);
         if(command.Kind is not (CommandKind.OpenApp or CommandKind.OpenSettings
            or CommandKind.Volume or CommandKind.MediaToggle or CommandKind.MediaNext
