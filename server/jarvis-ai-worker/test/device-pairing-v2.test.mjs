@@ -72,12 +72,26 @@ test('P-256 pairing needs code and explicit signed Windows approval',async()=>{
  const impersonate=await call(p,await signed('/device/v2/pair/verify',
     {},'phone',someoneElse.key));
  assert.equal(impersonate.status,403);
+ const defaults=await call(p,await signed('/device/v2/pair/grants/get',
+    {device:'phone'},'computer',pc.key));
+ assert.deepEqual(defaults.body.permissions,{
+   readOnly:true,media:false,apps:false,locks:false,watchDelegation:false
+ });
+ const updated=await call(p,await signed('/device/v2/pair/grants/set',
+    {device:'phone',permissions:{readOnly:true,media:true,apps:false,
+      locks:false,watchDelegation:true}},'computer',pc.key));
+ assert.equal(updated.body.permissions.media,true);
+ assert.equal(updated.body.permissions.watchDelegation,true);
+ const invalid=await call(p,await signed('/device/v2/pair/grants/set',
+    {device:'phone',permissions:{media:true}},'computer',pc.key));
+ assert.equal(invalid.status,400);
  const listed=await call(p,await signed('/device/v2/pair/list',
     {},'computer',pc.key));
  assert.equal(listed.body.devices[1].enabled,true);
  const revoked=await call(p,await signed('/device/v2/pair/revoke',
     {device:'phone'},'computer',pc.key));
  assert.equal(revoked.body.revoked,true);
+ assert.equal(s.map.has('v2:grants:phone'),false,'revoke clears old device grants');
  assert.equal((await call(p,await signed('/device/v2/pair/verify',
     {},'phone',phone.key))).status,403);
 });

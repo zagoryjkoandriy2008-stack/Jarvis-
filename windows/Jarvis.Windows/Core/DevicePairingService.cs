@@ -85,6 +85,28 @@ public sealed class DevicePairingService : IDisposable {
     }
     public Task<JsonDocument> SignedPostAsync(string path,object body,CancellationToken cancel) =>
         PostAsync(path,body,signed:true,cancel);
+    public sealed record PhoneGrants(bool ReadOnly,bool Media,bool Apps,
+        bool Locks,bool WatchDelegation);
+    private static PhoneGrants ParseGrants(JsonElement root) {
+        var v=root.GetProperty("permissions");
+        return new(v.GetProperty("readOnly").GetBoolean(),
+            v.GetProperty("media").GetBoolean(),v.GetProperty("apps").GetBoolean(),
+            v.GetProperty("locks").GetBoolean(),
+            v.GetProperty("watchDelegation").GetBoolean());
+    }
+    public async Task<PhoneGrants> GetGrantsAsync(CancellationToken cancel) {
+        using var data=await PostAsync("/device/v2/pair/grants/get",
+            new {device="phone"},signed:true,cancel);
+        return ParseGrants(data.RootElement);
+    }
+    public async Task<PhoneGrants> SetGrantsAsync(PhoneGrants grants,CancellationToken cancel) {
+        using var data=await PostAsync("/device/v2/pair/grants/set",
+            new {device="phone",permissions=new {
+                readOnly=grants.ReadOnly,media=grants.Media,apps=grants.Apps,
+                locks=grants.Locks,watchDelegation=grants.WatchDelegation
+            }},signed:true,cancel);
+        return ParseGrants(data.RootElement);
+    }
     public sealed record PairingStart(Guid Id,string Code,int ExpiresMs);
     public sealed record PendingState(string State,string? PhoneFingerprint,int ExpiresMs);
     public async Task<PairingStart> BeginAsync(CancellationToken cancel) {

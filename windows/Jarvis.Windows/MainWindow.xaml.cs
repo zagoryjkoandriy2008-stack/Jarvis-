@@ -860,6 +860,37 @@ public partial class MainWindow : Window {
             if(approved){_pairingRequestId=Guid.Empty;_pendingPhoneFingerprint=null;}
         }catch(Exception ex){PairingCodeReport.Text="Підтвердження не виконано: "+ex.Message;}
     }
+    private void ShowGrants(DevicePairingService.PhoneGrants grants) {
+        GrantReadOnly.IsChecked=grants.ReadOnly;
+        GrantMedia.IsChecked=grants.Media;
+        GrantApps.IsChecked=grants.Apps;
+        GrantLocks.IsChecked=grants.Locks;
+        GrantWatch.IsChecked=grants.WatchDelegation;
+    }
+    private async void PairGrantsLoad_Click(object sender,RoutedEventArgs e) {
+        try {
+            ShowGrants(await _pairing.GetGrantsAsync(_lifetime.Token));
+            PairingCodeReport.Text="Поточні дозволи Pixel завантажені з підписаного Worker.";
+        }catch(Exception ex){PairingCodeReport.Text="Дозволи не завантажені: "+ex.Message;}
+    }
+    private async void PairGrantsSave_Click(object sender,RoutedEventArgs e) {
+        var requested=new DevicePairingService.PhoneGrants(
+            GrantReadOnly.IsChecked==true,GrantMedia.IsChecked==true,
+            GrantApps.IsChecked==true,GrantLocks.IsChecked==true,
+            GrantWatch.IsChecked==true);
+        if(System.Windows.MessageBox.Show(
+            "Дозволити Pixel віддалено запускати обрані категорії команд? "+
+            "Доступ Watch7 використовує ключ Pixel. Кожне блокування Windows "+
+            "і вимкнення монітора окремо вимагатиме згоду на ПК.",
+            "JARVIS — права пристрою",MessageBoxButton.YesNo,
+            MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+        try {
+            var saved=await _pairing.SetGrantsAsync(requested,_lifetime.Token);
+            ShowGrants(saved);
+            PairingCodeReport.Text="Дозволи збережено з підписом Windows. "+
+                "Зміни діють для наступних команд.";
+        }catch(Exception ex){PairingCodeReport.Text="Дозволи не збережено: "+ex.Message;}
+    }
     private async void PairList_Click(object sender,RoutedEventArgs e) {
         try{PairingCodeReport.Text=await _pairing.ListAsync(_lifetime.Token);}
         catch(Exception ex){PairingCodeReport.Text="Перелік недоступний: "+ex.Message;}

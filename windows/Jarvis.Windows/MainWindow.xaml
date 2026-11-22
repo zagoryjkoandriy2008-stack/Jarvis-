@@ -92,6 +92,22 @@
             <Button Content="Перелік спарених" Click="PairList_Click"/>
             <Button Content="Відкликати Pixel" Click="PairRevoke_Click"/>
           </StackPanel>
+          <TextBlock Text="Дозволи для спареного Pixel / команд із Watch7"
+                     FontWeight="Bold" FontSize="14" Margin="0,12,0,4"/>
+          <CheckBox x:Name="GrantReadOnly" IsChecked="True"
+                    Content="Стан і перелік пристроїв" Margin="0,3"/>
+          <CheckBox x:Name="GrantMedia"
+                    Content="Медіа й гучність Windows" Margin="0,3"/>
+          <CheckBox x:Name="GrantApps"
+                    Content="Запуск перевірених програм (браузер, Блокнот, калькулятор)" Margin="0,3"/>
+          <CheckBox x:Name="GrantLocks"
+                    Content="Блокування Windows / вимкнення монітора (ще й локальна згода)" Margin="0,3"/>
+          <CheckBox x:Name="GrantWatch"
+                    Content="Делегувати команди Galaxy Watch7 через спарений Pixel" Margin="0,3"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="Прочитати дозволи" Click="PairGrantsLoad_Click"/>
+            <Button Content="Зберегти дозволи" Click="PairGrantsSave_Click"/>
+          </StackPanel>
           <TextBox x:Name="PairingCodeReport" Width="680" Height="115" IsReadOnly="True"
                    TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,8"/>
           <TextBlock Foreground="#FFCC99" TextWrapping="Wrap" Width="680"
