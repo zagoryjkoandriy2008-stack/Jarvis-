@@ -47,10 +47,15 @@ public final class SpotifyPlaylistSync {
         com.google.android.gms.wearable.PutDataRequest request =
             data.asPutDataRequest();
         request.setUrgent();
-        Wearable.getDataClient(context.getApplicationContext())
-            .putDataItem(request)
-            .addOnFailureListener(error ->
-                Log.w("DIMON_SPOTIFY_SYNC", "Could not publish playlist aliases", error));
+        try {
+            Wearable.getDataClient(context.getApplicationContext())
+                .putDataItem(request)
+                .addOnFailureListener(error ->
+                    Log.w("DIMON_SPOTIFY_SYNC", "Could not publish playlist aliases", error));
+        } catch (RuntimeException unavailable) {
+            // Spotify preferences must remain usable even without Play Services.
+            Log.w("DIMON_SPOTIFY_SYNC", "Wear Data Layer unavailable on Pixel", unavailable);
+        }
     }
 
     /** Receive a snapshot only on a Watch7; reject invalid data atomically. */
@@ -74,6 +79,29 @@ public final class SpotifyPlaylistSync {
         return SpotifyPlaylistSyncRules.resolvePlaylist(entries, kind, title);
     }
 
+    /** Human-readable watch-only diagnostics; never exposes account secrets. */
+    public static String summaryOnWatch(Context context) {
+        String entries = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_ENTRIES, "");
+        if (entries == null || entries.isEmpty())
+            return "Плейлистів немає. Перевір Spotify Remote на Pixel, "+
+                "збережи налаштування й увімкни з'єднання Galaxy Wearable.";
+        StringBuilder names = new StringBuilder();
+        int count=0;
+        for (String line : entries.split("\\r?\\n")) {
+            int divider=line.indexOf('|');
+            if(divider<=0 || !line.substring(divider+1).trim()
+                .startsWith("spotify:playlist:"))continue;
+            if(++count<=8) {
+                if(names.length()>0) names.append(", ");
+                names.append(line.substring(0,divider).trim());
+            }
+        }
+        return "Синхронізовано плейлистів: "+count+
+            ". Назви: "+names+(count>8?" та інші.":".")+
+            " Якщо «Реп» або «Укр муз» відсутній — додай його на Pixel.";
+    }
+
     public interface Listener {
         void ready(String playlistUri);
     }
@@ -94,8 +122,9 @@ public final class SpotifyPlaylistSync {
                 listener.ready(cachedPlaylist(app, kind, title));
         };
         MAIN.postDelayed(finish, 2800L);
-        Wearable.getDataClient(app).getDataItems()
-            .addOnSuccessListener(items -> {
+        try {
+            Wearable.getDataClient(app).getDataItems()
+                .addOnSuccessListener(items -> {
                 try {
                     long newest = -1L;
                     String snapshot = null;
@@ -127,5 +156,11 @@ public final class SpotifyPlaylistSync {
                 MAIN.removeCallbacks(finish);
                 MAIN.post(finish);
             });
+        } catch (RuntimeException unavailable) {
+            Log.w("DIMON_SPOTIFY_SYNC", "Could not query synced playlist aliases",
+                unavailable);
+            MAIN.removeCallbacks(finish);
+            MAIN.post(finish);
+        }
     }
 }
