@@ -222,6 +222,17 @@ jobs:
           grep -Fq 'p.lineTo(m.widthPixels*.50f,m.heightPixels*.16f);' "$screen"
           grep -Fq 'done(true,"Плейлист' "$controller"
           ! grep -Eq 'SWIPE_HOME|SEARCH_RECOVER_RIGHT|SEARCH_RECOVER_DOWN|RETURN_FROM_SEARCH_PLAYLIST|spotifySwipeHome|spotifyRevealNavigation' "$controller" "$screen"
+      - name: Watch7 Spotify IME Search preserves letters (no APK)
+        run: |
+          service=android/app/src/main/java/com/andriy/jarvis/JarvisWatchScreenService.java
+          controller=android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java
+          xml=android/app/src/main/res/xml/jarvis_watch_accessibility.xml
+          grep -Fq 'flagInputMethodEditor' "$xml"
+          grep -Fq 'connection.commitText(title,1,null)' "$service"
+          grep -Fq 'connection.performEditorAction(action)' "$service"
+          grep -Fq 'spotifyLiveInputMethod()' "$service"
+          grep -Fq 'spotifySubmittedQueryCorrupted(title)' "$controller"
+          ! sed -n '/private Result spotifySubmitQuery(/,/private static boolean spotifyTitleMatches/p' "$service" | grep -Fq 'ACTION_IME_ENTER'
       - name: Watch7 Spotify fresh-task launch without losing next result (no APK)
         run: |
           watch=android/app/src/main/java/com/andriy/jarvis
