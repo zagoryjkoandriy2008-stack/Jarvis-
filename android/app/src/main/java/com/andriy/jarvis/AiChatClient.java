@@ -353,7 +353,7 @@ public final class AiChatClient {
         if(!isConfigured())throw new IllegalStateException(
             "Спочатку налаштуй Cloudflare AI Worker на Pixel.");
         if(route==null || !route.matches(
-            "^/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
+            "^/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
             throw new IllegalArgumentException("Неправильний шлях JARVIS Relay.");
         if(!"GET".equals(method) && !"POST".equals(method))
             throw new IllegalArgumentException("Недопустимий метод Relay.");
@@ -396,7 +396,7 @@ public final class AiChatClient {
                 ByteArrayOutputStream limited=new ByteArrayOutputStream();
                 byte[] buffer=new byte[2048];int n;
                 while((n=body.read(buffer))>=0) {
-                    if(limited.size()+n>65536)throw new Exception(
+                    if(limited.size()+n>("/device/v1/files/latest".equals(route)?1500000:65536))throw new Exception(
                         "JARVIS Relay повернув надто багато даних.");
                     limited.write(buffer,0,n);
                 }
