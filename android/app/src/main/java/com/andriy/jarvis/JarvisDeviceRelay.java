@@ -220,7 +220,7 @@ public final class JarvisDeviceRelay {
         // it were complete; show an explicit on-phone follow-up instruction.
         final String safeDetail=detail==null?"":(
             detail.length()<=4500?detail:
-            detail.substring(0,4350)+"\\n… Відповідь скорочено. "+
+            detail.substring(0,4350)+"\n… Відповідь скорочено. "+
             "Повний звіт або нотатки відкрий у JARVIS на Pixel.");
         // Persist ACK before network I/O. If the Worker lease expires before
         // the ACK, resend the same result, NEVER re-execute the action.
