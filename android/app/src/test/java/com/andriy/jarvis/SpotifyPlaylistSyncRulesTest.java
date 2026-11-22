@@ -53,6 +53,33 @@ public final class SpotifyPlaylistSyncRulesTest {
             many.append("Alias"+i+" | spotify:playlist:"+ONE+"\n");
         check(SpotifyPlaylistSyncRules.canonicalEntries(many.toString())==null,
             "too many entries rejected");
+        // Every user-created playlist is transmitted, not only Rap/Uk Muz.
+        // Mixed track and playlist entries must not masquerade as playlists.
+        StringBuilder full=new StringBuilder();
+        for(int i=0;i<60;i++) {
+            if(i>0)full.append('\n');
+            full.append("Мій плейлист ").append(i).append(" | spotify:playlist:").append(ONE);
+        }
+        String all=SpotifyPlaylistSyncRules.canonicalEntries(full.toString());
+        check(all!=null,"all 60 configured playlist aliases must sync");
+        for(int i=0;i<60;i++)
+            eq(SpotifyPlaylistSyncRules.resolvePlaylist(all,
+                SpotifyMusicCommands.Kind.PLAYLIST,"мій плейлист "+i),
+                "spotify:playlist:"+ONE,"arbitrary playlist #"+i+" must resolve");
+        check(SpotifyPlaylistSyncRules.resolvePlaylist(all,
+            SpotifyMusicCommands.Kind.PLAYLIST,"несинхронізований")==null,
+            "unlisted playlist must not guess a Spotify URI");
+        String mixed=SpotifyPlaylistSyncRules.canonicalEntries(
+            "Для роботи | spotify:playlist:"+ONE+
+            "\nМій трек | spotify:track:"+TWO+
+            "\nДля дороги | spotify:playlist:"+TWO);
+        check(mixed!=null,"mixed saved Spotify Remote entries allowed");
+        eq(SpotifyPlaylistSyncRules.resolvePlaylist(mixed,
+            SpotifyMusicCommands.Kind.PLAYLIST,"для дороги"),
+            "spotify:playlist:"+TWO,"last saved playlist remains accessible");
+        check(SpotifyPlaylistSyncRules.resolvePlaylist(mixed,
+            SpotifyMusicCommands.Kind.PLAYLIST,"мій трек")==null,
+            "saved tracks are not playlists");
         System.out.println("SpotifyPlaylistSyncRulesTest OK");
     }
 }
