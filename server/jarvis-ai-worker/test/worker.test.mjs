@@ -212,14 +212,15 @@ test('screenshot binary upload needs bearer; 240 KB cap is separate from command
   const huge=new Uint8Array(240_100);
   huge[0]=255;huge[1]=216;huge[huge.length-2]=255;huge[huge.length-1]=217;
   const oversized=await worker.fetch(new Request(path,{method:'POST',headers:{
-    'content-type':'image/jpeg','authorization':'Bearer '+token
+    'content-type':'image/jpeg','authorization':'Bearer '+token,
+    'content-length':String(huge.length)
   },body:huge}),bridgeEnv);
   assert.equal(oversized.status,413);
   assert.equal(forwarded,1);
   const tooLongCommand=await worker.fetch(new Request(
       'https://jarvis.example.workers.dev/device/v1/send',
       {method:'POST',headers:{'authorization':'Bearer '+token,
-        'content-type':'application/json'},body:'x'.repeat(8300)}
+        'content-type':'application/json','content-length':'8300'},body:'x'.repeat(8300)}
     ),bridgeEnv);
   assert.equal(tooLongCommand.status,413);
   assert.equal(forwarded,1);
