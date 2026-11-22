@@ -1,4 +1,4 @@
-import {DeviceRelay} from './device-relay.mjs';
+export {DeviceRelay} from './device-relay.mjs';
 /**
  * Personal JARVIS AI. API key is stored only in Cloudflare Worker secrets.
  * Photo/document access requires the user to pick a file on Android.
