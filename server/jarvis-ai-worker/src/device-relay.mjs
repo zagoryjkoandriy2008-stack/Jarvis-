@@ -164,6 +164,16 @@ export class DeviceRelay {
           :{id,done:false});
       }
 
+      if(path==='/device/v1/status' && request.method==='GET') {
+        const device=url.searchParams.get('device');
+        if(!validDevice(device))return sendJson({error:'Unknown device'},400);
+        const last=await store.get('live:'+device);
+        const fresh=Number.isFinite(last)&&now-last<LIVE;
+        return sendJson({device,online:fresh,state:fresh?'online':'offline',
+          lastSeenMs:Number.isFinite(last)?last:null,
+          ageMs:Number.isFinite(last)?Math.max(0,now-last):null,
+          ttlMs:LIVE,pairing:'legacy-shared-token'});
+      }
       if(path==='/device/v1/online' && request.method==='GET') {
         const device=url.searchParams.get('device');
         if(!validDevice(device))return sendJson({error:'Unknown device'},400);

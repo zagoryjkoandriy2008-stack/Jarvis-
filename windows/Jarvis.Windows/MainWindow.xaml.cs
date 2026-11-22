@@ -630,18 +630,20 @@ public partial class MainWindow : Window {
     private void TargetPhone_Click(object sender,RoutedEventArgs e)=>SetTarget(JarvisDevice.Phone);
     private void TargetWatch_Click(object sender,RoutedEventArgs e)=>SetTarget(JarvisDevice.Watch);
     private void TargetComputer_Click(object sender,RoutedEventArgs e)=>SetTarget(JarvisDevice.Computer);
+    private static string FormatPresence(DeviceRelayClient.DevicePresence p) =>
+        p.Online?"online, останній heartbeat "+(p.AgeMs??0)/1000+" с тому":
+        p.AgeMs.HasValue?"offline, останній heartbeat "+p.AgeMs.Value/1000+" с тому":"немає даних";
     private async void CheckDevices_Click(object sender,RoutedEventArgs e) {
         if(_relay==null || !_state.Settings.EnableDeviceRelay) {
             DeviceStatusReport.Text="Включи авторизований Relay у Налаштуваннях, збережи токен Worker.";
             return;
         }
         try {
-            var phone=await _relay.IsOnlineAsync(JarvisDevice.Phone,_lifetime.Token);
-            var watch=await _relay.IsOnlineAsync(JarvisDevice.Watch,_lifetime.Token);
-            DeviceStatusReport.Text="🖥 Windows: працює\n📱 Pixel: "+
-                (phone?"з'єднаний":"офлайн")+"\n⌚ Watch7: "+
-                (watch?"з'єднаний":"офлайн")+
-                "\nЗв'язок потребує активного Android-агента та оновленого Cloudflare Worker.";
+            var phone=await _relay.GetPresenceAsync(JarvisDevice.Phone,_lifetime.Token);
+            var watch=await _relay.GetPresenceAsync(JarvisDevice.Watch,_lifetime.Token);
+            DeviceStatusReport.Text="🖥 Windows: активний\n📱 Pixel: "+FormatPresence(phone)+
+                "\n⌚ Watch7: "+FormatPresence(watch)+
+                "\nБезпека: старий спільний ключ, криптографічне pairing ще не завершене.";
         }catch(Exception error){DeviceStatusReport.Text="Relay: "+error.Message;}
     }
 

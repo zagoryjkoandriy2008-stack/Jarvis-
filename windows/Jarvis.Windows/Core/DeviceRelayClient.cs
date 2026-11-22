@@ -55,6 +55,17 @@ public sealed class DeviceRelayClient : IDisposable {
             return await JsonDocument.ParseAsync(stream,cancellationToken:cancel);
         }
     }
+    public sealed record DevicePresence(bool Online,long? LastSeenMs,long? AgeMs,long TtlMs,string Pairing);
+    public async Task<DevicePresence> GetPresenceAsync(JarvisDevice device,CancellationToken cancel) {
+        var (url,token)=Credentials();
+        using var json=await SendAsync(Request(HttpMethod.Get,
+            new Uri(url,$"/device/v1/status?device={DeviceRouting.WireId(device)}").ToString(),token),cancel);
+        var v=json.RootElement;
+        return new(v.GetProperty("online").GetBoolean(),
+            v.GetProperty("lastSeenMs").ValueKind==JsonValueKind.Null?null:v.GetProperty("lastSeenMs").GetInt64(),
+            v.GetProperty("ageMs").ValueKind==JsonValueKind.Null?null:v.GetProperty("ageMs").GetInt64(),
+            v.GetProperty("ttlMs").GetInt64(),v.GetProperty("pairing").GetString()??"unknown");
+    }
     public async Task<bool> IsOnlineAsync(JarvisDevice device,CancellationToken cancel) {
         var (url,token)=Credentials();
         using var json=await SendAsync(Request(HttpMethod.Get,
@@ -96,6 +107,7 @@ public sealed class DeviceRelayClient : IDisposable {
     }
 
     public async Task ListenAsync(CancellationToken cancellation) {
+        var consecutiveErrors=0;
         while(!cancellation.IsCancellationRequested) {
             if(!_settings.EnableDeviceRelay) {
                 try {await Task.Delay(3500,cancellation);}
@@ -140,9 +152,16 @@ public sealed class DeviceRelayClient : IDisposable {
                             cancellation);
                     }catch(Exception error){Status?.Invoke("Не вдалося передати ACK: "+error.Message);}
                 }
+                consecutiveErrors=0;
             }catch(OperationCanceledException) {break;}
-             catch(Exception error) {Status?.Invoke("Зв'язок Windows: "+error.Message);}
-            try {await Task.Delay(3000,cancellation);}
+             catch(Exception error) {
+                consecutiveErrors=Math.Min(5,consecutiveErrors+1);
+                if(consecutiveErrors==1||consecutiveErrors==5)
+                    Status?.Invoke("Зв'язок Windows: "+error.Message);
+             }
+            var retryMs=consecutiveErrors==0?3000:
+                Math.Min(45000,3000*(1<<consecutiveErrors))+Random.Shared.Next(200,950);
+            try {await Task.Delay(retryMs,cancellation);}
             catch(OperationCanceledException) {break;}
         }
     }
