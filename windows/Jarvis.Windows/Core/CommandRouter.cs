@@ -5,7 +5,7 @@ namespace Jarvis.Windows.Core;
 
 public enum CommandKind {
     Ai, OpenApp, WebSearch, SpotifySearch, SpotifyPlaylist, Volume,
-    Speak, NoteAdd, FinanceAdd, FinanceReport, Timer, MediaToggle,
+    Speak, NoteAdd, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
     MediaNext, MediaPrevious, TypeIntoActiveWindow, OpenSettings
 }
 
@@ -63,6 +63,11 @@ public static class CommandRouter {
             var seconds = unit.StartsWith("сек") || unit.StartsWith("second") ? count : count*60;
             return new(CommandKind.Timer, Value: seconds);
         }
+        // Advanced Android JARVIS Finance is authoritative on Pixel.
+        // Route the ORIGINAL utterance there; don't rewrite amounts or
+        // silently create an independent local Windows transaction.
+        if(FinanceCommandClassifier.IsFinance(text))
+            return new(CommandKind.FinanceRemote, text);
         match = Regex.Match(text, @"^(?:скажи|промов)\s+(.+)$", RegexOptions.IgnoreCase);
         if (match.Success) return new(CommandKind.Speak, match.Groups[1].Value.Trim());
         match = Regex.Match(text, @"^(?:запиши\s+нотатку|створи\s+нотатку|нотатка)\s+(.+)$",
