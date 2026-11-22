@@ -10,8 +10,51 @@ import java.nio.charset.StandardCharsets;
 /** Phone companion: receives authenticated Data Layer messages from the watch. */
 public final class JarvisWearMessageReceiver extends WearableListenerService {
     @Override public void onMessageReceived(MessageEvent event) {
-        if(!JarvisWearProtocol.REQUEST.equals(event.getPath()) ||
-           getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) return;
+        // Desktop -> Pixel -> Watch7 arrives over the already authenticated
+        // Google Wear Data Layer. The watch must be visible and have granted
+        // the owner-operated remote-control permission.
+        boolean watch=getPackageManager().hasSystemFeature(
+            PackageManager.FEATURE_WATCH);
+        if(watch && JarvisDeviceRelay.watchRequestPath().equals(event.getPath())) {
+            byte[] data=event.getData();
+            if(data==null || data.length>JarvisWearProtocol.MAX_BYTES)return;
+            try {
+                JSONObject request=new JSONObject(new String(data,StandardCharsets.UTF_8));
+                String id=request.optString("id","");
+                String command=request.optString("command","");
+                if(!JarvisWearProtocol.validId(id))return;
+                String phoneNode=event.getSourceNodeId();
+                if(phoneNode==null || phoneNode.isEmpty())return;
+                if(!JarvisDeviceRelay.enabled(this) ||
+                   !JarvisDeviceRelayRules.permittedRemoteWatch(command)) {
+                    replyRemoteWatch(phoneNode,id,false,
+                        "Дистанційне керування годинником вимкнене або команда заборонена.");
+                    return;
+                }
+                MainActivity.acceptRemoteWatchCommand(command,(ok,detail)->
+                    replyRemoteWatch(phoneNode,id,ok,detail));
+            }catch(Exception error){
+                android.util.Log.w("DIMON_WATCH_REMOTE",
+                    "Reject invalid Wear remote request",error);
+            }
+            return;
+        }
+        if(!watch && JarvisDeviceRelay.watchReplyPath().equals(event.getPath())) {
+            byte[] data=event.getData();
+            if(data==null || data.length>JarvisWearProtocol.MAX_BYTES)return;
+            try {
+                JSONObject reply=new JSONObject(new String(data,StandardCharsets.UTF_8));
+                String id=reply.optString("id","");
+                if(JarvisWearProtocol.validId(id))
+                    JarvisDeviceRelay.watchReply(this,id,
+                        reply.optBoolean("ok",false),
+                        reply.optString("detail",""));
+            }catch(Exception bad) {
+                android.util.Log.w("DIMON_DEVICE_RELAY","Invalid watch ACK",bad);
+            }
+            return;
+        }
+        if(!JarvisWearProtocol.REQUEST.equals(event.getPath()) || watch)return;
         byte[] data=event.getData();
         if(data==null || data.length==0 || data.length>JarvisWearProtocol.MAX_BYTES)return;
         JSONObject request;
@@ -136,6 +179,23 @@ public final class JarvisWearMessageReceiver extends WearableListenerService {
                     ? JarvisWearReplyPages.save(node,id,description) : null;
             sendReply(node,id,ok,description,token,ended,page);
         });
+    }
+
+    private void replyRemoteWatch(String node,String id,boolean ok,
+                                  String detail) {
+        if(node==null || !JarvisWearProtocol.validId(id))return;
+        try {
+            JSONObject reply=new JSONObject();
+            reply.put("id",id);reply.put("ok",ok);
+            reply.put("detail",detail==null?"":detail.substring(
+                0,Math.min(1200,detail.length())));
+            byte[] encoded=reply.toString().getBytes(StandardCharsets.UTF_8);
+            if(encoded.length>JarvisWearProtocol.MAX_BYTES)return;
+            Wearable.getMessageClient(getApplicationContext()).sendMessage(
+                node,JarvisDeviceRelay.watchReplyPath(),encoded);
+        }catch(Exception error) {
+            android.util.Log.w("DIMON_WATCH_REMOTE","Watch ACK not sent",error);
+        }
     }
 
     private boolean claim(String node,String id) {
