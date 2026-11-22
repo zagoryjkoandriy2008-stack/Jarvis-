@@ -156,3 +156,30 @@ test('bad JSON and excessive payload are rejected early',async()=>{
   assert.equal((await worker.fetch(request('/chat',token,'{oops'),env)).status,400);
   assert.equal((await worker.fetch(request('/chat',token,'x'.repeat(5*1024*1024+1)),env)).status,413);
 });
+
+test('device relay requires the private bearer and never calls AI',async()=>{
+  let relayCalls=0;
+  const bridgeEnv={
+    JARVIS_CLIENT_TOKEN:token,
+    DEVICE_RELAY:{
+      idFromName:()=>({name:'private-jarvis'}),
+      get:()=>({fetch:async()=>{relayCalls++;return new Response(
+        JSON.stringify({device:'phone',online:false}),
+        {status:200,headers:{'Content-Type':'application/json'}});}})
+    }
+  };
+  const endpoint='https://jarvis.example.workers.dev/device/v1/online?device=phone';
+  const unauth=await worker.fetch(new Request(endpoint),bridgeEnv);
+  assert.equal(unauth.status,401);
+  assert.equal(relayCalls,0);
+  const auth=await worker.fetch(new Request(endpoint,{headers:{
+    authorization:'Bearer '+token
+  }}),bridgeEnv);
+  assert.equal(auth.status,200);
+  assert.equal(relayCalls,1);
+  assert.equal((await auth.json()).device,'phone');
+  const noBinding=await worker.fetch(new Request(endpoint,{headers:{
+    authorization:'Bearer '+token
+  }}),{JARVIS_CLIENT_TOKEN:token});
+  assert.equal(noBinding.status,503);
+});
