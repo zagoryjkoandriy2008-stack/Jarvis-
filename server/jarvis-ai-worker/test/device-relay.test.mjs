@@ -72,3 +72,11 @@ test('workers reject invalid JSON',async()=>{
       {method:'POST',body:'not JSON'}));
   assert.equal(response.status,400);
 });
+
+test('alarm deletes device commands even after clients have gone offline',async()=>{
+  const state={storage:storage()},relay=new DeviceRelay(state,{});
+  await call(relay,'POST','/device/v1/send',sample);
+  state.storage.map.get('m:'+id).created=Date.now()-130000;
+  await relay.alarm();
+  assert.equal(state.storage.map.has('m:'+id),false);
+});
