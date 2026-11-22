@@ -54,4 +54,24 @@ foreach(var bad in new[]{"powershell -command whoami","напиши пароль
     try { MacroEngine.New("тест",bad);throw new Exception("Unsafe macro allowed: "+bad); }
     catch(ArgumentException) { assertions++; }
 }
+foreach(var (voice,target) in new (string,JarvisDevice)[]{
+    ("телефон",JarvisDevice.Phone),("Джарвіс телефон",JarvisDevice.Phone),
+    ("годинник",JarvisDevice.Watch),("Дімон годинник",JarvisDevice.Watch),
+    ("комп'ютер",JarvisDevice.Computer),("компютер",JarvisDevice.Computer),
+    ("компьютер",JarvisDevice.Computer),("комп'ютер.",JarvisDevice.Computer),
+    ("Jarvis computer",JarvisDevice.Computer)}) {
+    Check(DeviceRouting.TargetChange(voice)==target,"three-device mode: "+voice);
+}
+Check(DeviceRouting.TargetChange("увімкни пісню мама")==null,
+    "ordinary music must not switch device mode");
+Check(DeviceRouting.TargetChange("дімон")==null,
+    "wakeword alone does not select remote device");
+Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,CommandKind.FinanceAdd)
+    ==JarvisDevice.Phone,"Pixel authoritative finance");
+Check(DeviceRouting.EffectiveTarget(JarvisDevice.Watch,CommandKind.FinanceReport)
+    ==JarvisDevice.Phone,"watch financial report must use Pixel");
+Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,CommandKind.Volume)
+    ==JarvisDevice.Computer,"Windows-local system commands unchanged");
+Check(DeviceRouting.EffectiveTarget(JarvisDevice.Watch,CommandKind.SpotifySearch)
+    ==JarvisDevice.Watch,"watch Spotify target preserved");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
