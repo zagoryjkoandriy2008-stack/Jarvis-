@@ -2018,7 +2018,7 @@ public final class MainActivity extends Activity implements RecognitionListener 
         int tone=WatchTtsVoiceChoice.toneMode(getPreferences(MODE_PRIVATE)
             .getInt(WatchTtsVoiceChoice.PREF_TONE,WatchTtsVoiceChoice.NORMAL));
         String[] actions={
-            "🎙 Вибрати голос Android ("+(ttsReady?available.size():"завантажується")+")",
+            "🎙 Вибрати голос (системний + "+(ttsReady?available.size()+" укр.":"пошук укр.")+")",
             "🎚 Тембр: "+WatchTtsVoiceChoice.toneLabel(tone),
             "🔊 Прослухати голос",
             "⚙ Додати голоси в Wear OS",
