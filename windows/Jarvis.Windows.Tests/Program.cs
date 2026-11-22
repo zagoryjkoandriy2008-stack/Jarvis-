@@ -126,4 +126,16 @@ try {
     if(System.IO.File.Exists(receiptPath))
         System.IO.File.Delete(receiptPath);
 }
+foreach(var (phrase,expected) in new (string,string)[]{
+    ("увімкни реп","реп"),
+    ("включи rap","rap"),
+    ("увімкни українське","українське"),
+    ("включи украинское","украинское")
+}) {
+    var parsed=CommandRouter.Parse(phrase);
+    Check(parsed.Kind==CommandKind.SpotifyPlaylist && parsed.Argument==expected,
+        "saved playlist alias recognized on Windows: "+phrase);
+    Check(DeviceRouting.EffectiveTarget(JarvisDevice.Watch,parsed.Kind)
+        ==JarvisDevice.Watch,"saved playlist remains on Watch when selected");
+}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
