@@ -70,7 +70,8 @@ public static class MacroV2Engine {
             throw new ArgumentException("Розклад: HH:mm або порожнє поле.");
         if(macro.EventTrigger is not ("" or "network.online" or "network.offline") &&
            !System.Text.RegularExpressions.Regex.IsMatch(macro.EventTrigger,
-              @"^app\.(?:active|start):[a-z0-9._-]{1,50}$"))
+              @"^app\.(?:active|start):[a-z0-9._-]{1,50}$") &&
+           !MacroUsbEventName.TryParse(macro.EventTrigger,out _,out _))
             throw new ArgumentException(
                 "Подія: network.online, network.offline або app.active:ім'я_процесу.");
         foreach(var condition in macro.Conditions)ValidateCondition(condition);
