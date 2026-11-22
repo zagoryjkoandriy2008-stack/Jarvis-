@@ -108,12 +108,15 @@ public final class JarvisDeviceRelay {
                 Wearable.getNodeClient(app).getConnectedNodes().addOnSuccessListener(
                     nodes->{
                         if(nodes==null || nodes.isEmpty())return;
-                        for(Node node:nodes) {
-                            if(node.isNearby()) {
-                                IO.execute(()->poll(app,"watch",node.getId()));
-                                break;
-                            }
-                        }
+                        // Wear Data Layer can connect over Wi-Fi as well as
+                        // Bluetooth. Prefer a nearby paired watch, but don't
+                        // silently disable the bridge on valid cloud/Wi-Fi
+                        // Wear links that report isNearby()==false.
+                        Node chosen=nodes.get(0);
+                        for(Node node:nodes)
+                            if(node.isNearby()){chosen=node;break;}
+                        String recipient=chosen.getId();
+                        IO.execute(()->poll(app,"watch",recipient));
                     });
             }catch(RuntimeException failure) {
                 Log.w(TAG,"Device bridge poll interrupted",failure);
