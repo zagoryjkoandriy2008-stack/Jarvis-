@@ -1192,6 +1192,19 @@ public final class MainActivity extends Activity implements RecognitionListener 
             LinearLayout.LayoutParams deviceParams=new LinearLayout.LayoutParams(-1,-2);
             deviceParams.topMargin=dp(7);
             hero.addView(deviceRelayToggle,deviceParams);
+            CheckBox signedRelayToggle=new CheckBox(this);
+            signedRelayToggle.setText("🔐 Windows: команди з підписом P-256 (v2)");
+            signedRelayToggle.setTextColor(MUTED);
+            signedRelayToggle.setTextSize(TypedValue.COMPLEX_UNIT_SP,isCompact?11:12);
+            signedRelayToggle.setButtonTintList(ColorStateList.valueOf(CYAN));
+            signedRelayToggle.setChecked(JarvisSignedDeviceCommands.enabled(this));
+            signedRelayToggle.setOnCheckedChangeListener((button,active)->{
+                JarvisSignedDeviceCommands.setEnabled(this,active);
+                setStatus(active?"Команди Windows передаватимуться лише через перевірений "+
+                    "P-256 канал. Потрібні pairing і v2 на ПК. Відкату на v1 немає.":
+                    "Підписаний режим Windows вимкнено.");
+            });
+            hero.addView(signedRelayToggle,new LinearLayout.LayoutParams(-1,-2));
             TextView remoteInfo=makeText(
                 "Команди з Windows і Watch7 проходять лише через твій "+
                 "авторизований Cloudflare Relay. JARVIS Finance зберігається "+

@@ -65,6 +65,11 @@ public final class JarvisDeviceRelay {
             done.finished(false,"Неправильний дистанційний запит.");return;
         }
         Context app=context.getApplicationContext();
+        if("computer".equals(target) && JarvisSignedDeviceCommands.enabled(app)) {
+            // Owner explicitly selected P-256 mode. Never fall back to bearer-only v1.
+            JarvisSignedDeviceCommands.send(app,origin,command,done);
+            return;
+        }
         OUTBOUND.execute(()->{
             try {
                 AiChatClient ai=new AiChatClient(app);
