@@ -86,7 +86,8 @@ public final class JarvisDeviceRelayRules {
         if(utterance==null || utterance.length()>250)return false;
         String s=utterance.toLowerCase(Locale.ROOT).trim();
         return !s.contains("пароль") && !s.contains("pin") &&
-            (JarvisWatchLocalCommands.spotifyOnWatch(utterance)!=null ||
+            (JarvisWatchTimerRequests.parse(utterance)!=null ||
+            JarvisWatchLocalCommands.spotifyOnWatch(utterance)!=null ||
             s.matches("(?iu)^(?:відкрий|відкрити)\\s+(?:spotify|спотіфай)$") ||
             s.matches("(?iu)^(?:знайди дорогу до|проклади маршрут до)\\s+.+$") ||
             s.matches("(?iu)^(?:скажи)\\s+.{1,100}$"));
