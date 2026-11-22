@@ -184,6 +184,17 @@ jobs:
         run: |
           grep -q 'android:name="com.android.alarm.permission.SET_ALARM"' android/app/src/main/AndroidManifest.xml
           ! grep -q 'android:name="android.permission.SET_ALARM"' android/app/src/main/AndroidManifest.xml
+      - name: Watch7 voice picker and TTS application contract (no APK)
+        run: |
+          main=android/app/src/main/java/com/andriy/jarvis/MainActivity.java
+          grep -Fq 'showWatchVoiceSettings();' "$main"
+          grep -Fq 'showWatchVoiceChoices()' "$main"
+          grep -Fq 'showWatchVoiceToneChoices()' "$main"
+          grep -Fq 'WatchTtsVoiceChoice.PREF_VOICE_NAME' "$main"
+          grep -Fq 'tts.setVoice(chosen)' "$main"
+          grep -Fq '🔊 Вибрати голос Watch7' "$main"
+          grep -Fq 'WatchTtsVoiceChoice.pitch(tone)' "$main"
+          ! grep -Fq '.setTitle("Голос Android Watch7")' "$main"
       - name: Watch7 Spotify song UP-only navigation contract (no APK)
         run: |
           controller=android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java
@@ -271,6 +282,8 @@ jobs:
             android/app/src/main/java/com/andriy/jarvis/JarvisOrbPlacement.java \
             android/app/src/main/java/com/andriy/jarvis/ScreenControlCommands.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisWatchUiRules.java \
+            android/app/src/main/java/com/andriy/jarvis/WatchTtsVoiceChoice.java \
+            android/app/src/test/java/com/andriy/jarvis/WatchTtsVoiceChoiceTest.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisWatchMapsCommands.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisWatchMusicFollowup.java \
             android/app/src/main/java/com/andriy/jarvis/JarvisWatchLocalCommands.java \
@@ -333,6 +346,7 @@ jobs:
             android/app/src/test/java/com/andriy/jarvis/UkrainianVoiceTextTest.java
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.DimonVoiceNameTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchUiRulesTest
+          java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.WatchTtsVoiceChoiceTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchMapsCommandsTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchMusicFollowupTest
           java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchLocalCommandsTest

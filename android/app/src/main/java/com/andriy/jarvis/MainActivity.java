@@ -491,7 +491,23 @@ public final class MainActivity extends Activity implements RecognitionListener 
                         finishSystemTts(id);
                     }
                     @Override public void onError(String id) {
+                        boolean failedWatchVoice=isWatchDevice && id!=null &&
+                            id.equals(activeTtsId);
                         finishSystemTts(id);
+                        if(failedWatchVoice)runOnUiThread(() -> {
+                            String chosen=getPreferences(MODE_PRIVATE).getString(
+                                WatchTtsVoiceChoice.PREF_VOICE_NAME,"");
+                            if(!chosen.isEmpty()) {
+                                // Fall back if the chosen network voice is
+                                // removed or stops working mid-session.
+                                getPreferences(MODE_PRIVATE).edit()
+                                    .remove(WatchTtsVoiceChoice.PREF_VOICE_NAME).apply();
+                                applyPreferredVoice();
+                                setStatus("Не вдалося озвучити вибраним голосом. "+
+                                    "Повертаю системний голос Android.");
+                            } else setStatus("Не вдалося відтворити голос Android. "+
+                                "Перевір голосовий пакет у налаштуваннях Watch7.");
+                        });
                     }
                     @Override public void onStop(String id, boolean interrupted) {
                         finishSystemTts(id);
@@ -1582,6 +1598,34 @@ public final class MainActivity extends Activity implements RecognitionListener 
     private void applyPreferredVoice() {
         if (tts == null || !ttsReady) return;
         ArrayList<Voice> available = ukrainianVoices();
+        if(isWatchDevice) {
+            java.util.ArrayList<String> names=new java.util.ArrayList<>();
+            for(Voice v:available)names.add(v.getName());
+            String stored=getPreferences(MODE_PRIVATE).getString(
+                WatchTtsVoiceChoice.PREF_VOICE_NAME,"");
+            String selected=WatchTtsVoiceChoice.availableVoice(names,stored);
+            Voice chosen=null;
+            for(Voice v:available)if(v.getName().equals(selected)) {
+                chosen=v;break;
+            }
+            if(chosen!=null) {
+                try {
+                    if(tts.setVoice(chosen)!=TextToSpeech.SUCCESS)
+                        tts.setLanguage(Locale.forLanguageTag("uk-UA"));
+                }catch(RuntimeException error){
+                    JarvisDiagnostics.error(JarvisDiagnostics.Event.TTS_ERROR,error);
+                    tts.setLanguage(Locale.forLanguageTag("uk-UA"));
+                }
+            } else {
+                // A removed voice pack cannot leave Watch7 silent.
+                tts.setLanguage(Locale.forLanguageTag("uk-UA"));
+            }
+            int tone=WatchTtsVoiceChoice.toneMode(getPreferences(MODE_PRIVATE)
+                .getInt(WatchTtsVoiceChoice.PREF_TONE,WatchTtsVoiceChoice.NORMAL));
+            tts.setPitch(WatchTtsVoiceChoice.pitch(tone));
+            tts.setSpeechRate(0.94f);
+            return;
+        }
         String profile = selectedVoiceProfile();
         Voice namedVoice = voiceForProfile(available, profile);
         // Android TTS is used only as fallback; named neural models run on the configured server.
@@ -1815,6 +1859,11 @@ public final class MainActivity extends Activity implements RecognitionListener 
     }
 
     private void selectVoiceProfile(String requested) {
+        if(isWatchDevice) {
+            setStatus("Дмитро й Лада не встановлені на Watch7. Обери системний голос.");
+            showWatchVoiceSettings();
+            return;
+        }
         String profile = VoiceRanking.profile(requested);
         getPreferences(MODE_PRIVATE).edit().putString("jarvisVoiceProfile", profile)
             .putBoolean("jarvisSupertonicSelected", false).apply();
@@ -1961,14 +2010,126 @@ public final class MainActivity extends Activity implements RecognitionListener 
         resetListening(why.isEmpty()?"Вибраний мікрофон відключено.":why);
     }
 
+    /** Wear has a LOCAL Android TTS engine, not the Pixel ONNX voices.
+     * Always show an actual selectable menu, even if just the system default
+     * voice is available; never present unavailable Дмитро/Лада as installed. */
+    private void showWatchVoiceSettings() {
+        ArrayList<Voice> available=ukrainianVoices();
+        int tone=WatchTtsVoiceChoice.toneMode(getPreferences(MODE_PRIVATE)
+            .getInt(WatchTtsVoiceChoice.PREF_TONE,WatchTtsVoiceChoice.NORMAL));
+        String[] actions={
+            "🎙 Вибрати голос Android ("+(ttsReady?available.size():"завантажується")+")",
+            "🎚 Тембр: "+WatchTtsVoiceChoice.toneLabel(tone),
+            "🔊 Прослухати голос",
+            "⚙ Додати голоси в Wear OS"
+        };
+        String info=!ttsReady
+            ?"Синтез мовлення запускається. Список може бути доступний після ініціалізації TTS."
+            :available.isEmpty()
+            ?"Українських голосів в Android TTS не знайдено. Можна використати системний голос, змінити тембр або встановити українські голоси в налаштуваннях годинника."
+            :"Показані лише українські голоси, які Android TTS повідомляє як доступні на цьому годиннику. Назви можуть бути технічними; голоси, що потребують мережі, позначені окремо.";
+        showDialogWithoutWake(new AlertDialog.Builder(this)
+            .setTitle("Голос Дімона · Watch7")
+            .setMessage(info)
+            .setItems(actions,(dialog,which)->{
+                switch(which){
+                    case 0:showWatchVoiceChoices();break;
+                    case 1:showWatchVoiceToneChoices();break;
+                    case 2:previewCurrentVoice();break;
+                    case 3:openSystemVoiceSettings();break;
+                    default:break;
+                }
+            }).setNegativeButton("Закрити",null).create());
+    }
+
+    private void showWatchVoiceChoices() {
+        ArrayList<Voice> available=ukrainianVoices();
+        final String[] choices=new String[available.size()+1];
+        choices[0]="Системний голос Android · за замовчуванням";
+        final java.util.ArrayList<String> ids=new java.util.ArrayList<>();
+        for(int i=0;i<available.size();i++){
+            Voice voice=available.get(i);
+            ids.add(voice.getName());
+            choices[i+1]=voice.getName()+
+                (voice.isNetworkConnectionRequired()?
+                    " · потрібен інтернет":" · без потреби мережі (за даними TTS)");
+        }
+        String current=WatchTtsVoiceChoice.availableVoice(ids,
+            getPreferences(MODE_PRIVATE).getString(
+                WatchTtsVoiceChoice.PREF_VOICE_NAME,""));
+        int checked=0;
+        for(int i=0;i<ids.size();i++)if(ids.get(i).equals(current)) {
+            checked=i+1;break;
+        }
+        AlertDialog.Builder dialog=new AlertDialog.Builder(this)
+            .setTitle("Вибрати український голос")
+            .setSingleChoiceItems(choices,checked,(d,index)->{
+                String selected=index==0?"":ids.get(index-1);
+                if(index>0 && ttsReady && tts!=null) {
+                    int applied;
+                    try {applied=tts.setVoice(available.get(index-1));}
+                    catch(RuntimeException failure) {
+                        JarvisDiagnostics.error(JarvisDiagnostics.Event.TTS_ERROR,failure);
+                        applied=TextToSpeech.ERROR;
+                    }
+                    if(applied!=TextToSpeech.SUCCESS) {
+                        d.dismiss();
+                        showDialogWithoutWake(new AlertDialog.Builder(this)
+                            .setTitle("Голос недоступний")
+                            .setMessage("Android TTS не зміг вибрати цей голос. "+
+                                "Встанови його мовні дані в налаштуваннях Watch7 "+
+                                "або вибери інший доступний варіант.")
+                            .setPositiveButton("Налаштування",
+                                (dialogView,w)->openSystemVoiceSettings())
+                            .setNegativeButton("Закрити",null).create());
+                        return;
+                    }
+                }
+                getPreferences(MODE_PRIVATE).edit()
+                    .putString(WatchTtsVoiceChoice.PREF_VOICE_NAME,selected).apply();
+                applyPreferredVoice();
+                d.dismiss();
+                setStatus(index==0?"Обрано системний голос Android.":
+                    "Обрано "+available.get(index-1).getName()+".");
+                if(voiceEnabled)previewCurrentVoice();
+            })
+            .setNegativeButton("Закрити",null)
+            .setNeutralButton("Тембр",(d,which)->showWatchVoiceToneChoices());
+        if(!ttsReady)dialog.setMessage(
+            "TTS ще запускається. Вибір можна зберегти, а після ініціалізації оновити список.");
+        else if(available.isEmpty())dialog.setMessage(
+            "Інших українських голосів Android зараз не надає. Обери системний голос, зміни тембр або встанови голоси у Wear OS.");
+        showDialogWithoutWake(dialog.create());
+    }
+
+    private void showWatchVoiceToneChoices() {
+        int current=WatchTtsVoiceChoice.toneMode(getPreferences(MODE_PRIVATE)
+            .getInt(WatchTtsVoiceChoice.PREF_TONE,WatchTtsVoiceChoice.NORMAL));
+        String[] options={
+            "Нижчий тембр · той самий голос",
+            "Звичайний тембр",
+            "Вищий тембр · той самий голос"
+        };
+        int selected=current==WatchTtsVoiceChoice.LOWER?0:
+            current==WatchTtsVoiceChoice.HIGHER?2:1;
+        showDialogWithoutWake(new AlertDialog.Builder(this)
+            .setTitle("Тембр голосу Watch7")
+            .setSingleChoiceItems(options,selected,(d,which)->{
+                int mode=which==0?WatchTtsVoiceChoice.LOWER:
+                    which==2?WatchTtsVoiceChoice.HIGHER:WatchTtsVoiceChoice.NORMAL;
+                getPreferences(MODE_PRIVATE).edit()
+                    .putInt(WatchTtsVoiceChoice.PREF_TONE,mode).apply();
+                applyPreferredVoice();
+                d.dismiss();
+                setStatus("Тембр: "+WatchTtsVoiceChoice.toneLabel(mode)+".");
+                if(voiceEnabled)previewCurrentVoice();
+            })
+            .setNegativeButton("Закрити",null).create());
+    }
+
     private void showVoiceSettings() {
         if(isWatchDevice) {
-            showDialogWithoutWake(new AlertDialog.Builder(this)
-                .setTitle("Голос Android Watch7")
-                .setMessage("Для надійної роботи годинник використовує системний синтез мовлення. Український голос можна встановити в налаштуваннях Wear OS. Голоси та моделі Pixel збережені.")
-                .setPositiveButton("Налаштування",(d,w)->openSystemVoiceSettings())
-                .setNeutralButton("Перевірити",(d,w)->previewCurrentVoice())
-                .setNegativeButton("Закрити",null).create());
+            showWatchVoiceSettings();
             return;
         }
         ArrayList<Voice> available = ukrainianVoices();
@@ -2597,7 +2758,7 @@ public final class MainActivity extends Activity implements RecognitionListener 
     private void showWatchActions() {
         // Android's list dialog scrolls on small Wear OS screens.
         final String[] actions = {
-            "🔊 Голос Android Watch7",
+            "🔊 Вибрати голос Watch7",
             "🔈 Голосові відповіді: " + (voiceEnabled ? "увімкнені" : "вимкнені"),
             "⏳ Пауза після слова: " + speechPauseSeconds() + " с",
             "🤖 ШІ через телефон",
@@ -5556,11 +5717,20 @@ public final class MainActivity extends Activity implements RecognitionListener 
             showVoiceSettings();
             return;
         } else if (command.equals("вимкни голос") || command.equals("вимкни озвучення")) {
-            voiceToggle.setChecked(false);
+            if(isWatchDevice){
+                voiceEnabled=false;
+                getPreferences(MODE_PRIVATE).edit()
+                    .putBoolean("voiceEnabled",false).apply();
+                stopSpeaking();
+            }else if(voiceToggle!=null)voiceToggle.setChecked(false);
             reply = "Голосові відповіді вимкнено.";
             silentReply = true;
         } else if (command.equals("увімкни голос") || command.equals("увімкни озвучення")) {
-            voiceToggle.setChecked(true);
+            if(isWatchDevice){
+                voiceEnabled=true;
+                getPreferences(MODE_PRIVATE).edit()
+                    .putBoolean("voiceEnabled",true).apply();
+            }else if(voiceToggle!=null)voiceToggle.setChecked(true);
             reply = "Голосові відповіді увімкнено.";
         } else if (command.equals("скасуй таймер") || command.equals("зупини таймер") || command.equals("вимкни таймер")) {
             reply = cancelTimer();
