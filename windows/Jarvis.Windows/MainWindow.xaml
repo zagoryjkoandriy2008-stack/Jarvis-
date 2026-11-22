@@ -23,6 +23,22 @@
         <TextBlock Text="JARVIS / WINDOWS" FontSize="24" FontWeight="Bold" Foreground="#53D7EA"/>
         <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
         <TextBlock x:Name="ScreenShareIndicator" Text="🔴 Екран транслюється на Pixel" Foreground="#FF786C" FontWeight="Bold" Visibility="Collapsed"/>
+        <StackPanel x:Name="ControlRequestPanel" Visibility="Collapsed"
+            Orientation="Horizontal" Margin="0,5,0,0">
+          <TextBlock Text="📱 Pixel запитує керування Windows" Foreground="#FFE69B"
+            VerticalAlignment="Center" FontWeight="Bold"/>
+          <Button Content="Дозволити" Click="AllowControl_Click"
+            Background="#236F55" Foreground="White" Margin="8,0,4,0"/>
+          <Button Content="Відхилити" Click="DenyControl_Click"
+            Margin="4,0,0,0"/>
+        </StackPanel>
+        <StackPanel x:Name="ControlActivePanel" Visibility="Collapsed"
+            Orientation="Horizontal" Margin="0,5,0,0">
+          <TextBlock Text="🔴 Pixel керує мишею і клавіатурою"
+            Foreground="#FF786C" FontWeight="Bold" VerticalAlignment="Center"/>
+          <Button Content="■ Заборонити керування" Click="StopControl_Click"
+            Background="#D34C4C" Foreground="White" Margin="8,0,0,0"/>
+        </StackPanel>
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
         <Button x:Name="StopScreenShareButton" Content="■ Зупинити екран" Click="StopScreenShare_Click" Visibility="Collapsed" Background="#D34C4C" Foreground="White"/>
@@ -120,6 +136,11 @@
             <CheckBox x:Name="EnableDeviceRelay" Content="Дозволити з'єднання з Pixel і Watch7 через приватний Cloudflare Relay" Margin="0,8" ToolTip="Команди передаються через твій Cloudflare Worker. Увімкни тільки для власного акаунта."/>
             <CheckBox x:Name="EnableScreenShare" Content="🖥 Дозволити Pixel переглядати мій екран (тільки за активного запиту)" Margin="0,8" ToolTip="Містить усі видимі вікна, включно з особистими даними; передається HTTPS через твій Cloudflare Worker."/>
             <TextBlock Text="🔒 Кадри не зберігаються. Для початку потрібна кнопка на Pixel; індикатор трансляції видно у Windows. Працює лише поки JARVIS відкритий." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
+            <CheckBox x:Name="EnableRemoteControl"
+                Content="🖱 Дозволяти запити Pixel на мишу та клавіатуру (кожен сеанс підтверджую окремо)"
+                Margin="0,8" ToolTip="Дозвіл лише на власному Windows; кожне нове підключення потрібно явно схвалити на комп'ютері."/>
+            <TextBlock Text="Керування не починається без натискання «Дозволити» на ПК. Видимі всі дії. Прихованого доступу або роботи на екрані входу немає."
+                Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
             <CheckBox x:Name="ShowFloatingOrb" Content="Показувати плаваючого JARVIS" IsChecked="True" Margin="0,8"/>
             <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
             <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>
