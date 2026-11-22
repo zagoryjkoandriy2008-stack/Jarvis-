@@ -72,6 +72,7 @@
         <activity android:name=".FinanceActivity" android:exported="false" />
         <!-- Owner-only view of remote Windows screen; never exported to
              another app, no screenshots written to Android storage. -->
+        <activity android:name=".JarvisPcFileInboxActivity" android:exported="false" />
         <activity android:name=".JarvisWindowsScreenActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <service android:name=".FinanceReminderJob"

@@ -1,4 +1,5 @@
 import {ScreenRelayState} from './screen-relay.mjs';
+import {FileRelayState} from './file-relay.mjs';
 /** JARVIS private three-device relay. Only trusted device clients call these
  * endpoints. The same user-controlled Worker bearer token authenticates them.
  * This first-party prototype is NOT suitable for multi-user public deployment.
@@ -46,6 +47,7 @@ export class DeviceRelay {
   constructor(state,env) {
     this.state=state;this.env=env;
     this.screen=new ScreenRelayState();
+    this.fileInbox=new FileRelayState();
   }
 
   /** Durable Object storage expiry is a security property, not only a
@@ -71,6 +73,9 @@ export class DeviceRelay {
     // storage, history, logs or AI when serving screen viewer/frame calls.
     if(path.startsWith('/device/v1/screen/'))
       return this.screen.fetch(request);
+    // File bytes live only in RAM and expire after 120 seconds.
+    if(path.startsWith('/device/v1/files/'))
+      return this.fileInbox.fetch(request);
     try {
       // A cleanup pass avoids unbounded retention without any background job.
       const rows=await store.list({prefix:'m:'});

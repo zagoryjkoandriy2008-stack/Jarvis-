@@ -208,8 +208,10 @@ export default {
       // JPEG magic bytes; do not relax the other command limits.
       const screenFrame=url.pathname==='/device/v1/screen/frame' &&
         request.method==='POST';
+      const fileUpload=url.pathname==='/device/v1/files/send' &&
+        request.method==='POST';
       const contentLength=Number(request.headers.get('content-length')||0);
-      if(contentLength>(screenFrame?240000:8192))
+      if(contentLength>(fileUpload?1500000:screenFrame?240000:8192))
         return json({error:'Request too large'},413);
       const object=env.DEVICE_RELAY.get(env.DEVICE_RELAY.idFromName('private-jarvis'));
       return object.fetch(request);

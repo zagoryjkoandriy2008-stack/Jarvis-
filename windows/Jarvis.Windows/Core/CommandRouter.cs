@@ -6,7 +6,8 @@ namespace Jarvis.Windows.Core;
 public enum CommandKind {
     Ai, OpenApp, WebSearch, SpotifySearch, SpotifyPlaylist, Volume,
     Speak, NoteAdd, NoteRead, NoteDelete, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
-    MediaNext, MediaPrevious, ClickNamed, ScrollPage, TypeIntoActiveWindow, OpenSettings
+    MediaNext, MediaPrevious, ClickNamed, ScrollPage, TypeIntoActiveWindow, OpenSettings,
+    SystemStatus, AnalyzeScreen, Wait
 }
 
 public sealed record ParsedCommand(CommandKind Kind, string Argument = "",
@@ -26,6 +27,15 @@ public static class CommandRouter {
             return new(CommandKind.Ai, raw?.Trim() ?? "");
         var text = StripWake(raw);
         var s = text.ToLowerInvariant().Trim();
+        if(s is "стан комп'ютера" or "стан комп’ютера" or "стан компютера" or
+           "статус пк" or "стан пк" or "навантаження комп'ютера" or
+           "статус комп'ютера" or "комп'ютер статус")
+            return new(CommandKind.SystemStatus);
+        if(s is "що на екрані" or "що зараз на екрані" or
+           "проаналізуй екран" or "опиши екран" or "аналіз екрана")
+            return new(CommandKind.AnalyzeScreen);
+        var wait=Regex.Match(s,@"^(?:пауза|почекай)\s+(10|[1-9])\s*(?:секунд(?:у|и)?|сек)$");
+        if(wait.Success)return new(CommandKind.Wait,Value:int.Parse(wait.Groups[1].Value));
         if (s is "баланс рахунків" or "фінанси" or "фінансовий звіт" or "звіти" or "баланс")
             return new(CommandKind.FinanceReport);
         var expense = Regex.Match(text,

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window {
     private readonly JarvisState _state;
     private readonly VoiceService _voice=new();
     private readonly AiClient _ai=new();
+    private readonly WindowsFileExchange _fileExchange=new();
     private readonly FinanceService _finance;
     private DeviceRelayClient? _relay;
     private readonly WindowsScreenPublisher _screenPublisher;
@@ -161,6 +163,7 @@ public partial class MainWindow : Window {
         _relay?.Dispose();
         _screenPublisher.Dispose();
         _ai.Dispose();
+        _fileExchange.Dispose();
         _lifetime.Dispose();
     }
 
@@ -200,13 +203,73 @@ public partial class MainWindow : Window {
         ChatHistory.ScrollToEnd();
     }
     private void Status(string detail)=>StatusText.Text=detail;
+    private async void ReceiveFileFromPixel_Click(object sender,RoutedEventArgs e) {
+        try {
+            FileExchangeStatus.Text="Перевіряю файли з Pixel…";
+            var selected=await _fileExchange.GetFromPixelAsync(
+                _state.Settings,_store,_lifetime.Token);
+            if(selected==null) {
+                FileExchangeStatus.Text="Файла з Pixel немає. Спочатку передай його з телефону.";
+                return;
+            }
+            var picker=new SaveFileDialog {
+                Title="JARVIS — зберегти файл з Pixel",FileName=selected.Name,
+                OverwritePrompt=true,Filter="Усі файли|*.*"
+            };
+            if(picker.ShowDialog(this)!=true) {
+                FileExchangeStatus.Text="Збереження скасовано. Файл може залишатися у Relay до 2 хвилин.";
+                return;
+            }
+            await File.WriteAllBytesAsync(picker.FileName,selected.Bytes,_lifetime.Token);
+            FileExchangeStatus.Text="✅ Файл з Pixel збережено: "+selected.Name;
+            try {
+                await _fileExchange.ConfirmSavedAsync(
+                    selected.Id,_state.Settings,_store,_lifetime.Token);
+            }catch(Exception) {
+                FileExchangeStatus.Text+=" (Relay сам очистить тимчасову копію).";
+            }
+        }catch(Exception error) {
+            FileExchangeStatus.Text="Не вдалося отримати файл: "+error.Message;
+        }
+    }
+    private async void SendFileToPixel_Click(object sender,RoutedEventArgs e) {
+        if(!_state.Settings.EnableDeviceRelay) {
+            FileExchangeStatus.Text="Спочатку ввімкни приватний Relay у налаштуваннях.";
+            return;
+        }
+        var picker=new OpenFileDialog {
+            Title="JARVIS — вибери файл для Pixel (до 1 МіБ)",
+            Multiselect=false,CheckFileExists=true,Filter="Усі файли|*.*"
+        };
+        if(picker.ShowDialog(this)!=true)return;
+        try {
+            FileExchangeStatus.Text="Надсилаю вибраний файл в тимчасовий Relay…";
+            FileExchangeStatus.Text=await _fileExchange.SendToPixelAsync(
+                picker.FileName,_state.Settings,_store,_lifetime.Token);
+        }catch(Exception error) {
+            FileExchangeStatus.Text="Передавання не виконано: "+error.Message;
+        }
+    }
+    private async void RefreshSystemStatus_Click(object sender,RoutedEventArgs e) {
+        try {
+            SystemStatusReport.Text="Зчитую навантаження Windows…";
+            SystemStatusReport.Text=await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token);
+        }catch(OperationCanceledException) {
+            SystemStatusReport.Text="Перевірку скасовано.";
+        }catch(Exception error) {
+            SystemStatusReport.Text="Не вдалося отримати показники: "+error.Message;
+        }
+    }
+    private async void AnalyzeScreenButton_Click(object sender,RoutedEventArgs e) {
+        await HandleUtteranceAsync("проаналізуй екран",forceComputer:true);
+    }
     private void Reply(string detail,bool speak=true) {
         Append("JARVIS",detail);
         Status(detail.Length<=180?detail:detail[..177]+"…");
         if(speak && SpeakReplies.IsChecked==true)_voice.Say(detail[..Math.Min(1200,detail.Length)]);
     }
 
-    private async Task HandleUtteranceAsync(string raw) {
+    private async Task HandleUtteranceAsync(string raw,bool forceComputer=false) {
         if(_busy) {Status("Попередня команда ще виконується.");return;}
         _busy=true;
         using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -224,7 +287,8 @@ public partial class MainWindow : Window {
                 Reply("Макрос «"+macro.Trigger+"» виконано.");
             } else {
                 var cmd=CommandRouter.Parse(raw);
-                var destination=DeviceRouting.EffectiveTarget(_target,cmd.Kind);
+                var destination=forceComputer || cmd.Kind==CommandKind.AnalyzeScreen
+                    ?JarvisDevice.Computer:DeviceRouting.EffectiveTarget(_target,cmd.Kind);
                 if(destination!=JarvisDevice.Computer) {
                     if(!_state.Settings.EnableDeviceRelay || _relay==null)
                         throw new InvalidOperationException("Увімкни Cloudflare Relay у Налаштуваннях для керування іншими пристроями.");
@@ -259,6 +323,31 @@ public partial class MainWindow : Window {
                 RefreshFinance();break;
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
+            case CommandKind.SystemStatus:
+                var systemReport=await WindowsSystemMonitor.SnapshotAsync(token);
+                SystemStatusReport.Text=systemReport;
+                Reply(systemReport,false);break;
+            case CommandKind.Wait:
+                await Task.Delay(TimeSpan.FromSeconds(command.Value),token);
+                Reply("Пауза завершилась.",false);break;
+            case CommandKind.AnalyzeScreen:
+                if(string.IsNullOrWhiteSpace(_state.Settings.WorkerUrl))
+                    throw new InvalidOperationException("Налаштуй приватний Cloudflare Worker.");
+                var approval=System.Windows.MessageBox.Show(
+                    "Надіслати поточний знімок головного монітора у твій Cloudflare Worker та ШІ? На ньому можуть бути особисті дані.",
+                    "JARVIS — разовий дозвіл на аналіз екрана",
+                    MessageBoxButton.YesNo,MessageBoxImage.Warning);
+                if(approval!=MessageBoxResult.Yes) {
+                    Reply("Аналіз екрана скасовано.",false);break;
+                }
+                var secret=_store.ReadWorkerToken();
+                if(string.IsNullOrWhiteSpace(secret))
+                    throw new InvalidOperationException("Немає коду Worker.");
+                var screenshot=WindowsScreenPublisher.CaptureForAi();
+                Status("Надсилаю разовий знімок на аналіз ШІ…");
+                Reply(await _ai.AskAsync(_state.Settings.WorkerUrl,secret,
+                    "Опиши, що видно на знімку екрана Windows. Якщо є помилка, поясни її. Нічого не натискай і не запускай.",
+                    "analysis",token,screenshot));break;
             case CommandKind.ClickNamed:
                 Reply(WindowsScreenControl.ClickNamed(command.Argument));
                 break;
@@ -527,7 +616,7 @@ public partial class MainWindow : Window {
     }
 
     /** Execute remote commands only from the authenticated private relay,
-     * not from AI output. Never remotely type into another app, run macros,
+     * not from AI output. Only predefined safe macros; never type into another app,
      * launch arbitrary programs, or mutate finance on this Windows machine. */
     private async Task<DeviceRelayClient.RemoteResult> HandleRemoteOnUiAsync(
         DeviceRelayClient.RemoteCommand request) {
@@ -540,22 +629,39 @@ public partial class MainWindow : Window {
             return new(false,"Користувач Windows вимкнув дистанційне керування.");
         if(_busy)return new(false,"JARVIS Windows зайнятий.");
         if(request.Origin is not ("phone" or "watch") ||
-           request.Target!="computer" || request.Command.Length>250)
+           request.Target!="computer" || request.Command.Length is <1 or >250 ||
+           request.Command.Any(char.IsControl))
             return new(false,"Джерело або команда не дозволені.");
+
+        // Evaluate only preconfigured owner macros or narrow built-in actions.
+        // A voice relay cannot create macros, type text, click UI or invoke AI.
+        var remoteMacro=MacroEngine.Match(_state,request.Command);
         var command=CommandRouter.Parse(request.Command);
-        if(command.Kind is not (CommandKind.OpenApp or CommandKind.OpenSettings
-           or CommandKind.Volume or CommandKind.MediaToggle or CommandKind.MediaNext
-           or CommandKind.MediaPrevious or CommandKind.Speak or CommandKind.Timer
-           or CommandKind.WebSearch or CommandKind.SpotifySearch
-           or CommandKind.SpotifyPlaylist))
+        if(remoteMacro==null && !WindowsRemoteCommandPolicy.IsAllowed(command.Kind))
             return new(false,"Команда не дозволена для дистанційного Windows. "+
                 "Фінанси завжди виконуються на Pixel.");
+
+        // Local and remote operations share the same busy gate, including
+        // remote macros. Release it even on cancellation or unexpected failure.
+        _busy=true;
         try {
+            if(remoteMacro!=null) {
+                await RunMacroAsync(remoteMacro,_lifetime.Token);
+                return new(true,"Windows виконав макрос: "+remoteMacro.Trigger);
+            }
+            if(command.Kind==CommandKind.SystemStatus) {
+                var report=await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token);
+                SystemStatusReport.Text=report;
+                return new(true,report);
+            }
             await ExecuteAsync(command,_lifetime.Token);
             return new(true,"Windows обробив: "+request.Command);
+        }catch(OperationCanceledException) {
+            return new(false,"Windows: дистанційну дію скасовано.");
         }catch(Exception failure) {
             return new(false,"Windows: "+failure.Message);
+        }finally {
+            _busy=false;
         }
     }
-
 }

@@ -22,18 +22,29 @@ public sealed class AiClient : IDisposable {
             u.UserInfo.Length==0 && !u.IsLoopback;
     }
     public async Task<string> AskAsync(string endpoint,string token,string question,
-            string mode="chat",CancellationToken cancel=default) {
+            string mode="chat",CancellationToken cancel=default,
+            byte[]? jpegScreenshot=null) {
         if(!ValidEndpoint(endpoint))throw new InvalidOperationException("Потрібен HTTPS /chat сервер.");
         if(token.Length<20)throw new InvalidOperationException("Налаштуй код доступу до Worker.");
         if(string.IsNullOrWhiteSpace(question) || question.Length>4000)
             throw new ArgumentException("Текст має бути від 1 до 4000 символів.");
         if(mode is not ("chat" or "web" or "image" or "analysis"))
             throw new ArgumentException("Невідомий режим ШІ.");
+        if(jpegScreenshot!=null && (jpegScreenshot.Length is <100 or >220000 ||
+           jpegScreenshot[0]!=0xFF || jpegScreenshot[1]!=0xD8 ||
+           jpegScreenshot[^2]!=0xFF || jpegScreenshot[^1]!=0xD9))
+            throw new ArgumentException("Неправильний або завеликий JPEG екрана.");
+        if(jpegScreenshot!=null && mode!="analysis")
+            throw new ArgumentException("Знімок екрана надсилається лише в режимі аналізу.");
         var oldGeneration=_generation;
         var previous=_history.TakeLast(14)
             .Select(t=>new {role=t.Role,content=t.Content}).ToArray();
         var payload=JsonSerializer.Serialize(new {
-            message=question, mode, effort="medium", history=previous
+            message=question, mode, effort="medium", history=previous,
+            attachment=jpegScreenshot==null?null:new {
+                name="windows-screen.jpg",mime="image/jpeg",
+                data=Convert.ToBase64String(jpegScreenshot)
+            }
         });
         using var request=new HttpRequestMessage(HttpMethod.Post,endpoint);
         request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);

@@ -32,5 +32,5 @@ public static class DeviceRouting {
         CommandKind.NoteAdd or CommandKind.NoteRead or CommandKind.NoteDelete
         ? JarvisDevice.Phone : selected;
     public static bool IsSensitive(CommandKind kind) => kind is
-        CommandKind.TypeIntoActiveWindow;
+        CommandKind.TypeIntoActiveWindow or CommandKind.AnalyzeScreen;
 }

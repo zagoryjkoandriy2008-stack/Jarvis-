@@ -5196,6 +5196,20 @@ public final class MainActivity extends Activity implements RecognitionListener 
         },450L);
     }
 
+    private void openPcFileInbox() {
+        if(isWatchDevice)return;
+        if(!JarvisDeviceRelay.enabled(this) ||
+           !new AiChatClient(this).isConfigured()) {
+            setStatus("Для обміну файлами налаштуй приватний Relay на Pixel.");
+            return;
+        }
+        try {
+            startActivity(new Intent(this,JarvisPcFileInboxActivity.class));
+        }catch(RuntimeException error) {
+            setStatus("Не вдалося відкрити обмін файлами Windows.");
+        }
+    }
+
     private void openWindowsScreen() {
         if(isWatchDevice) {
             setStatus("Перегляд екрана Windows доступний на Pixel.");
@@ -5286,6 +5300,10 @@ public final class MainActivity extends Activity implements RecognitionListener 
         // Screen viewing is an explicit Pixel UI command, even if the user
         // previously selected remote COMPUTER mode. Never send this phrase
         // to AI, Spotify, macro execution or the remote command queue.
+        if(!isWatchDevice && JarvisScreenViewCommands.files(raw)) {
+            openPcFileInbox();
+            return;
+        }
         if(!isWatchDevice && JarvisScreenViewCommands.open(raw)) {
             openWindowsScreen();
             return;

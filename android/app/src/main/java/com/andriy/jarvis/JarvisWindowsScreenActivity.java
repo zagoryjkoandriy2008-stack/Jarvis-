@@ -101,6 +101,11 @@ public final class JarvisWindowsScreenActivity extends Activity {
         status.setTextSize(13);
         status.setPadding(0,dp(6),0,0);
         top.addView(status);
+        Button files=new Button(this);
+        files.setText("📂 Файли ПК");
+        files.setOnClickListener(v->startActivity(
+            new android.content.Intent(this,JarvisPcFileInboxActivity.class)));
+        top.addView(files);
         outer.addView(top,new LinearLayout.LayoutParams(
             -1,ViewGroup.LayoutParams.WRAP_CONTENT));
         outer.addView(screen,new LinearLayout.LayoutParams(
