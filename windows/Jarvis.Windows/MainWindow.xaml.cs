@@ -189,6 +189,11 @@ public partial class MainWindow : Window {
         StayOnTop.IsChecked=_state.Settings.OnTop;
         EnableDeviceRelay.IsChecked=_state.Settings.EnableDeviceRelay;
         EnableSignedRelay.IsChecked=_state.Settings.EnableSignedRelay;
+        GrantReadOnly.IsChecked=_state.Settings.SignedReadOnly;
+        GrantMedia.IsChecked=_state.Settings.SignedMedia;
+        GrantApps.IsChecked=_state.Settings.SignedApps;
+        GrantLocks.IsChecked=_state.Settings.SignedLocks;
+        GrantWatch.IsChecked=_state.Settings.SignedWatchDelegation;
         EnableScreenShare.IsChecked=_state.Settings.EnableScreenShare;
         EnableRemoteControl.IsChecked=_state.Settings.EnableRemoteControl;
         ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
@@ -864,10 +869,19 @@ public partial class MainWindow : Window {
             PairingCodeReport.Text=approved?"Ключ Pixel підтверджено на сервері. "+
                 "Старий Relay v1 ще потребує міграції на підписаний v2.":
                 "Підтвердження не завершено.";
-            if(approved){_pairingRequestId=Guid.Empty;_pendingPhoneFingerprint=null;}
+            if(approved){
+                _pairingRequestId=Guid.Empty;_pendingPhoneFingerprint=null;
+                ShowGrants(new DevicePairingService.PhoneGrants(true,false,false,false,false));
+            }
         }catch(Exception ex){PairingCodeReport.Text="Підтвердження не виконано: "+ex.Message;}
     }
     private void ShowGrants(DevicePairingService.PhoneGrants grants) {
+        _state.Settings.SignedReadOnly=grants.ReadOnly;
+        _state.Settings.SignedMedia=grants.Media;
+        _state.Settings.SignedApps=grants.Apps;
+        _state.Settings.SignedLocks=grants.Locks;
+        _state.Settings.SignedWatchDelegation=grants.WatchDelegation;
+        _store.Save(_state);
         GrantReadOnly.IsChecked=grants.ReadOnly;
         GrantMedia.IsChecked=grants.Media;
         GrantApps.IsChecked=grants.Apps;
@@ -909,6 +923,8 @@ public partial class MainWindow : Window {
             MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
         try{
             var revoked=await _pairing.RevokePhoneAsync(_lifetime.Token);
+            if(revoked)ShowGrants(new DevicePairingService.PhoneGrants(
+                true,false,false,false,false));
             PairingCodeReport.Text=revoked?"Ключ Pixel v2 відкликано, Relay v1 заблоковано на Worker. "+
                 "Повторне підключення потребує окремого безпечного налаштування.":
                 "Відкликання не підтверджене.";

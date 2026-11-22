@@ -13,6 +13,11 @@ public sealed class JarvisSettings {
     public bool OnTop { get; set; }
     public bool EnableDeviceRelay { get; set; } // user opt-in, default off
     public bool EnableSignedRelay { get; set; } // separate opt-in after P-256 pairing, default OFF
+    public bool SignedReadOnly { get; set; } = true;
+    public bool SignedMedia { get; set; }
+    public bool SignedApps { get; set; }
+    public bool SignedLocks { get; set; }
+    public bool SignedWatchDelegation { get; set; }
     public bool EnableScreenShare { get; set; } // explicit owner consent, default OFF
     public bool EnableRemoteControl { get; set; } // explicit Windows approval for EACH viewer, default off
     public bool ShowFloatingOrb { get; set; } = true;

@@ -143,7 +143,7 @@ public sealed class DeviceRelayClient : IDisposable {
             var kind=item.GetProperty("kind").GetString()??"";
             var status="failed";var errorCode="POLICY_DENIED";var detail="Дія недозволена.";
             if(expires>now && (origin is "watch" or "phone") && raw.Length>0 &&
-                (kind is not ("windows.lock" or "monitor.off") || risk)) {
+                SignedDeviceLocalPolicy.IsAllowed(_settings,origin,kind,risk)) {
                 if(!_receipts.TryClaim(id,out var prior)) {
                     status=prior?.Ok.HasValue==true?(prior.Ok.Value?"completed":"failed"):"unknown";
                     errorCode=prior?.Ok.HasValue==true?"":"RESULT_UNKNOWN";

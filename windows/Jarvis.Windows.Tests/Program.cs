@@ -273,4 +273,28 @@ using(var pairingKey=System.Security.Cryptography.ECDsa.Create(
     Check(canonical.Split('\n').Length==6,
         "canonical P0 signature has six ordered fields");
 }
+var signedPolicy=new JarvisSettings {EnableDeviceRelay=true,EnableSignedRelay=true};
+Check(SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","system.status",false),
+    "v2 local policy read-only default");
+foreach(var action in new[]{"media.next","volume.set","application.open",
+    "windows.lock","monitor.off","macro.run","shell.run"}) {
+    Check(!SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone",action,true),
+        "v2 remote scope denied until explicit local grant: "+action);
+}
+signedPolicy.SignedMedia=true;
+Check(SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","media.next",false),
+    "v2 media granted locally");
+Check(!SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"watch","media.next",false),
+    "v2 Watch delegation separately denied");
+signedPolicy.SignedWatchDelegation=true;
+Check(SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"watch","media.next",false),
+    "v2 Watch delegation explicitly granted");
+signedPolicy.SignedLocks=true;
+Check(!SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","windows.lock",false),
+    "v2 signed lock still needs Windows approval");
+Check(SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","windows.lock",true),
+    "v2 signed lock requires BOTH grant and approval flag");
+signedPolicy.EnableSignedRelay=false;
+Check(!SignedDeviceLocalPolicy.IsAllowed(signedPolicy,"phone","system.status",false),
+    "v2 locally disabled blocks read-only too");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
