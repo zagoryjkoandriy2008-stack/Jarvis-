@@ -117,6 +117,9 @@ public sealed class DeviceRelayClient : IDisposable {
             "media.toggle"=>"пауза",
             "media.next"=>"наступна пісня",
             "media.previous"=>"попередня пісня",
+            "application.open" when payload.TryGetProperty("name",out var name) &&
+                name.GetString() is "notepad" or "calculator" or "browser" =>
+                    "відкрий "+name.GetString(),
             "volume.set" when payload.TryGetProperty("value",out var percent)
                 && percent.TryGetInt32(out var amount) && amount is >=0 and <=100 =>
                     "гучність "+amount,
@@ -139,7 +142,7 @@ public sealed class DeviceRelayClient : IDisposable {
             var risk=item.GetProperty("requiresApproval").GetBoolean();
             var kind=item.GetProperty("kind").GetString()??"";
             var status="failed";var errorCode="POLICY_DENIED";var detail="Дія недозволена.";
-            if(expires>now && origin is "watch" or "phone" && raw.Length>0 &&
+            if(expires>now && (origin is "watch" or "phone") && raw.Length>0 &&
                 (kind is not ("windows.lock" or "monitor.off") || risk)) {
                 if(!_receipts.TryClaim(id,out var prior)) {
                     status=prior?.Ok.HasValue==true?(prior.Ok.Value?"completed":"failed"):"unknown";

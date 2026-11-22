@@ -358,7 +358,7 @@ public final class AiChatClient {
         if(!isConfigured())throw new IllegalStateException(
             "Спочатку налаштуй Cloudflare AI Worker на Pixel.");
         if(route==null || !route.matches(
-            "^(?:/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack|files/send)|/device/v2/pair/(?:request|verify))(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
+            "^(?:/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack|files/send)|/device/v2/(?:pair/(?:request|verify)|commands/(?:send|result|heartbeat|status)))(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
             throw new IllegalArgumentException("Неправильний шлях JARVIS Relay.");
         if(!"GET".equals(method) && !"POST".equals(method))
             throw new IllegalArgumentException("Недопустимий метод Relay.");

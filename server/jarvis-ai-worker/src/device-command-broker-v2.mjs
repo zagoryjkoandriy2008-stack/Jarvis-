@@ -45,7 +45,7 @@ function allowRole(kind,origin,target) {
   if(target!=='computer')return false;
   if(scope==='approvalRequired')
     return kind==='windows.lock'||kind==='monitor.off';
-  if(kind==='macro.run'||kind==='application.open')return false; // explicit later permission
+  if(kind==='macro.run')return false; // macro permissions require separate owner review
   return true;
 }
 export class DeviceCommandBrokerV2 {
