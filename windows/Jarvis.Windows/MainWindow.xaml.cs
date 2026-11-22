@@ -1105,6 +1105,32 @@ public partial class MainWindow : Window {
                 "Відкликання не підтверджене.";
         }catch(Exception ex){PairingCodeReport.Text="Помилка відкликання: "+ex.Message;}
     }
+    private void RefreshDeviceAudit_Click(object sender,RoutedEventArgs e) {
+        try {
+            var events=_relay?.AuditRecent(35);
+            DeviceAuditReport.Text=events==null||events.Count==0?
+                "Журнал порожній. Історія містить лише технічні метадані.":
+                string.Join("\n",events.Select(item=>
+                    item.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")+
+                    " | "+item.Origin+" | "+item.ActionType+" | "+item.Status+
+                    " | "+item.DurationMs+" мс | "+item.RequestId+
+                    (item.ErrorCode.Length>0?" | "+item.ErrorCode:"")));
+        }catch(Exception ex){Status("Історія недоступна: "+ex.GetType().Name);}
+    }
+    private void ExportDeviceAudit_Click(object sender,RoutedEventArgs e) {
+        if(_relay==null)return;
+        var save=new Microsoft.Win32.SaveFileDialog {
+            Title="Експорт знеособленого журналу команд JARVIS",
+            FileName="jarvis-device-audit.json",
+            DefaultExt=".json",Filter="JSON (*.json)|*.json"
+        };
+        if(save.ShowDialog(this)!=true)return;
+        try {
+            _relay.ExportAudit(save.FileName);
+            Status("Експортовано журнал команд без текстів, паролів і скриншотів.");
+        }catch(Exception ex){Status("Експорт неможливий: "+ex.GetType().Name);}
+    }
+
     private async void CheckDevices_Click(object sender,RoutedEventArgs e) {
         if(_relay==null || !_state.Settings.EnableDeviceRelay) {
             DeviceStatusReport.Text="Включи авторизований Relay у Налаштуваннях, збережи токен Worker.";

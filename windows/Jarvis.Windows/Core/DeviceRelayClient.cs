@@ -17,6 +17,9 @@ public sealed class DeviceRelayClient : IDisposable {
     private readonly StateStore _store;
     private readonly JarvisSettings _settings;
     private readonly DeviceReceiptJournal _receipts=new();
+    private readonly DeviceAuditJournal _audit=new();
+    public IReadOnlyList<DeviceAuditEntry> AuditRecent(int max=50)=>_audit.Recent(max);
+    public void ExportAudit(string path)=>_audit.Export(path);
     private readonly DevicePairingService _signed;
     public event Func<RemoteCommand,Task<RemoteResult>>? CommandReceived;
     public event Action<string>? Status;
@@ -134,6 +137,7 @@ public sealed class DeviceRelayClient : IDisposable {
         var items=pending.RootElement.GetProperty("items");
         foreach(var item in items.EnumerateArray()){
             cancel.ThrowIfCancellationRequested();
+            var stopwatch=System.Diagnostics.Stopwatch.StartNew();
             var id=Guid.Parse(item.GetProperty("requestId").GetString()!);
             var now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var expires=item.GetProperty("expiresAt").GetInt64();
@@ -176,14 +180,25 @@ public sealed class DeviceRelayClient : IDisposable {
                 errorCode="PERMISSION_REVOKED";
                 detail="Дозвіл на виконання відкликано або сервер не підтвердив його.";
             }
+            var ackDelivered=false;
             try {
                 using var ack=await _signed.SignedPostAsync("/device/v2/commands/ack",new {
                     version=2,requestId=id.ToString(),status,errorCode,
                     detail=detail[..Math.Min(480,detail.Length)],
                     timestamp=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                 },cancel);
-            }catch(Exception error){
+                ackDelivered=true;
+            }catch(OperationCanceledException){throw;}
+             catch(Exception error){
                 Status?.Invoke("Підписане підтвердження команди не доставлене: "+error.GetType().Name);
+            }
+            try {
+                _audit.Record(id,origin,kind,status,
+                    Math.Min(120000,stopwatch.ElapsedMilliseconds),
+                    ackDelivered?errorCode:"ACK_DELIVERY_FAILED");
+            }catch(Exception auditFailure){
+                Status?.Invoke("Журнал команд недоступний: "+
+                    auditFailure.GetType().Name);
             }
         }
     }

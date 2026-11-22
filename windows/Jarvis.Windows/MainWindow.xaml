@@ -76,7 +76,15 @@
           </StackPanel>
           <TextBlock x:Name="CurrentDeviceLabel" Text="🖥 Комп'ютер" FontSize="19" Foreground="#53D7EA" FontWeight="Bold"/>
           <Button Content="Перевірити підключення" Click="CheckDevices_Click" Width="230" HorizontalAlignment="Left" Margin="0,14,0,14"/>
-          <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="180" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
+          <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="140" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
+           <StackPanel Orientation="Horizontal" Margin="0,8">
+             <Button Content="Історія команд" Click="RefreshDeviceAudit_Click"/>
+             <Button Content="Експорт історії" Click="ExportDeviceAudit_Click"/>
+           </StackPanel>
+           <TextBox x:Name="DeviceAuditReport" IsReadOnly="True" Height="115" Width="680"
+                    HorizontalAlignment="Left" TextWrapping="Wrap"
+                    VerticalScrollBarVisibility="Auto"
+                    ToolTip="Лише час, ID, джерело, тип дії, статус, тривалість, код помилки."/>
           <TextBlock Text="На годиннику команди передає Pixel. Для цього потрібні оновлений Android-код, розгорнутий Cloudflare Relay та дозвіл приймати команди." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,12,0,0" Width="680" HorizontalAlignment="Left"/>
           <Separator Margin="0,12"/>
           <TextBlock Text="🔒 Захищене спарювання Pixel з Windows — P-256"
