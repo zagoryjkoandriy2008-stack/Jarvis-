@@ -1,3 +1,4 @@
+import {ScreenRelayState} from './screen-relay.mjs';
 /** JARVIS private three-device relay. Only trusted device clients call these
  * endpoints. The same user-controlled Worker bearer token authenticates them.
  * This first-party prototype is NOT suitable for multi-user public deployment.
@@ -42,7 +43,10 @@ export function sendJson(data,status=200) {
 }
 
 export class DeviceRelay {
-  constructor(state,env) { this.state=state;this.env=env; }
+  constructor(state,env) {
+    this.state=state;this.env=env;
+    this.screen=new ScreenRelayState();
+  }
 
   /** Durable Object storage expiry is a security property, not only a
    * read-time filter. An alarm erases old command text after inactivity. */
@@ -63,6 +67,10 @@ export class DeviceRelay {
     const path=url.pathname;
     const now=Date.now();
     const store=this.state.storage;
+    // Screenshots exist ONLY in short-lived object RAM. Do not touch durable
+    // storage, history, logs or AI when serving screen viewer/frame calls.
+    if(path.startsWith('/device/v1/screen/'))
+      return this.screen.fetch(request);
     try {
       // A cleanup pass avoids unbounded retention without any background job.
       const rows=await store.list({prefix:'m:'});
