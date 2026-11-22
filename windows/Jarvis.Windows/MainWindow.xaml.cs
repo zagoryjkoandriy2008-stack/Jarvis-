@@ -200,6 +200,9 @@ public partial class MainWindow : Window {
         ChatHistory.ScrollToEnd();
     }
     private void Status(string detail)=>StatusText.Text=detail;
+    private async void AnalyzeScreenButton_Click(object sender,RoutedEventArgs e) {
+        await HandleUtteranceAsync("проаналізуй екран");
+    }
     private void Reply(string detail,bool speak=true) {
         Append("JARVIS",detail);
         Status(detail.Length<=180?detail:detail[..177]+"…");
@@ -259,6 +262,29 @@ public partial class MainWindow : Window {
                 RefreshFinance();break;
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
+            case CommandKind.SystemStatus:
+                Reply(await WindowsSystemMonitor.SnapshotAsync(token),false);break;
+            case CommandKind.Wait:
+                await Task.Delay(TimeSpan.FromSeconds(command.Value),token);
+                Reply("Пауза завершилась.",false);break;
+            case CommandKind.AnalyzeScreen:
+                if(string.IsNullOrWhiteSpace(_state.Settings.WorkerUrl))
+                    throw new InvalidOperationException("Налаштуй приватний Cloudflare Worker.");
+                var approval=System.Windows.MessageBox.Show(
+                    "Надіслати поточний знімок головного монітора у твій Cloudflare Worker та ШІ? На ньому можуть бути особисті дані.",
+                    "JARVIS — разовий дозвіл на аналіз екрана",
+                    MessageBoxButton.YesNo,MessageBoxImage.Warning);
+                if(approval!=MessageBoxResult.Yes) {
+                    Reply("Аналіз екрана скасовано.",false);break;
+                }
+                var secret=_store.ReadWorkerToken();
+                if(string.IsNullOrWhiteSpace(secret))
+                    throw new InvalidOperationException("Немає коду Worker.");
+                var screenshot=WindowsScreenPublisher.CaptureForAi();
+                Status("Надсилаю разовий знімок на аналіз ШІ…");
+                Reply(await _ai.AskAsync(_state.Settings.WorkerUrl,secret,
+                    "Опиши, що видно на знімку екрана Windows. Якщо є помилка, поясни її. Нічого не натискай і не запускай.",
+                    "analysis",token,screenshot));break;
             case CommandKind.ClickNamed:
                 Reply(WindowsScreenControl.ClickNamed(command.Argument));
                 break;
@@ -547,10 +573,12 @@ public partial class MainWindow : Window {
            or CommandKind.Volume or CommandKind.MediaToggle or CommandKind.MediaNext
            or CommandKind.MediaPrevious or CommandKind.Speak or CommandKind.Timer
            or CommandKind.WebSearch or CommandKind.SpotifySearch
-           or CommandKind.SpotifyPlaylist))
+           or CommandKind.SpotifyPlaylist or CommandKind.SystemStatus))
             return new(false,"Команда не дозволена для дистанційного Windows. "+
                 "Фінанси завжди виконуються на Pixel.");
         try {
+            if(command.Kind==CommandKind.SystemStatus)
+                return new(true,await WindowsSystemMonitor.SnapshotAsync(_lifetime.Token));
             await ExecuteAsync(command,_lifetime.Token);
             return new(true,"Windows обробив: "+request.Command);
         }catch(Exception failure) {
