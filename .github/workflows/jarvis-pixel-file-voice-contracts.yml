@@ -1,0 +1,28 @@
+name: JARVIS Pixel PC files voice contracts (no APK)
+on:
+  push:
+    paths:
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisScreenViewCommands.java'
+      - 'tools/qa/WindowsFileVoiceContract.java'
+      - '.github/workflows/jarvis-pixel-file-voice-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pure-java-commands:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test command normalization without Android SDK or APK
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/jarvis-pixel-pure"
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/jarvis-pixel-pure" \
+            android/app/src/main/java/com/andriy/jarvis/JarvisScreenViewCommands.java \
+            tools/qa/WindowsFileVoiceContract.java
+          java -cp "$RUNNER_TEMP/jarvis-pixel-pure" WindowsFileVoiceContract
