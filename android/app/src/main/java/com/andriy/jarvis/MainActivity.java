@@ -1080,6 +1080,13 @@ public final class MainActivity extends Activity implements RecognitionListener 
                 new LinearLayout.LayoutParams(-1,dp(48));
             deviceHubParams.topMargin=dp(7);
             content.addView(deviceHub,deviceHubParams);
+        } else {
+            Button watchDeviceHub=secondaryButton("🔗 Центр пристроїв",
+                ()->startActivity(new Intent(this,JarvisDeviceCenterActivity.class)));
+            LinearLayout.LayoutParams watchDeviceHubParams=
+                new LinearLayout.LayoutParams(-1,dp(45));
+            watchDeviceHubParams.topMargin=dp(6);
+            content.addView(watchDeviceHub,watchDeviceHubParams);
         }
         if(!isWatchDevice) {
             Button alarmPermissions=secondaryButton("⏰ Дозволи будильників Watch7",
