@@ -1,0 +1,109 @@
+<Window x:Class="Jarvis.Windows.MainWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  Title="JARVIS — Windows" Width="1040" Height="760" MinWidth="780" MinHeight="620"
+  WindowStartupLocation="CenterScreen" Background="#0B1729" Foreground="#EFF7FF">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <Grid Grid.Row="0" Margin="0,0,0,12">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Border Background="#24405D" Width="72" Height="72" CornerRadius="36" BorderBrush="#53D7EA" BorderThickness="2" Margin="0,0,16,0">
+        <Viewbox Margin="12">
+          <Grid Width="42" Height="42">
+            <Rectangle Width="32" Height="32" Fill="#53D7EA" RadiusX="4" RadiusY="4"/>
+            <Rectangle Width="7" Height="8" Fill="#082033" HorizontalAlignment="Left" Margin="9,0,0,0" VerticalAlignment="Center"/>
+            <Rectangle Width="7" Height="8" Fill="#082033" HorizontalAlignment="Right" Margin="0,0,9,0" VerticalAlignment="Center"/>
+            <Rectangle Width="16" Height="3" Fill="#082033" VerticalAlignment="Bottom" Margin="0,0,0,7"/>
+          </Grid>
+        </Viewbox>
+      </Border>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+        <TextBlock Text="JARVIS / WINDOWS" FontSize="24" FontWeight="Bold" Foreground="#53D7EA"/>
+        <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="MicButton" Click="MicButton_Click" Content="🎙 Слухати"/>
+        <Button Click="StopButton_Click" Content="■ Стоп"/>
+      </StackPanel>
+    </Grid>
+    <TabControl Grid.Row="1" x:Name="Tabs">
+      <TabItem Header="Асистент">
+        <Grid Margin="12">
+          <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <TextBox x:Name="ChatHistory" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" AcceptsReturn="True" FontSize="15" Margin="0,0,0,12"/>
+          <TextBox x:Name="CommandInput" Grid.Row="1" Height="75" AcceptsReturn="True" TextWrapping="Wrap" KeyDown="CommandInput_KeyDown" ToolTip="Enter — виконати, Shift+Enter — новий рядок"/>
+          <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <ComboBox x:Name="AiMode" SelectedIndex="0" Width="135">
+              <ComboBoxItem Content="chat"/><ComboBoxItem Content="web"/><ComboBoxItem Content="analysis"/><ComboBoxItem Content="image"/>
+            </ComboBox>
+            <Button Click="RunButton_Click" Content="Виконати ↵"/>
+            <Button Click="ClearConversationButton_Click" Content="Новий діалог"/>
+          </StackPanel>
+        </Grid>
+      </TabItem>
+      <TabItem Header="JARVIS Finance">
+        <Grid Margin="12">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <TextBlock Text="Фінанси Windows — локальні записи (ще без синхронізації з Pixel)" Foreground="#A4B4CD" Margin="0,0,0,12"/>
+          <StackPanel Grid.Row="1" Orientation="Horizontal">
+            <TextBox x:Name="FinanceInput" Width="540" ToolTip="витратив 150 готівка транспорт таксі"/>
+            <Button Click="AddFinanceButton_Click" Content="Записати"/>
+            <Button Click="RefreshFinanceButton_Click" Content="Оновити звіт"/>
+          </StackPanel>
+          <TextBox Grid.Row="2" x:Name="FinanceReport" Margin="0,10,0,0" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Макроси">
+        <Grid Margin="12">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <TextBlock Text="Точна голосова фраза → локальні дії (по одній команді на рядок; макрос не виконує shell-код)" Foreground="#A4B4CD" TextWrapping="Wrap"/>
+          <TextBox x:Name="MacroTrigger" Grid.Row="1" Margin="0,10,0,0" Height="36" ToolTip="Наприклад: робочий режим"/>
+          <TextBox x:Name="MacroActions" Grid.Row="2" Margin="0,8,0,0" Height="108" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="відкрий блокнот&#10;гучність 40&#10;скажи починаю роботу"/>
+          <StackPanel Grid.Row="3">
+            <StackPanel Orientation="Horizontal">
+              <Button Click="SaveMacroButton_Click" Content="Зберегти макрос"/>
+              <Button Click="RunMacroButton_Click" Content="Перевірити"/>
+            </StackPanel>
+            <ListBox x:Name="MacroList" Background="#1D304A" Foreground="#EAF8FF" Margin="4" Height="180"/>
+          </StackPanel>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Нотатки">
+        <Grid Margin="12">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <TextBlock Text="Локальні нотатки JARVIS Windows" Foreground="#A4B4CD"/>
+          <TextBox Grid.Row="1" x:Name="NotesText" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" Margin="0,10,0,10"/>
+          <Button Grid.Row="2" HorizontalAlignment="Right" Click="SaveNotesButton_Click" Content="Зберегти"/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Налаштування">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="14" Width="680" HorizontalAlignment="Left">
+            <TextBlock Text="Cloudflare JARVIS AI Worker — той самий сервер, що й на телефоні" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="HTTPS /chat (не вводь тут OpenAI API-ключ)" Foreground="#A4B4CD"/>
+            <TextBox x:Name="WorkerUrl" Margin="0,5,0,12"/>
+            <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A4B4CD"/>
+            <PasswordBox x:Name="WorkerToken" Background="#1D304A" Foreground="White" Padding="10" Margin="0,5,0,12"/>
+            <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
+            <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>
+            <TextBlock Text="Голос Windows (список залежить від встановлених голосів)" Margin="0,14,0,5"/>
+            <ComboBox x:Name="VoiceChoices" Width="340" HorizontalAlignment="Left"/>
+            <TextBlock Text="Мова розпізнавання (потрібен мовний пакет Windows)" Margin="0,14,0,5"/>
+            <ComboBox x:Name="RecognizerChoices" Width="340" HorizontalAlignment="Left"/>
+            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+              <Button Click="SaveSettingsButton_Click" Content="Зберегти налаштування"/>
+              <Button Click="TestAiButton_Click" Content="Перевірити ШІ"/>
+              <Button Click="TestSpeechButton_Click" Content="Тест голосу"/>
+            </StackPanel>
+            <TextBlock Text="Глобальна комбінація Ctrl+Shift+J активує слухання. Немає прихованого безперервного прослуховування." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,14,0,0"/>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+    <Border Grid.Row="2" Background="#152237" Padding="12" Margin="0,10,0,0" CornerRadius="7">
+      <TextBlock x:Name="StatusText" Text="Готовий. Ctrl+Shift+J — мікрофон; Enter — виконати текст." Foreground="#53D7EA"/>
+    </Border>
+  </Grid>
+</Window>
