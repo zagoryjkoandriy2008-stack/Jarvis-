@@ -17,6 +17,8 @@ public final class JarvisSignedDeviceCommands {
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static final String PREFS="jarvis_device_relay_v1";
     private static final String FLAG="signed_v2_enabled";
+    private static final java.util.concurrent.atomic.AtomicLong LAST_HEARTBEAT=
+        new java.util.concurrent.atomic.AtomicLong(0L);
     private JarvisSignedDeviceCommands(){}
     public static boolean enabled(Context c){
         return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean(FLAG,false);
@@ -24,6 +26,24 @@ public final class JarvisSignedDeviceCommands {
     public static void setEnabled(Context c,boolean enable){
         c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
             .putBoolean(FLAG,enable).apply();
+    }
+    /** At most once per 25 seconds; never runs without owner opt-in. */
+    public static void heartbeat(Context context) {
+        if(!enabled(context)||!JarvisDeviceRelay.enabled(context))return;
+        long now=android.os.SystemClock.elapsedRealtime();
+        long last=LAST_HEARTBEAT.get();
+        if(last!=0L && now-last<25000L)return;
+        if(!LAST_HEARTBEAT.compareAndSet(last,now))return;
+        Context app=context.getApplicationContext();
+        IO.execute(()->{
+            try{
+                JSONObject payload=new JSONObject();
+                payload.put("device","phone");
+                signed(new AiChatClient(app),"/device/v2/commands/heartbeat",payload);
+            }catch(Exception ignored){
+                // Offline status is expected. Do not log key material or retry rapidly.
+            }
+        });
     }
     public static void send(Context context,String origin,String spoken,
                             JarvisDeviceRelay.Callback callback){

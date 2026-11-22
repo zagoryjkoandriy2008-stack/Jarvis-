@@ -107,6 +107,8 @@ public final class JarvisDeviceRelay {
         periodic.scheduleWithFixedDelay(()->{
             if(!enabled(app))return;
             try {
+                if(JarvisSignedDeviceCommands.enabled(app))
+                    JarvisSignedDeviceCommands.heartbeat(app);
                 poll(app,"phone",null);
                 // A watch is online only when paired; do not advertise it
                 // while disconnected or the companion has no Wear link.
