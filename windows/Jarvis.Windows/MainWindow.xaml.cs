@@ -16,6 +16,7 @@ public partial class MainWindow : Window {
     private readonly AiClient _ai=new();
     private readonly FinanceService _finance;
     private DeviceRelayClient? _relay;
+    private readonly WindowsScreenPublisher _screenPublisher;
     private FloatingOrb? _floating;
     private JarvisDevice _target=JarvisDevice.Computer;
     private readonly CancellationTokenSource _lifetime=new();
@@ -40,6 +41,20 @@ public partial class MainWindow : Window {
             throw;
         }
         _finance=new FinanceService(_state,_store);
+        _screenPublisher=new WindowsScreenPublisher(_state.Settings,_store);
+        _screenPublisher.ShareStatus+=(active,detail)=>{
+            Dispatcher.BeginInvoke(new Action(()=>{
+                if(active) {
+                    ScreenShareIndicator.Visibility=Visibility.Visible;
+                    StopScreenShareButton.Visibility=Visibility.Visible;
+                } else {
+                    ScreenShareIndicator.Visibility=Visibility.Collapsed;
+                    StopScreenShareButton.Visibility=Visibility.Collapsed;
+                }
+                Status(detail);
+            }));
+        };
+        _=_screenPublisher.RunAsync(_lifetime.Token);
         try {
             _relay=new DeviceRelayClient(_store,_state.Settings);
             _relay.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
@@ -60,6 +75,7 @@ public partial class MainWindow : Window {
         SpeakReplies.IsChecked=_state.Settings.SpeakReplies;
         StayOnTop.IsChecked=_state.Settings.OnTop;
         EnableDeviceRelay.IsChecked=_state.Settings.EnableDeviceRelay;
+        EnableScreenShare.IsChecked=_state.Settings.EnableScreenShare;
         ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
         Topmost=_state.Settings.OnTop;
         NotesText.Text=_state.Notes;
@@ -114,6 +130,7 @@ public partial class MainWindow : Window {
         _voice.Dispose();
         _floating?.Close();
         _relay?.Dispose();
+        _screenPublisher.Dispose();
         _ai.Dispose();
         _lifetime.Dispose();
     }
@@ -352,6 +369,16 @@ public partial class MainWindow : Window {
     private void StayOnTop_Changed(object sender,RoutedEventArgs e) {
         if(IsLoaded)Topmost=StayOnTop.IsChecked==true;
     }
+    private void StopScreenShare_Click(object sender,RoutedEventArgs e) {
+        // This is an immediate local revocation; the publisher checks the
+        // same settings flag before every capture and every upload.
+        _state.Settings.EnableScreenShare=false;
+        EnableScreenShare.IsChecked=false;
+        _store.Save(_state);
+        ScreenShareIndicator.Visibility=Visibility.Collapsed;
+        StopScreenShareButton.Visibility=Visibility.Collapsed;
+        Status("Передавання екрана заборонено на Windows.");
+    }
     private void SaveSettingsButton_Click(object sender,RoutedEventArgs e) {
         try {
             var url=WorkerUrl.Text.Trim();
@@ -361,7 +388,10 @@ public partial class MainWindow : Window {
             _state.Settings.WorkerUrl=url;
             _state.Settings.SpeakReplies=SpeakReplies.IsChecked==true;
             _state.Settings.OnTop=StayOnTop.IsChecked==true;
+            if(EnableScreenShare.IsChecked==true && EnableDeviceRelay.IsChecked!=true)
+                throw new InvalidOperationException("Спочатку дозволь зв'язок пристроїв через Cloudflare.");
             _state.Settings.EnableDeviceRelay=EnableDeviceRelay.IsChecked==true;
+            _state.Settings.EnableScreenShare=EnableScreenShare.IsChecked==true;
             _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
             _state.Settings.VoiceName=VoiceChoices.SelectedItem as string??"";
             _state.Settings.RecognizerCulture=RecognizerChoices.SelectedItem as string??"";
