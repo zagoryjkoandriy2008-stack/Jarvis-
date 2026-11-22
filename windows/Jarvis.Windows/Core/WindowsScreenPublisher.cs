@@ -22,6 +22,11 @@ public sealed class WindowsScreenPublisher : IDisposable {
     private readonly HttpClient _http = new() {Timeout=TimeSpan.FromSeconds(10)};
     private bool _sharing;
     private string? _lastSession;
+    private string? _approvedSession;
+    private string? _requestedSession;
+    public event Action<string>? ControlRequested;
+    public event Action<bool,string>? ControlStatus;
+    public bool IsControlApproved=>_approvedSession!=null;
     private bool _lastPermission;
     public event Action<bool,string>? ShareStatus;
     private static readonly int[] CaptureWidths={960,800,640,480};
@@ -53,6 +58,11 @@ public sealed class WindowsScreenPublisher : IDisposable {
         while(!cancellation.IsCancellationRequested) {
             try {
                 if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare) {
+                    if(_approvedSession!=null) {
+                        _approvedSession=null;
+                        ControlStatus?.Invoke(false,"Керування комп'ютером вимкнено.");
+                    }
+                    _requestedSession=null;
                     if(_lastSession!=null)await RevokeAsync();
                     if(_sharing)Report(false,"Передавання екрана вимкнено.");
                     await Task.Delay(1500,cancellation);
@@ -71,6 +81,10 @@ public sealed class WindowsScreenPublisher : IDisposable {
                     using var json=JsonDocument.Parse(
                         await response.Content.ReadAsStringAsync(cancellation));
                     if(!json.RootElement.GetProperty("active").GetBoolean()) {
+                        if(_approvedSession!=null)
+                            ControlStatus?.Invoke(false,"Перегляд Pixel завершився.");
+                        _approvedSession=null;
+                        _requestedSession=null;
                         _lastSession=null;
                         if(_sharing)Report(false,"Телефон завершив перегляд.");
                         await Task.Delay(2500,cancellation);
@@ -84,6 +98,26 @@ public sealed class WindowsScreenPublisher : IDisposable {
                     if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare)
                         continue;
                     _lastSession=session;
+                    if(_approvedSession!=null && _approvedSession!=session) {
+                        _approvedSession=null;
+                        ControlStatus?.Invoke(false,"Почався новий перегляд. "+
+                            "Потрібно знову дозволити керування.");
+                    }
+                    if(_requestedSession!=null && _requestedSession!=session)
+                        _requestedSession=null;
+                    if(_settings.EnableRemoteControl &&
+                       json.RootElement.TryGetProperty("controlRequested",out var asking) &&
+                       asking.GetBoolean() && _requestedSession!=session) {
+                        _requestedSession=session;
+                        ControlRequested?.Invoke(session);
+                    }
+                    if(json.RootElement.TryGetProperty("controlDenied",out var denied) &&
+                       denied.GetBoolean() && _approvedSession==session) {
+                        _approvedSession=null;
+                        ControlStatus?.Invoke(false,"Windows завершив дистанційне керування.");
+                    }
+                    if(!_settings.EnableRemoteControl && _approvedSession==session)
+                        await DisableControlAsync();
                     var jpeg=CapturePrimaryScreen();
                     if(!_settings.EnableDeviceRelay||!_settings.EnableScreenShare) {
                         await RevokeAsync();
@@ -98,6 +132,9 @@ public sealed class WindowsScreenPublisher : IDisposable {
                     using var accepted=await _http.SendAsync(upload,cancellation);
                     if(accepted.IsSuccessStatusCode) {
                         Report(true,"🔴 Передаю екран Pixel через приватний JARVIS.");
+                        if(_settings.EnableRemoteControl &&
+                           _approvedSession==session)
+                            await PollRemoteControlAsync(root,token,session,cancellation);
                     } else {
                         if(_sharing)Report(false,"Перегляд зупинено.");
                     }
@@ -111,11 +148,78 @@ public sealed class WindowsScreenPublisher : IDisposable {
             catch(OperationCanceledException) {break;}
         }
         if(_sharing)Report(false,"Трансляцію завершено.");
+        _approvedSession=null;
+        _requestedSession=null;
+    }
+
+    private async Task PollRemoteControlAsync(Uri root,string token,
+        string session,CancellationToken cancellation) {
+        using var request=new HttpRequestMessage(HttpMethod.Get,
+            new Uri(root,"/device/v1/screen/control/poll?session="+session));
+        request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
+        using var response=await _http.SendAsync(request,cancellation);
+        if(!response.IsSuccessStatusCode)return;
+        using var json=JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellation));
+        foreach(var action in json.RootElement.GetProperty("events").EnumerateArray()) {
+            // Only a Windows-local button can set _approvedSession. Server
+            // approval alone is insufficient; fails closed on revoke/expiry.
+            if(_approvedSession!=session || !_settings.EnableRemoteControl ||
+               !_settings.EnableScreenShare || !_settings.EnableDeviceRelay)
+                return;
+            try {WindowsRemoteInput.Execute(action);}
+            catch(Exception error) {
+                ControlStatus?.Invoke(true,"Windows не виконав дію: "+error.Message);
+            }
+        }
+    }
+
+    /** On-screen Windows confirmation, never triggered by server data alone. */
+    public async Task<bool> DecideControlAsync(string session,bool allow) {
+        if(!Guid.TryParse(session,out _) || _lastSession!=session)
+            return false;
+        if(allow && (!_settings.EnableRemoteControl||
+           !_settings.EnableScreenShare||!_settings.EnableDeviceRelay))
+            return false;
+        var (root,token)=Connection();
+        using var request=new HttpRequestMessage(HttpMethod.Post,
+            new Uri(root,"/device/v1/screen/control/decision?session="+session));
+        request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
+        request.Content=new StringContent(
+            JsonSerializer.Serialize(new {allow}),System.Text.Encoding.UTF8,
+            "application/json");
+        using var response=await _http.SendAsync(request);
+        if(!response.IsSuccessStatusCode)return false;
+        _approvedSession=allow?session:null;
+        ControlStatus?.Invoke(allow,allow
+            ?"🔴 Pixel керує мишею і клавіатурою Windows."
+            :"Запит Pixel на керування відхилено.");
+        return true;
+    }
+
+    public async Task DisableControlAsync() {
+        var session=Interlocked.Exchange(ref _approvedSession,null) ??
+            _requestedSession;
+        _requestedSession=null;
+        ControlStatus?.Invoke(false,"Дистанційне керування Windows зупинено.");
+        if(string.IsNullOrWhiteSpace(session))return;
+        try {
+            var (root,token)=Connection();
+            using var request=new HttpRequestMessage(HttpMethod.Post,
+                new Uri(root,"/device/v1/screen/control/disable?session="+session));
+            request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
+            using var response=await _http.SendAsync(request);
+        }catch(Exception) {
+            // Local control permission remains revoked even without internet.
+        }
     }
 
     /** An owner local-stop purges Cloudflare's last frame immediately, not
      * after the five-second snapshot TTL. A disconnected client still expires. */
     public async Task RevokeAsync() {
+        _approvedSession=null;
+        _requestedSession=null;
+        ControlStatus?.Invoke(false,"Дистанційне керування завершено.");
         var session=Interlocked.Exchange(ref _lastSession,null);
         if(string.IsNullOrEmpty(session))return;
         try {
