@@ -446,6 +446,13 @@ public partial class MainWindow : Window {
             case CommandKind.FinanceReport:
                 Reply(_finance.Report(),false);RefreshFinance();break;
             case CommandKind.DeviceList:
+                if(_state.Settings.EnableSignedRelay) {
+                    var signedPhone=await _pairing.GetAuthenticatedPresenceAsync("phone",token);
+                    var report="Windows: локально працює; Pixel: "+
+                        (signedPhone.Online?"online, підписаний heartbeat":"немає свіжого heartbeat")+
+                        "; Watch7: зв'язок Wear Data Layer перевіряється на Pixel.";
+                    DeviceStatusReport.Text=report;Reply(report,false);break;
+                }
                 if(_relay==null||!_state.Settings.EnableDeviceRelay) {
                     Reply("Зв'язок пристроїв вимкнений. Windows працює локально.",false);break;
                 }

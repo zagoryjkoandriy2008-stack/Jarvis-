@@ -1074,6 +1074,12 @@ public final class MainActivity extends Activity implements RecognitionListener 
             LinearLayout.LayoutParams pairingParams=new LinearLayout.LayoutParams(-1,dp(48));
             pairingParams.topMargin=dp(7);
             content.addView(pairingSettings,pairingParams);
+            Button deviceHub=secondaryButton("🔗 Центр пристроїв Windows / Pixel / Watch7",
+                ()->startActivity(new Intent(this,JarvisDeviceCenterActivity.class)));
+            LinearLayout.LayoutParams deviceHubParams=
+                new LinearLayout.LayoutParams(-1,dp(48));
+            deviceHubParams.topMargin=dp(7);
+            content.addView(deviceHub,deviceHubParams);
         }
         if(!isWatchDevice) {
             Button alarmPermissions=secondaryButton("⏰ Дозволи будильників Watch7",

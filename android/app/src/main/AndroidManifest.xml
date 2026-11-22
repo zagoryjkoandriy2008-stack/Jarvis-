@@ -76,6 +76,7 @@
         <activity android:name=".JarvisPcFileInboxActivity" android:exported="false" />
         <activity android:name=".JarvisWakeOnLanActivity" android:exported="false" />
         <activity android:name=".JarvisDevicePairingActivity" android:exported="false" />
+        <activity android:name=".JarvisDeviceCenterActivity" android:exported="false" />
         <activity android:name=".JarvisWindowsScreenActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <service android:name=".FinanceReminderJob"
