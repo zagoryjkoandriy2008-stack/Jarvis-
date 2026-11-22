@@ -260,6 +260,12 @@ public final class MainActivity extends Activity implements RecognitionListener 
         }
     };
     private JarvisWearPhoneLink watchPhoneLink;
+    private JarvisDeviceRelayRules.Target deviceControlTarget=
+        JarvisDeviceRelayRules.Target.NONE;
+    private android.widget.TextView watchDeviceBadge;
+    private static volatile java.lang.ref.WeakReference<MainActivity> activeWatchRemote=
+        new java.lang.ref.WeakReference<>(null);
+
     // Two-turn Watch7 Spotify dialogue: a bare “увімкни пісню” asks for
     // a title instead of leaking an incomplete command to the Pixel/AI.
     private SpotifyMusicCommands.Kind pendingWatchMusicKind;
@@ -745,6 +751,7 @@ public final class MainActivity extends Activity implements RecognitionListener 
     protected void onResume() {
         super.onResume();
         foreground = true;
+        if(isWatchDevice)activeWatchRemote=new java.lang.ref.WeakReference<>(this);
         if(isWatchDevice) resumeWatchOperation();
         if(isWatchDevice)
             android.util.Log.i("JARVIS_WATCH_LIFECYCLE",
@@ -814,6 +821,8 @@ public final class MainActivity extends Activity implements RecognitionListener 
     @Override
     protected void onPause() {
         foreground = false; // Reject queued recognizer callbacks before canceling the binder.
+        if(isWatchDevice && activeWatchRemote.get()==this)
+            activeWatchRemote=new java.lang.ref.WeakReference<>(null);
         if (isWatchDevice) retireDisconnectedRecognizer();
         if (isWatchDevice)
             getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -1509,6 +1518,50 @@ public final class MainActivity extends Activity implements RecognitionListener 
      * has its own touch target so it never starts/stops the microphone.
      * Internal output views remain detached for shared conversation/AI code.
      */
+    /** Data Layer watch delivery only while this Activity is visible and
+     * remote-control consent is enabled. Never start an unlocked action
+     * from the watchface/background. */
+    public static void acceptRemoteWatchCommand(String utterance,
+                                                 JarvisDeviceRelay.Callback callback) {
+        MainActivity activity=activeWatchRemote.get();
+        if(callback==null)return;
+        if(activity==null || !activity.foreground ||
+           !activity.isWatchDevice ||
+           !JarvisDeviceRelay.enabled(activity)) {
+            callback.finished(false,"JARVIS Watch7 не відкритий або дозвіл дистанційних команд вимкнений.");
+            return;
+        }
+        activity.runOnUiThread(()->{
+            if(!activity.foreground) {
+                callback.finished(false,"Watch7 більше не на передньому плані.");
+                return;
+            }
+            if(!JarvisDeviceRelayRules.permittedRemoteWatch(utterance)) {
+                callback.finished(false,"Команда Watch7 не входить у дозволений список.");
+                return;
+            }
+            String spoken=CommandPatterns.spokenText(utterance);
+            if(spoken!=null && !spoken.isEmpty()) {
+                activity.speakReply(spoken);
+                callback.finished(true,"Фразу озвучено на Watch7.");
+                return;
+            }
+            JarvisWatchLocalCommands.Request command=
+                JarvisWatchLocalCommands.spotifyOnWatch(utterance);
+            if(command==null)command=JarvisWatchLocalCommands.mapsOnWatch(utterance);
+            if(command==null) {
+                callback.finished(false,"Ця дистанційна дія Watch7 не підтримується.");
+                return;
+            }
+            JarvisWatchLocalController.execute(activity,command,
+                new JarvisWatchLocalController.Callback() {
+                    @Override public void finished(boolean ok,String detail) {
+                        callback.finished(ok,detail);
+                    }
+                });
+        });
+    }
+
     private void buildWatchInterface() {
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_FULLSCREEN |
@@ -1543,6 +1596,23 @@ public final class MainActivity extends Activity implements RecognitionListener 
         settingsParams.topMargin = dp(26);
         settingsParams.rightMargin = dp(27);
         watchScreen.addView(settingsMenu, settingsParams);
+        // Small, tappable target badge: local Watch7, Pixel or Windows.
+        watchDeviceBadge=makeText("⌚",21,CYAN,Gravity.CENTER,true);
+        watchDeviceBadge.setContentDescription("Обрати пристрій: годинник телефон комп'ютер");
+        watchDeviceBadge.setBackground(roundedFill(Color.rgb(16,37,63),CYAN,99));
+        watchDeviceBadge.setClickable(true);
+        watchDeviceBadge.setOnClickListener(v->{
+            String[] choices={"⌚ Годинник","📱 Телефон","🖥 Комп'ютер"};
+            showDialogWithoutWake(new AlertDialog.Builder(this)
+                .setTitle("Керування пристроєм")
+                .setItems(choices,(d,which)->processCommand(
+                    which==0?"годинник":which==1?"телефон":"комп'ютер"))
+                .create());
+        });
+        FrameLayout.LayoutParams badgeParams=new FrameLayout.LayoutParams(
+            dp(42),dp(36),Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+        badgeParams.bottomMargin=dp(22);
+        watchScreen.addView(watchDeviceBadge,badgeParams);
         setContentView(watchScreen, new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT));
@@ -2799,12 +2869,20 @@ public final class MainActivity extends Activity implements RecognitionListener 
             "⏰ Поставити будильник",
             "🗣 Перевірити голос Watch7",
             "Діагностика",
-            "🎵 Spotify Remote — синхронізація"
+            "🎵 Spotify Remote — синхронізація",
+            "🔗 Керування пристроями: "+(JarvisDeviceRelay.enabled(this)?"дозволено":"вимкнено")
         };
         AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Налаштування Дімона")
             .setItems(actions, (d, which) -> {
                 switch (which) {
+                    case 19:
+                        JarvisDeviceRelay.setEnabled(this,
+                            !JarvisDeviceRelay.enabled(this));
+                        setStatus(JarvisDeviceRelay.enabled(this)
+                            ?"Дозволено команди з авторизованого Pixel на Watch7."
+                            :"Віддалене керування Watch7 вимкнено.");
+                        break;
                     case 18:
                         SpotifyPlaylistSync.resolveOnWatch(this,
                             SpotifyMusicCommands.Kind.RAP,"реп",uri -> {
@@ -5143,6 +5221,74 @@ public final class MainActivity extends Activity implements RecognitionListener 
             setStatus(result);
         })) return;
         JarvisPhoneMode.Transition modeTransition = JarvisPhoneMode.transition(raw);
+        JarvisDeviceRelayRules.Target change=JarvisDeviceRelayRules.select(raw);
+        if(change!=JarvisDeviceRelayRules.Target.NONE) {
+            // "Телефон" is the existing Watch→Pixel mode and Pixel-local mode.
+            // "Годинник"/"Комп'ютер" now select explicit destinations.
+            if(change==JarvisDeviceRelayRules.Target.COMPUTER ||
+               change==JarvisDeviceRelayRules.Target.WATCH ||
+               (!isWatchDevice && change==JarvisDeviceRelayRules.Target.PHONE)) {
+                deviceControlTarget=change;
+                if(watchDeviceBadge!=null)
+                    watchDeviceBadge.setText(JarvisDeviceRelayRules.icon(change));
+                if(isWatchDevice && JarvisPhoneMode.isActive())
+                    exitPhoneMode();
+                String message="Режим "+
+                    JarvisDeviceRelayRules.icon(change)+" "+
+                    (change==JarvisDeviceRelayRules.Target.COMPUTER?"комп'ютер":
+                     change==JarvisDeviceRelayRules.Target.PHONE?"телефон":"годинник");
+                setStatus(message);
+                appendDialogue("Дімон",message);
+                if(voiceEnabled)speakReply(message);
+                // On Pixel "телефон" must still enter the EXISTING phone
+                // screen-control mode with its original accessibility logic.
+                if(change!=JarvisDeviceRelayRules.Target.PHONE ||
+                   isWatchDevice)return;
+            } else if(isWatchDevice && change==JarvisDeviceRelayRules.Target.PHONE) {
+                deviceControlTarget=change;
+                if(watchDeviceBadge!=null)watchDeviceBadge.setText("📱");
+            }
+        }
+        // Explicit computer mode: Watch7 uses its existing secure Wear
+        // connection to Pixel, and Pixel relays it to Windows. Finance always
+        // goes to the authoritative Pixel ledger, never to the Windows copy.
+        if(isWatchDevice && deviceControlTarget==
+               JarvisDeviceRelayRules.Target.COMPUTER &&
+           change==JarvisDeviceRelayRules.Target.NONE &&
+           !JarvisDeviceRelayRules.isFinance(raw)) {
+            if(watchPhoneLink==null) {
+                setStatus("Не підключено Pixel для команд на комп'ютер.");
+                return;
+            }
+            String relayMarker="__jarvis_pc__:";
+            if(raw.length()+relayMarker.length()>JarvisWearProtocol.MAX_COMMAND_LENGTH) {
+                setStatus("Дистанційна команда завелика.");return;
+            }
+            setStatus("🖥 Передаю команду на Windows через Pixel...");
+            watchPhoneLink.assistant(relayMarker+raw,(ok,detail)->{
+                if(isFinishing()||isDestroyed())return;
+                appendDialogue("Дімон",detail);
+                setStatus(detail);
+                if(voiceEnabled)speakReply(detail);
+            });
+            return;
+        }
+        if(!isWatchDevice && change==JarvisDeviceRelayRules.Target.NONE &&
+           (deviceControlTarget==JarvisDeviceRelayRules.Target.COMPUTER ||
+            deviceControlTarget==JarvisDeviceRelayRules.Target.WATCH) &&
+           !JarvisDeviceRelayRules.isFinance(raw)) {
+            String target=deviceControlTarget==JarvisDeviceRelayRules.Target.COMPUTER
+                ?"computer":"watch";
+            setStatus(JarvisDeviceRelayRules.icon(deviceControlTarget)+
+                " Передаю команду іншому пристрою…");
+            JarvisDeviceRelay.send(this,"phone",target,raw,(ok,detail)->{
+                if(isFinishing()||isDestroyed())return;
+                appendDialogue("Дімон",detail);
+                setStatus(detail);
+                if(voiceEnabled)speakReply(detail);
+            });
+            return;
+        }
         if (isWatchDevice) {
             // Speak this after returning from the watch face to see the last
             // durable stage even when Wear OS killed the previous activity.
