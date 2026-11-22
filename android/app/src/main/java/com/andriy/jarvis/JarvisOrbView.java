@@ -143,6 +143,15 @@ public final class JarvisOrbView extends View {
             postInvalidateDelayed(80L);
             return;
         }
+        JarvisDeviceRelayRules.Target remoteTarget=JarvisDeviceTargetSession.get();
+        if(remoteTarget==JarvisDeviceRelayRules.Target.COMPUTER ||
+           remoteTarget==JarvisDeviceRelayRules.Target.WATCH) {
+            drawRemoteDevice(canvas,cx,cy,orb,remoteTarget);
+            if(transcriptVisible() && !recognizedText.isEmpty())
+                drawRecognizedText(canvas,cx,cy+orb*.48f,orb*.52f);
+            postInvalidateDelayed(160L);
+            return;
+        }
         if (hearing) {
             boolean hasWords = !recognizedText.isEmpty();
             JarvisPixelPhone.drawListening(canvas, paint, cx,
@@ -194,6 +203,37 @@ public final class JarvisOrbView extends View {
             paint.setStyle(Paint.Style.FILL);
         }
         postInvalidateDelayed("speaking".equals(expression) ? 42L : 180L);
+    }
+
+    /** Compact 8-bit device icons; never display the wrong target while
+     * the floating orb is explicitly controlling Windows or Watch7. */
+    private void drawRemoteDevice(Canvas c,float cx,float cy,float radius,
+                                  JarvisDeviceRelayRules.Target target) {
+        float size=radius/12f;
+        float x=cx-8*size,y=cy-8*size;
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(accent);
+        if(target==JarvisDeviceRelayRules.Target.COMPUTER) {
+            // Monitor, keyboard and stand, all grid-aligned.
+            drawPixel(c,x,y,size,2,3,12,2);
+            drawPixel(c,x,y,size,2,5,2,7);
+            drawPixel(c,x,y,size,12,5,2,7);
+            drawPixel(c,x,y,size,2,11,12,2);
+            drawPixel(c,x,y,size,7,13,2,2);
+            drawPixel(c,x,y,size,5,15,6,1);
+            paint.setColor(Color.rgb(32,90,117));
+            drawPixel(c,x,y,size,4,5,8,6);
+        } else {
+            // Wrist strap, rectangular watch and two display pixels.
+            drawPixel(c,x,y,size,6,0,4,4);
+            drawPixel(c,x,y,size,3,4,10,9);
+            drawPixel(c,x,y,size,6,13,4,3);
+            paint.setColor(Color.rgb(13,46,84));
+            drawPixel(c,x,y,size,5,6,6,5);
+            paint.setColor(Color.rgb(217,254,255));
+            drawPixel(c,x,y,size,6,7,1,2);
+            drawPixel(c,x,y,size,9,7,1,2);
+        }
     }
 
     private void drawPixel(Canvas c, float x, float y, float size,
