@@ -2,14 +2,16 @@ package com.andriy.jarvis;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.widget.Toast;
 
 /**
- * Watch-only, user-triggered Spotify search. No phone Data Layer, Spotify
- * credentials, screen coordinates or external AI-generated UI actions.
+ * Watch-only, user-triggered Spotify search/playback. Spotify Remote playlist
+ * aliases arrive from Pixel through a public-URI-only Wear Data Layer snapshot;
+ * music playback itself stays on Watch7, with no phone screen actions.
  */
 public final class JarvisWatchSpotifyController {
     private static final String PACKAGE="com.spotify.music";
@@ -34,12 +36,35 @@ public final class JarvisWatchSpotifyController {
                 lastQuery,next,true,completion);
             return;
         }
-        playIndexed(context,kind,title,0,false,completion);
+        if(kind==SpotifyMusicCommands.Kind.RAP ||
+           kind==SpotifyMusicCommands.Kind.UKRAINIAN ||
+           kind==SpotifyMusicCommands.Kind.PLAYLIST) {
+            // Use the same user-owned alias saved in Spotify Remote on Pixel.
+            // Await the Wear data snapshot briefly, then continue from cache.
+            SpotifyPlaylistSync.resolveOnWatch(context,kind,title,uri -> {
+                if(uri==null && (kind==SpotifyMusicCommands.Kind.RAP ||
+                                 kind==SpotifyMusicCommands.Kind.UKRAINIAN)) {
+                    completion.finished(false,"Немає плейлиста «"+title+
+                        "» у синхронізованих Spotify Remote налаштуваннях. "+
+                        "Збережи його URI на Pixel і перевір зв'язок Watch7.");
+                    return;
+                }
+                playIndexed(context,kind,title,0,false,completion,uri);
+            });
+            return;
+        }
+        playIndexed(context,kind,title,0,false,completion,null);
     }
 
     private static void playIndexed(Context context,SpotifyMusicCommands.Kind kind,
             String title,int resultOrdinal,boolean followup,
             JarvisWatchLocalController.Callback completion) {
+        playIndexed(context,kind,title,resultOrdinal,followup,completion,null);
+    }
+
+    private static void playIndexed(Context context,SpotifyMusicCommands.Kind kind,
+            String title,int resultOrdinal,boolean followup,
+            JarvisWatchLocalController.Callback completion,String syncedPlaylistUri) {
         JarvisWatchSpotifyTrace.mark(context,"PLAY_ENTERED");
         if(kind!=SpotifyMusicCommands.Kind.TRACK &&
            kind!=SpotifyMusicCommands.Kind.PLAYLIST &&
@@ -68,21 +93,43 @@ public final class JarvisWatchSpotifyController {
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
             Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        try {
-            JarvisWatchSpotifyTrace.mark(context,"START_ACTIVITY_REQUESTED");
-            JarvisDiagnostics.event(JarvisDiagnostics.Event.EXTERNAL_LAUNCH,1);
-            context.startActivity(intent);
-            JarvisWatchSpotifyTrace.mark(context,"START_ACTIVITY_RETURNED");
-        } catch(RuntimeException failure) {
-            android.util.Log.e("DIMON_WATCH_SPOTIFY","Failed to launch Spotify",failure);
-            JarvisWatchSpotifyTrace.mark(context,"START_ACTIVITY_FAILED");
-            completion.finished(false,"Wear OS не вдалося відкрити Spotify.");
-            return;
+        boolean deepLinkOpened=false;
+        String playlistLink=SpotifyPlaylistSyncRules.playlistLink(syncedPlaylistUri);
+        if(playlistLink!=null) {
+            Intent deep=new Intent(Intent.ACTION_VIEW,Uri.parse(playlistLink));
+            deep.setPackage(PACKAGE); // Never send the saved link to a browser or Pixel.
+            deep.addCategory(Intent.CATEGORY_BROWSABLE);
+            deep.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            try {
+                if(deep.resolveActivity(context.getPackageManager())!=null) {
+                    context.startActivity(deep);
+                    deepLinkOpened=true;
+                    JarvisWatchSpotifyTrace.mark(context,"SYNCED_PLAYLIST_LINK_OPENED");
+                }
+            } catch(RuntimeException unsupported) {
+                android.util.Log.w("DIMON_WATCH_SPOTIFY",
+                    "Spotify Wear did not accept playlist content link",unsupported);
+            }
+        }
+        if(!deepLinkOpened) {
+            try {
+                JarvisWatchSpotifyTrace.mark(context,"START_ACTIVITY_REQUESTED");
+                JarvisDiagnostics.event(JarvisDiagnostics.Event.EXTERNAL_LAUNCH,1);
+                context.startActivity(intent);
+                JarvisWatchSpotifyTrace.mark(context,"START_ACTIVITY_RETURNED");
+            } catch(RuntimeException failure) {
+                android.util.Log.e("DIMON_WATCH_SPOTIFY","Failed to launch Spotify",failure);
+                JarvisWatchSpotifyTrace.mark(context,"START_ACTIVITY_FAILED");
+                completion.finished(false,"Wear OS не вдалося відкрити Spotify.");
+                return;
+            }
         }
         if(kind==SpotifyMusicCommands.Kind.TRACK && !followup)
             RESULT_CURSOR.begin(title,SystemClock.elapsedRealtime());
         Session session=new Session(context.getApplicationContext(),
-            kind,title,resultOrdinal,followup,completion);
+            kind,title,resultOrdinal,followup,completion,
+            playlistLink!=null,deepLinkOpened);
         session.status("Відкриваю Spotify на годиннику…");
         // Do not begin tapping until Spotify actually owns the foreground.
         // This also distinguishes failed app launch from a UI automation failure.
@@ -96,6 +143,10 @@ public final class JarvisWatchSpotifyController {
         final String title;
         final int resultOrdinal;
         final boolean followup;
+        final boolean syncedPlaylist;
+        final boolean deepLinkOpened;
+        boolean deepLinkFallback;
+        final long launchAt=SystemClock.elapsedRealtime();
         final JarvisWatchLocalController.Callback callback;
         final long deadline=SystemClock.elapsedRealtime()+TOTAL_TIMEOUT_MS;
         long searchStart=SystemClock.elapsedRealtime();
@@ -114,9 +165,12 @@ public final class JarvisWatchSpotifyController {
 
         Session(Context context,SpotifyMusicCommands.Kind kind,String title,
                 int resultOrdinal,boolean followup,
-                JarvisWatchLocalController.Callback callback) {
+                JarvisWatchLocalController.Callback callback,
+                boolean syncedPlaylist,boolean deepLinkOpened) {
             this.context=context;this.kind=kind;this.title=title;
             this.resultOrdinal=resultOrdinal;this.followup=followup;
+            this.syncedPlaylist=syncedPlaylist;
+            this.deepLinkOpened=deepLinkOpened;
             this.callback=callback;
             MAIN.postDelayed(()->done(false,"Час очікування Spotify минув."),TOTAL_TIMEOUT_MS);
         }
@@ -170,8 +224,25 @@ public final class JarvisWatchSpotifyController {
                     else
                         run(JarvisWatchScreenService.SpotifyStep.REVEAL_NAV);
                 } else {
-                    // Named library playlists retain their separate DOWN
-                    // navigation. The SONG-search path above is UP-only.
+                    if(syncedPlaylist && deepLinkOpened && !deepLinkFallback) {
+                        // A successful ACTION_VIEW request alone is NOT proof
+                        // Spotify opened the chosen playlist. Verify the page
+                        // and its title before touching Play.
+                        if(JarvisWatchScreenService.spotifySelectedPlaylistPageReady(
+                                title,null)) {
+                            run(JarvisWatchScreenService.SpotifyStep.PLAY_PLAYLIST);
+                            return;
+                        }
+                        if(SystemClock.elapsedRealtime()-launchAt<6500L) {
+                            MAIN.postDelayed(()->waitForSpotify(expires),650L);
+                            return;
+                        }
+                        deepLinkFallback=true;
+                        status("Spotify не підтвердив посилання плейлиста. "+
+                            "Шукаю його у бібліотеці Watch7…");
+                    }
+                    // Named/synced playlists use the library DOWN flow.
+                    // The separate TRACK song search remains strictly UP-only.
                     run(JarvisWatchScreenService.SpotifyStep.REVEAL_NAV);
                 }
                 return;
@@ -220,7 +291,7 @@ public final class JarvisWatchSpotifyController {
                 case SEARCH_RECOVER_UP:
                     return JarvisWatchScreenService.SpotifyStep.OPEN_SEARCH;
                 case REVEAL_NAV:
-                    return kind==SpotifyMusicCommands.Kind.PLAYLIST
+                    return kind==SpotifyMusicCommands.Kind.PLAYLIST || syncedPlaylist
                         ?JarvisWatchScreenService.SpotifyStep.FIND_LIBRARY_PLAYLIST
                         :JarvisWatchScreenService.SpotifyStep.OPEN_SEARCH;
                 case FIND_LIBRARY_PLAYLIST:
