@@ -203,8 +203,14 @@ export default {
       if(!env.DEVICE_RELAY)return json({error:'Device relay not deployed'},503);
       if(!['GET','POST'].includes(request.method))
         return json({error:'Method not allowed'},405);
+      // Authenticated screen JPEG uploads are larger than JSON commands.
+      // ScreenRelayState enforces a strict 240 KB streaming body bound and
+      // JPEG magic bytes; do not relax the other command limits.
+      const screenFrame=url.pathname==='/device/v1/screen/frame' &&
+        request.method==='POST';
       const contentLength=Number(request.headers.get('content-length')||0);
-      if(contentLength>8192)return json({error:'Request too large'},413);
+      if(contentLength>(screenFrame?240000:8192))
+        return json({error:'Request too large'},413);
       const object=env.DEVICE_RELAY.get(env.DEVICE_RELAY.idFromName('private-jarvis'));
       return object.fetch(request);
     }
