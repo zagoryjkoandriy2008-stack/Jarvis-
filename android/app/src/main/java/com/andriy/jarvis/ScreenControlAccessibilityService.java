@@ -3451,7 +3451,8 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
         if(root==null)return SpotifyStep.WAIT;
         if(playlist==null && (named==null || named.isEmpty()))
             return SpotifyStep.BLOCKED;
-        if(!spotifyPlaylistHeaderVisible(root,playlist,named))
+        if(spotifySearchCategoryFiltersVisible(root) ||
+           !spotifyPlaylistHeaderVisible(root,playlist,named))
             return SpotifyStep.WAIT;
         if(spotifyLargePauseVisible(root))return SpotifyStep.ALREADY;
         SpotifyStep accessible=tapSpotifyControl(SpotifyUiLabels.Target.PLAY,
@@ -3475,7 +3476,8 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
                 String label=asString(node.getText())+" "+
                     asString(node.getContentDescription());
                 String lowered=SpotifyUiLabels.normalize(label);
-                if(unique.add(key) &&
+                if(unique.add(key) && !node.isCheckable() && !node.isChecked() &&
+                   !SpotifyUiLabels.saveCollectionAction(label) &&
                    !SpotifyUiLabels.matches(SpotifyUiLabels.Target.SHUFFLE,label) &&
                    !lowered.contains("download") && !lowered.contains("завантаж") &&
                    !lowered.contains("скачать") && !lowered.contains("more") &&
@@ -3550,7 +3552,10 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
                 if(explicit && SpotifyUiLabels.playlistPlayAt(hit.left,hit.top,
                     hit.right,hit.bottom,page.left,page.top,page.right,
                     page.bottom,density))return true;
-                if(n.isClickable() && SpotifyUiLabels.unlabelledPlaylistPlayCircle(
+                if(n.isClickable() && !n.isCheckable() && !n.isChecked() &&
+                   !SpotifyUiLabels.saveCollectionAction(asString(n.getText())+" "+
+                       asString(n.getContentDescription())) &&
+                   SpotifyUiLabels.unlabelledPlaylistPlayCircle(
                     hit.left,hit.top,hit.right,hit.bottom,page.left,page.top,
                     page.right,page.bottom,density))return true;
             }
@@ -3616,11 +3621,44 @@ public final class ScreenControlAccessibilityService extends AccessibilityServic
         }) ? SpotifyStep.CLICKED : SpotifyStep.WAIT;
     }
 
+    /** A song-result heading can match a playlist title while the green
+     * Saved-in check occupies the same right-hand region as Play. Two
+     * different top category chips identify an actual Spotify search page. */
+    private boolean spotifySearchCategoryFiltersVisible(AccessibilityNodeInfo root) {
+        if(root==null)return false;
+        Rect frame=new Rect();root.getBoundsInScreen(frame);
+        java.util.HashSet<String> categories=new java.util.HashSet<>();
+        ArrayDeque<AccessibilityNodeInfo> q=new ArrayDeque<>();q.add(root);
+        int scanned=0;
+        while(!q.isEmpty() && ++scanned<=MAX_SCAN) {
+            AccessibilityNodeInfo node=q.removeFirst();
+            if(!node.isVisibleToUser() || node.isPassword())continue;
+            Rect box=new Rect();node.getBoundsInScreen(box);
+            String[] labels={asString(node.getText()),
+                asString(node.getContentDescription())};
+            for(String label:labels) {
+                if(SpotifyTrackSearchRules.searchFilterChip(label,
+                    box.centerX(),box.centerY(),box.width(),box.height(),
+                    frame.left,frame.top,frame.right,frame.bottom)) {
+                    categories.add(SpotifyTrackSearchRules.searchFilterCategory(label));
+                    if(categories.size()>=2)return true;
+                }
+            }
+            for(int i=0;i<node.getChildCount();i++) {
+                AccessibilityNodeInfo child=node.getChild(i);
+                if(child!=null)q.addLast(child);
+            }
+        }
+        return false;
+    }
+
     /** Only accept an exact playlist title displayed in its large upper
      * header. A small row in My Library is not enough to tap the Play area. */
     private boolean spotifyPlaylistHeaderVisible(AccessibilityNodeInfo root,
                                                   SpotifyUiLabels.Target playlist,
                                                   String named) {
+        // Do not interpret a large search-result song title as a playlist.
+        if(spotifySearchCategoryFiltersVisible(root))return false;
         Rect frame=new Rect();root.getBoundsInScreen(frame);
         ArrayDeque<AccessibilityNodeInfo> q=new ArrayDeque<>();q.add(root);
         boolean title=false,smallClickableTitle=false,libraryTop=false;int scanned=0;
