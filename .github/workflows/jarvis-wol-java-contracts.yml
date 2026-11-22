@@ -4,6 +4,7 @@ on:
     paths:
       - 'android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java'
       - 'tools/qa/WakeOnLanContract.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/WakeStatusPolicy.java'
       - '.github/workflows/jarvis-wol-java-contracts.yml'
   workflow_dispatch:
 permissions:
@@ -23,5 +24,6 @@ jobs:
           mkdir -p /tmp/jarvis-wol-test
           javac -d /tmp/jarvis-wol-test \
             android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java \
+            android/app/src/main/java/com/andriy/jarvis/WakeStatusPolicy.java \
             tools/qa/WakeOnLanContract.java
           java -cp /tmp/jarvis-wol-test com.andriy.jarvis.WakeOnLanContract

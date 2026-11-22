@@ -9,6 +9,7 @@ import android.net.LinkAddress;
 import java.net.Inet4Address;
 import android.os.Handler;
 import android.os.Looper;
+import org.json.JSONObject;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -23,6 +24,8 @@ public final class JarvisWakeOnLan {
     private static final ExecutorService IO=Executors.newSingleThreadExecutor();
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     public interface Result {void done(boolean sent,String detail);}
+    public interface Progress {void update(String detail);}
+    private static final ExecutorService VERIFY=Executors.newSingleThreadExecutor();
     private JarvisWakeOnLan(){}
     public static boolean isWakeCommand(String raw) {
         return WakeOnLanPacket.isWakeCommand(raw);
@@ -40,6 +43,61 @@ public final class JarvisWakeOnLan {
         return context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
             .getString(KEY_BROADCAST,"192.168.1.255");
     }
+    /** Sends the Magic Packet, then waits for a *new signed* Windows heartbeat.
+     * If the PC never confirms, signal delivery is still reported accurately.
+     * On Watch7, the final callback is sent once, never as an early ACK.
+     */
+    public static void sendAndConfirm(Context context,Progress progress,Result completion) {
+        if(completion==null)return;
+        final Context app=context.getApplicationContext();
+        final long signalStarted=System.currentTimeMillis();
+        send(app,(sent,detail)->{
+            if(!sent){completion.done(false,detail);return;}
+            if(progress!=null)progress.update(detail+" Перевіряю зв'язок Windows…");
+            if(!JarvisSignedDeviceCommands.enabled(app) ||
+               !JarvisDeviceRelay.enabled(app)) {
+                completion.done(true,detail+" Підписаний Relay v2 не активний: "+
+                    "підтвердити увімкнення ПК неможливо.");
+                return;
+            }
+            VERIFY.execute(()->{
+                boolean confirmed=false;
+                final long deadline=android.os.SystemClock.elapsedRealtime()+20000L;
+                try {
+                    AiChatClient client=new AiChatClient(app);
+                    while(android.os.SystemClock.elapsedRealtime()<deadline){
+                        JSONObject query=new JSONObject();
+                        query.put("device","computer");
+                        String raw=query.toString();
+                        JSONObject status=client.deviceRelayRequest(
+                            "/device/v2/commands/status","POST",query,
+                            JarvisDeviceIdentity.signedHeaders(
+                                "/device/v2/commands/status",
+                                new JarvisDeviceIdentity.JSONObjectWrapper(raw)),raw);
+                        if(WakeStatusPolicy.confirmedOnlineAfterSignal(
+                             status.optBoolean("online",false),
+                             status.optLong("lastSeenMs",0),signalStarted,
+                             System.currentTimeMillis())) {
+                            confirmed=true;break;
+                        }
+                        if(android.os.SystemClock.elapsedRealtime()+2500L>=deadline)break;
+                        Thread.sleep(2500L);
+                    }
+                }catch(InterruptedException interrupted){
+                    Thread.currentThread().interrupt();
+                }catch(Exception ignored){
+                    // Offline/missing pairing is not proof the computer woke up.
+                }
+                final boolean online=confirmed;
+                MAIN.post(()->completion.done(true,online?
+                    "✅ Windows доступний: отримано новий підписаний heartbeat "+
+                    "після сигналу Wake-on-LAN.":
+                    "⚡ Magic Packet надіслано, але новий підписаний heartbeat "+
+                    "Windows не отримано. Увімкнення ПК не підтверджене."));
+            });
+        });
+    }
+
     public static void send(Context context,Result completion) {
         if(completion==null)return;
         Context app=context.getApplicationContext();

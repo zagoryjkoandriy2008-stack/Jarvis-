@@ -40,6 +40,17 @@ public final class WakeOnLanContract {
     require(WakeOnLanPacket.isWakeCommand("Джарвіс увімкни комп'ютер"),"UA wake");
     require(WakeOnLanPacket.isWakeCommand("розбуди ПК"),"wake synonym");
     require(!WakeOnLanPacket.isWakeCommand("відкрий спотіфай"),"no collision");
+    long sent=1700000000000L;
+    require(WakeStatusPolicy.confirmedOnlineAfterSignal(true,sent+3000,
+        sent,sent+3500),"new signed heartbeat confirms online");
+    require(!WakeStatusPolicy.confirmedOnlineAfterSignal(false,sent+3000,
+        sent,sent+3500),"offline never confirms");
+    require(!WakeStatusPolicy.confirmedOnlineAfterSignal(true,sent-10000,
+        sent,sent+3500),"stale heartbeat cannot confirm wake");
+    require(!WakeStatusPolicy.confirmedOnlineAfterSignal(true,sent+5000,
+        sent,sent+1000),"future heartbeat invalid");
+    require(!WakeStatusPolicy.confirmedOnlineAfterSignal(true,sent+3000,
+        sent,sent+50000),"old online heartbeat expired");
     System.out.println("PASS Wake-on-LAN pure Java contracts");
   }
 }

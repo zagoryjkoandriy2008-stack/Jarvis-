@@ -5351,7 +5351,8 @@ public final class MainActivity extends Activity implements RecognitionListener 
                     appendDialogue("Дімон",detail);setStatus(detail);
                     if(voiceEnabled)speakReply(detail);
                 });
-            }else JarvisWakeOnLan.send(this,(ok,detail)->{
+            }else JarvisWakeOnLan.sendAndConfirm(this,
+                detail->setStatus(detail),(ok,detail)->{
                 if(isFinishing()||isDestroyed())return;
                 appendDialogue("Дімон",detail);setStatus(detail);
                 if(voiceEnabled)speakReply(detail);

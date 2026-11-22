@@ -47,7 +47,9 @@ public final class JarvisWakeOnLanActivity extends Activity {
         Button test=new Button(this);test.setText("⚡ Надіслати тестовий Magic Packet");
         test.setOnClickListener(v->{
             status.setText("Перевіряю домашню мережу та відправляю сигнал…");
-            JarvisWakeOnLan.send(this,(sent,detail)->status.setText(detail));
+            JarvisWakeOnLan.sendAndConfirm(this,
+                detail->status.setText(detail),
+                (sent,detail)->status.setText(detail));
         });
         panel.addView(test);
         setContentView(panel);

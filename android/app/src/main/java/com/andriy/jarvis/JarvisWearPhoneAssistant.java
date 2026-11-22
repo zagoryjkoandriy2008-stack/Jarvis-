@@ -48,7 +48,7 @@ public final class JarvisWearPhoneAssistant {
         if(raw.startsWith(desktopPrefix)) {
             String command=raw.substring(desktopPrefix.length()).trim();
             if(JarvisWakeOnLan.isWakeCommand(command)) {
-                JarvisWakeOnLan.send(phone,completion::finished);
+                JarvisWakeOnLan.sendAndConfirm(phone,null,completion::finished);
                 return;
             }
             if(!JarvisDeviceRelay.enabled(phone) ||
@@ -64,7 +64,7 @@ public final class JarvisWearPhoneAssistant {
         // Pixel's Wi-Fi, not to the offline Windows Relay.
         if(JarvisWakeOnLan.isWakeCommand(raw) &&
            (watchNode==null || !watchNode.startsWith("device-relay:"))) {
-            JarvisWakeOnLan.send(phone,completion::finished);
+            JarvisWakeOnLan.sendAndConfirm(phone,null,completion::finished);
             return;
         }
         final boolean cloudRemote=watchNode!=null &&
