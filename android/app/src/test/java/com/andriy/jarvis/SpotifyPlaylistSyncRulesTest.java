@@ -12,8 +12,8 @@ public final class SpotifyPlaylistSyncRulesTest {
     }
     public static void main(String[] args) {
         String raw="Реп | https://open.spotify.com/playlist/"+ONE+
-            "?si=frompixel\\nУкр муз | spotify:playlist:"+TWO+
-            "\\nТренування | https://open.spotify.com/playlist/"+TWO;
+            "?si=frompixel\nУкр муз | spotify:playlist:"+TWO+
+            "\nТренування | https://open.spotify.com/playlist/"+TWO;
         String entries=SpotifyPlaylistSyncRules.canonicalEntries(raw);
         check(entries!=null,"should validate owned playlist links");
         eq(SpotifyPlaylistSyncRules.resolvePlaylist(entries,
@@ -35,13 +35,13 @@ public final class SpotifyPlaylistSyncRulesTest {
         check(SpotifyPlaylistSyncRules.playlistLink("https://evil.example/"+ONE)==null,
             "untrusted external URLs rejected");
         check(SpotifyPlaylistSyncRules.canonicalEntries(
-            "Реп | spotify:playlist:"+ONE+"\\nреп | spotify:playlist:"+TWO)==null,
+            "Реп | spotify:playlist:"+ONE+"\nреп | spotify:playlist:"+TWO)==null,
             "case-insensitive duplicate aliases rejected");
         check(SpotifyPlaylistSyncRules.canonicalEntries(
             "Реп | https://evil.example/playlist/"+ONE)==null,
             "untrusted snapshot rejected in full");
         check(SpotifyPlaylistSyncRules.canonicalEntries(
-            "Реп | spotify:playlist:"+ONE+"\\nBad line")==null,
+            "Реп | spotify:playlist:"+ONE+"\nBad line")==null,
             "malformed line rejected atomically");
         check(SpotifyPlaylistSyncRules.canonicalEntries("")!=null,
             "empty source means explicit deletion");
@@ -50,7 +50,7 @@ public final class SpotifyPlaylistSyncRulesTest {
             "cleared aliases must not be resurrected");
         StringBuilder many=new StringBuilder();
         for(int i=0;i<61;i++)
-            many.append("Alias"+i+" | spotify:playlist:"+ONE+"\\n");
+            many.append("Alias"+i+" | spotify:playlist:"+ONE+"\n");
         check(SpotifyPlaylistSyncRules.canonicalEntries(many.toString())==null,
             "too many entries rejected");
         System.out.println("SpotifyPlaylistSyncRulesTest OK");
