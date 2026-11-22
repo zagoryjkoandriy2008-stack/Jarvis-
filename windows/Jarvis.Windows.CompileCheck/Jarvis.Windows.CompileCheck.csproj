@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compile-only WPF DLL, NEVER the executable or installer. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Jarvis.Windows</AssemblyName>
+    <RootNamespace>Jarvis.Windows</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Jarvis.Windows/**/*.cs"
+             Exclude="../Jarvis.Windows/obj/**;../Jarvis.Windows/bin/**"
+             LinkBase="Source" />
+    <!-- App.xaml is ApplicationDefinition and cannot go into a library. Its
+         code-behind is still compiled; the root XML is statically validated. -->
+    <Page Include="../Jarvis.Windows/MainWindow.xaml" Link="MainWindow.xaml" />
+    <Page Include="../Jarvis.Windows/FloatingOrb.xaml" Link="FloatingOrb.xaml" />
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+    <PackageReference Include="System.Speech" Version="9.0.11" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+</Project>
