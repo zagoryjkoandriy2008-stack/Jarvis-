@@ -151,6 +151,25 @@ public final class JarvisWatchUiRulesTest {
             "no visible bottom choice means do not bypass Directions");
         yes(JarvisWatchUiRules.allowBottomRouteModeTap(
             true,true,false,false,8000L),"fallback remains eligible until timeout");
+        // Watch7 regression: after a seemingly correct title, pressing Search
+        // previously caused one comma per character. Do not tap such results.
+        yes(JarvisWatchUiRules.spotifySubmittedQueryCorrupted("Мама",",,,,"),
+            "commas replacing every Cyrillic letter are a corrupted query");
+        yes(JarvisWatchUiRules.spotifySubmittedQueryCorrupted(
+            "Пачка сигарет",",,,,, ,,,,,,,"),
+            "multi-word punctuation corruption must block result selection");
+        yes(JarvisWatchUiRules.spotifySubmittedQueryCorrupted(
+            "Shape of You",",,,,, ,, ,,,"),
+            "English punctuation corruption must also block selection");
+        yes(!JarvisWatchUiRules.spotifySubmittedQueryCorrupted("Мама","мама"),
+            "case-insensitive real query stays valid");
+        yes(!JarvisWatchUiRules.spotifySubmittedQueryCorrupted(
+            "Пачка сигарет","Пачка сигарет"),
+            "correct Russian title remains valid");
+        yes(!JarvisWatchUiRules.spotifySubmittedQueryCorrupted("Мама",""),
+            "disappearing input after submit is not corruption proof");
+        yes(!JarvisWatchUiRules.spotifySubmittedQueryCorrupted("Мама",null),
+            "Spotify may hide its query editor entirely");
         yes(JarvisWatchUiRules.watchSearchRecovery(0,false,true,false)==
             JarvisWatchUiRules.WatchSearchRecovery.UP_AGAIN,
             "after first UP reveal, second swipe is UP");
