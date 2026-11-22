@@ -1,0 +1,27 @@
+name: JARVIS signed Windows voice parser (no APK)
+on:
+  push:
+    paths:
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisSecureCommandMap.java'
+      - 'tools/qa/JarvisSecureCommandMapContract.java'
+      - '.github/workflows/jarvis-signed-voice-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Java exact typed voice map (no Android SDK)
+        run: |
+          mkdir -p /tmp/jarvis-safe-voice
+          javac -d /tmp/jarvis-safe-voice \
+            android/app/src/main/java/com/andriy/jarvis/JarvisSecureCommandMap.java \
+            tools/qa/JarvisSecureCommandMapContract.java
+          java -cp /tmp/jarvis-safe-voice com.andriy.jarvis.JarvisSecureCommandMapContract
