@@ -8,9 +8,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -19,11 +23,13 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** View-only Windows desktop inside Pixel JARVIS.
- * It cannot send clicks, keyboard input, mouse movement or files.
+/** Owner-authorized Windows desktop viewer and remote input on Pixel.
+ * Mouse/keyboard are blocked until a physical Windows-owner approval.
+ * No remote process execution, file access, or AI-authored actions.
  * A fresh viewer session must be explicitly opened by the owner, and
  * closes automatically when the Activity loses foreground visibility.
  * Frames stay in ImageView memory; never saved to Gallery or disk.
@@ -38,6 +44,18 @@ public final class JarvisWindowsScreenActivity extends Activity {
     /** Main-thread only, bounded: never retain every JPEG frame in memory. */
     private Bitmap displayedBitmap;
     private TextView status;
+    private LinearLayout controlTools;
+    private Button requestControl;
+    private EditText remoteText;
+    private final ExecutorService remoteInput=Executors.newSingleThreadExecutor();
+    private final AtomicInteger queuedInput=new AtomicInteger();
+    private volatile boolean controlling;
+    private volatile long freshFrameAt;
+    private float touchStartX,touchStartY,scrollStartY,scrollEndY;
+    private boolean twoFingerScroll;
+    private long lastTapAt;
+    private JarvisRemoteTouchMapper.Point lastTap;
+    private Runnable pendingTap;
     private volatile boolean visible;
     private volatile String activeSession;
 
@@ -58,6 +76,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
         screen=new ImageView(this);
         screen.setScaleType(ImageView.ScaleType.FIT_CENTER);
         screen.setBackgroundColor(Color.BLACK);
+        screen.setOnTouchListener((v,event)->handleTouch(event));
         outer.addView(screen,new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT));
@@ -81,16 +100,89 @@ public final class JarvisWindowsScreenActivity extends Activity {
         FrameLayout.LayoutParams topParams=new FrameLayout.LayoutParams(
             -1,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.TOP);
         outer.addView(top,topParams);
+        LinearLayout bottom=new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.VERTICAL);
+        bottom.setPadding(dp(9),dp(4),dp(9),dp(8));
+        bottom.setBackgroundColor(0xee0B1729);
+        LinearLayout actions=new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        requestControl=new Button(this);
+        requestControl.setText("🖱 Попросити керування");
+        requestControl.setOnClickListener(v->requestControl());
+        actions.addView(requestControl,new LinearLayout.LayoutParams(0,dp(50),1));
         Button stop=new Button(this);
-        stop.setText("■ Завершити перегляд");
+        stop.setText("■ Завершити");
         stop.setTextColor(Color.WHITE);
         stop.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
             Color.rgb(176,54,67)));
         stop.setOnClickListener(v->finish());
-        FrameLayout.LayoutParams stopParams=new FrameLayout.LayoutParams(
-            -1,dp(60),Gravity.BOTTOM);
-        stopParams.setMargins(dp(25),0,dp(25),dp(12));
-        outer.addView(stop,stopParams);
+        actions.addView(stop,new LinearLayout.LayoutParams(0,dp(50),1));
+        bottom.addView(actions);
+
+        // Keyboard and scroll are shown ONLY after Windows approves this
+        // particular screen session on its own local UI.
+        controlTools=new LinearLayout(this);
+        controlTools.setOrientation(LinearLayout.VERTICAL);
+        controlTools.setVisibility(View.GONE);
+        LinearLayout line=new LinearLayout(this);
+        line.setOrientation(LinearLayout.HORIZONTAL);
+        remoteText=new EditText(this);
+        remoteText.setSingleLine(true);
+        remoteText.setTextColor(Color.WHITE);
+        remoteText.setHintTextColor(0xff9DB7C9);
+        remoteText.setHint("Введи текст для ПК");
+        remoteText.setTextSize(14);
+        line.addView(remoteText,new LinearLayout.LayoutParams(0,dp(46),1));
+        Button sendText=new Button(this);
+        sendText.setText("Написати");
+        sendText.setOnClickListener(v->{
+            String value=remoteText.getText().toString();
+            if(value.isEmpty()||value.length()>160 || value.contains("\\n") ||
+               value.contains("\\r")) {
+                status.setText("Текст має бути від 1 до 160 символів.");
+                return;
+            }
+            try {
+                JSONObject data=new JSONObject();
+                data.put("text",value);
+                submitInput("text",data);
+            }catch(Exception error){status.setText("Помилка текстової команди.");}
+        });
+        line.addView(sendText);
+        controlTools.addView(line);
+        HorizontalScrollView keys=new HorizontalScrollView(this);
+        LinearLayout keyRow=new LinearLayout(this);
+        keyRow.setOrientation(LinearLayout.HORIZONTAL);
+        for(String[] entry:new String[][] {
+            {"↵","ENTER"},{"Esc","ESC"},{"⌫","BACKSPACE"},
+            {"Tab","TAB"},{"↑","UP"},{"↓","DOWN"},
+            {"←","LEFT"},{"→","RIGHT"},{"⌦","DELETE"},
+            {"Ctrl+A","CTRL_A"},{"Ctrl+C","CTRL_C"},
+            {"Ctrl+V","CTRL_V"},{"Pg↑","PAGEUP"},{"Pg↓","PAGEDOWN"}
+        }) {
+            Button key=new Button(this);
+            key.setText(entry[0]);
+            key.setTextSize(12);
+            key.setOnClickListener(v->sendKey(entry[1]));
+            keyRow.addView(key,new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,dp(44)));
+        }
+        keys.addView(keyRow);
+        controlTools.addView(keys);
+        LinearLayout scrollButtons=new LinearLayout(this);
+        Button up=new Button(this);
+        up.setText("Прокрутити ↑");
+        up.setOnClickListener(v->sendScroll(3));
+        scrollButtons.addView(up,new LinearLayout.LayoutParams(0,dp(43),1));
+        Button down=new Button(this);
+        down.setText("Прокрутити ↓");
+        down.setOnClickListener(v->sendScroll(-3));
+        scrollButtons.addView(down,new LinearLayout.LayoutParams(0,dp(43),1));
+        controlTools.addView(scrollButtons);
+        bottom.addView(controlTools);
+        FrameLayout.LayoutParams bottomParams=new FrameLayout.LayoutParams(
+            -1,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.BOTTOM);
+        outer.addView(bottom,bottomParams);
         setContentView(outer);
     }
 
@@ -117,6 +209,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
     private void receiveFrames(String session) {
         AiChatClient client=new AiChatClient(this);
         long nextHeartbeat=0;
+        long nextControlCheck=0;
         long lastFrame=System.currentTimeMillis();
         boolean displayed=false;
         int errors=0;
@@ -130,6 +223,30 @@ public final class JarvisWindowsScreenActivity extends Activity {
                     client.deviceRelayRequest("/device/v1/screen/view",
                         "POST",request);
                     nextHeartbeat=now+2600;
+                }
+                if(now>=nextControlCheck) {
+                    JSONObject state=client.deviceRelayRequest(
+                        "/device/v1/screen/control/state?session="+session,
+                        "GET",null);
+                    boolean approved=state.optBoolean("controlApproved",false);
+                    boolean denied=state.optBoolean("controlDenied",false);
+                    ui.post(()->{
+                        if(!visible||!session.equals(activeSession))return;
+                        controlling=approved;
+                        controlTools.setVisibility(approved?View.VISIBLE:View.GONE);
+                        requestControl.setVisibility(
+                            approved?View.GONE:View.VISIBLE);
+                        if(denied) {
+                            requestControl.setEnabled(false);
+                            requestControl.setText("Керування відхилено");
+                            status.setText("Windows відхилив керування. "+
+                                "Закрий перегляд і відкрий заново.");
+                        }else if(approved) {
+                            status.setText("🖱 Керування дозволено. Натискай "+
+                                "на іконки ПК; двічі — подвійний клік.");
+                        }
+                    });
+                    nextControlCheck=now+1650;
                 }
                 byte[] jpeg=client.screenFrame(session);
                 if(jpeg!=null) {
@@ -152,6 +269,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
                         "Не вдалося прочитати кадр екрана.");
                     displayed=true;
                     lastFrame=System.currentTimeMillis();
+                    freshFrameAt=lastFrame;
                     Bitmap ready=bitmap;
                     ui.post(()->{
                         if(visible && session.equals(activeSession)) {
@@ -163,6 +281,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 } else if(System.currentTimeMillis()-lastFrame>5000) {
                     // Never leave an old screenshot looking live after the
                     // desktop stops publishing or the phone loses transport.
+                    freshFrameAt=0;
                     clearFrame(session);
                     showStatus(session,"Немає нових кадрів. Перегляд призупинено. "+
                         "На Windows перевір дозвіл передачі екрана.");
@@ -203,6 +322,170 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 "та налаштування приватного Cloudflare Relay.");
     }
 
+    private void requestControl() {
+        String session=activeSession;
+        if(!visible||session==null)return;
+        requestControl.setEnabled(false);
+        status.setText("Надсилаю запит на Windows. "+
+            "На комп'ютері натисни «Дозволити».");
+        remoteInput.execute(()->{
+            try {
+                new AiChatClient(getApplicationContext()).deviceRelayRequest(
+                    "/device/v1/screen/control/request?session="+session,
+                    "POST",new JSONObject());
+                showStatus(session,"Запит на керування передано. "+
+                    "Підтверди його на екрані Windows JARVIS.");
+            }catch(Exception error){
+                showStatus(session,"Windows не прийняв запит. "+
+                    "Перевір опцію «Дозволяти запити на керування» на ПК.");
+                ui.post(()->{
+                    if(visible&&session.equals(activeSession))
+                        requestControl.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    private void sendKey(String key) {
+        try {
+            JSONObject args=new JSONObject();
+            args.put("key",key);
+            submitInput("key",args);
+        }catch(Exception error){status.setText("Не вдалося передати клавішу.");}
+    }
+    private void sendScroll(int turns) {
+        try {
+            JSONObject args=new JSONObject();
+            args.put("delta",turns);
+            submitInput("scroll",args);
+        }catch(Exception error){status.setText("Не вдалося прокрутити.");}
+    }
+    private void submitInput(String kind,JSONObject args) {
+        String session=activeSession;
+        if(!visible||!controlling||session==null||freshFrameAt==0||
+           System.currentTimeMillis()-freshFrameAt>3500) {
+            if(status!=null)status.setText(
+                "Керування недоступне або кадр екрана застарів.");
+            return;
+        }
+        if(queuedInput.incrementAndGet()>18) {
+            queuedInput.decrementAndGet();
+            return;
+        }
+        try {
+            args.put("id",UUID.randomUUID().toString());
+            args.put("kind",kind);
+            remoteInput.execute(()->{
+                try {
+                    if(!visible||!controlling||!session.equals(activeSession))return;
+                    new AiChatClient(getApplicationContext()).deviceRelayRequest(
+                        "/device/v1/screen/control/input?session="+session,
+                        "POST",args);
+                }catch(Exception error){
+                    showStatus(session,"Windows не прийняв дію: "+
+                        error.getMessage());
+                }finally {queuedInput.decrementAndGet();}
+            });
+        }catch(Exception error){
+            queuedInput.decrementAndGet();
+        }
+    }
+
+    private JarvisRemoteTouchMapper.Point touchPoint(float x,float y) {
+        Bitmap bitmap=displayedBitmap;
+        if(bitmap==null||bitmap.isRecycled())return null;
+        return JarvisRemoteTouchMapper.map(x,y,
+            screen.getWidth(),screen.getHeight(),
+            bitmap.getWidth(),bitmap.getHeight());
+    }
+
+    private void tapOrDouble(JarvisRemoteTouchMapper.Point mapped) {
+        if(mapped==null)return;
+        long now=android.os.SystemClock.uptimeMillis();
+        if(pendingTap!=null && now-lastTapAt<350 && lastTap!=null &&
+           Math.abs(mapped.x-lastTap.x)<0.055 &&
+           Math.abs(mapped.y-lastTap.y)<0.055) {
+            ui.removeCallbacks(pendingTap);
+            pendingTap=null;
+            sendPointer("double",mapped,null);
+        } else {
+            Runnable deferred=()->{
+                pendingTap=null;
+                sendPointer("tap",mapped,null);
+            };
+            pendingTap=deferred;
+            ui.postDelayed(deferred,240);
+        }
+        lastTapAt=now;
+        lastTap=mapped;
+    }
+
+    private void sendPointer(String kind,JarvisRemoteTouchMapper.Point start,
+                             JarvisRemoteTouchMapper.Point end) {
+        if(start==null)return;
+        try {
+            JSONObject data=new JSONObject();
+            data.put("x",start.x);data.put("y",start.y);
+            if(end!=null) {
+                data.put("x2",end.x);data.put("y2",end.y);
+            }
+            submitInput(kind,data);
+        }catch(Exception error){
+            status.setText("Помилка дистанційного натискання.");
+        }
+    }
+
+    /** Touches on black FIT_CENTER margins are rejected. One short tap is
+     * a click; two taps are a double click; one-finger drag moves an icon;
+     * two-finger vertical swipe scrolls the PC page. */
+    private boolean handleTouch(MotionEvent event) {
+        if(!controlling || displayedBitmap==null ||
+           System.currentTimeMillis()-freshFrameAt>3500)return true;
+        int action=event.getActionMasked();
+        switch(action) {
+            case MotionEvent.ACTION_DOWN:
+                touchStartX=event.getX();touchStartY=event.getY();
+                twoFingerScroll=false;
+                return true;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                twoFingerScroll=true;
+                scrollStartY=event.getY(0);
+                scrollEndY=scrollStartY;
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                if(twoFingerScroll && event.getPointerCount()>=2)
+                    scrollEndY=event.getY(0);
+                return true;
+            case MotionEvent.ACTION_UP:
+                if(twoFingerScroll) {
+                    double travel=scrollEndY-scrollStartY;
+                    if(Math.abs(travel)>dp(10)) {
+                        int direction=(int)Math.round(travel/Math.max(30,dp(40)));
+                        if(direction==0)direction=travel>0?1:-1;
+                        sendScroll(Math.max(-8,Math.min(8,direction)));
+                    }
+                    twoFingerScroll=false;
+                    return true;
+                }
+                JarvisRemoteTouchMapper.Point start=
+                    touchPoint(touchStartX,touchStartY);
+                JarvisRemoteTouchMapper.Point end=
+                    touchPoint(event.getX(),event.getY());
+                if(start==null||end==null)return true;
+                if(Math.hypot(event.getX()-touchStartX,
+                              event.getY()-touchStartY)>dp(15)) {
+                    if(pendingTap!=null)ui.removeCallbacks(pendingTap);
+                    pendingTap=null;
+                    sendPointer("drag",start,end);
+                }else tapOrDouble(end);
+                return true;
+            case MotionEvent.ACTION_CANCEL:
+                twoFingerScroll=false;
+                return true;
+            default:return true;
+        }
+    }
+
     private void showBitmap(Bitmap next) {
         // UI thread only. Recycle the replaced frame after changing ImageView.
         Bitmap previous=displayedBitmap;
@@ -231,6 +514,10 @@ public final class JarvisWindowsScreenActivity extends Activity {
     @Override protected void onPause() {
         // Revoke viewer on HOME, lock, switching apps or closing via button.
         visible=false;
+        controlling=false;
+        freshFrameAt=0;
+        if(pendingTap!=null)ui.removeCallbacks(pendingTap);
+        pendingTap=null;
         showBitmap(null);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         String finishedSession=activeSession;
@@ -253,6 +540,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
     @Override protected void onDestroy() {
         showBitmap(null);
         stream.shutdown();
+        remoteInput.shutdown();
         stopTransport.shutdown();
         super.onDestroy();
     }
