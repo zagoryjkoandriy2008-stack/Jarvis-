@@ -90,6 +90,8 @@ public final class SpotifyDirectSettingsActivity extends Activity {
             Toast.makeText(this,error,Toast.LENGTH_LONG).show();
             return false;
         }
+        // A successful save also refreshes the watch's persistent Data Layer snapshot.
+        SpotifyPlaylistSync.publishFromPhone(this);
         Toast.makeText(this,"Spotify налаштування збережено.",Toast.LENGTH_SHORT).show();
         return true;
     }
