@@ -689,7 +689,7 @@ public final class JarvisWatchScreenService extends AccessibilityService {
             case VERIFY_QUERY:
                 return service.spotifyVerifyQuery(root,title);
             case SUBMIT_QUERY:
-                return service.spotifySubmitQuery(root);
+                return service.spotifySubmitQuery(root,title);
             case SELECT_RESULT:
                 if(!playlist && !genreDiscovery)
                     return service.spotifySelectMixedResult(root,title,resultOrdinal,completion);
@@ -923,43 +923,117 @@ public final class JarvisWatchScreenService extends AccessibilityService {
         return focused!=null?focused:matches==1?only:null;
     }
 
+    /** The Watch7 accessibility service is an IME editor (API 33+).
+     * Use the same live Spotify input connection to enter and submit
+     * Ukrainian/Russian/English text. Never send ACTION_IME_ENTER on the
+     * separate Compose node: Gboard can replace text with punctuation. */
+    private android.accessibilityservice.InputMethod spotifyLiveInputMethod() {
+        if(Build.VERSION.SDK_INT<33 || !spotifyImeVisible() ||
+           appRoot(SPOTIFY_PKG)==null)return null;
+        try {
+            android.accessibilityservice.InputMethod ime=getInputMethod();
+            if(ime==null || !ime.getCurrentInputStarted() ||
+               ime.getCurrentInputConnection()==null)return null;
+            android.view.inputmethod.EditorInfo editor=ime.getCurrentInputEditorInfo();
+            if(editor==null || !SPOTIFY_PKG.equals(editor.packageName))return null;
+            int type=editor.inputType;
+            int variation=type & InputType.TYPE_MASK_VARIATION;
+            if((type & InputType.TYPE_MASK_CLASS)!=InputType.TYPE_CLASS_TEXT ||
+               variation==InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+               variation==InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+               variation==InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD)return null;
+            return ime;
+        }catch(RuntimeException failure) {
+            JarvisDiagnostics.error(JarvisDiagnostics.Event.ACCESSIBILITY_ERROR,failure);
+            return null;
+        }
+    }
+
     private Result spotifySetQuery(AccessibilityNodeInfo root,String title) {
         if(title==null || title.isEmpty() || title.length()>75)return Result.BLOCKED;
-        AccessibilityNodeInfo input=spotifyEditableNode(root);
-        if(input==null)return Result.WAIT;
+        AccessibilityNodeInfo field=spotifyEditableNode(root);
+        if(field==null)return Result.WAIT;
         if(JarvisWatchUiRules.spotifyQueryVisible(title,
-            input.getText()==null?null:input.getText().toString()))
+            field.getText()==null?null:field.getText().toString()))
             return Result.DONE;
+        if(spotifyImeVisible() && Build.VERSION.SDK_INT>=33) {
+            android.accessibilityservice.InputMethod ime=spotifyLiveInputMethod();
+            if(ime==null)return Result.WAIT;
+            try {
+                android.accessibilityservice.InputMethod.AccessibilityInputConnection
+                    connection=ime.getCurrentInputConnection();
+                if(connection==null)return Result.WAIT;
+                connection.performContextMenuAction(android.R.id.selectAll);
+                connection.commitText(title,1,null);
+                return Result.DONE; // VERIFY_QUERY checks the actual text
+            }catch(RuntimeException failure) {
+                JarvisDiagnostics.error(JarvisDiagnostics.Event.ACCESSIBILITY_ERROR,failure);
+                return Result.WAIT;
+            }
+        }
         Bundle args=new Bundle();
-        args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,title);
-        return input.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,args)
+        args.putCharSequence(
+            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,title);
+        return field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,args)
             ?Result.DONE:Result.WAIT;
     }
 
     private Result spotifyVerifyQuery(AccessibilityNodeInfo root,String title) {
-        AccessibilityNodeInfo input=spotifyEditableNode(root);
-        if(input==null || title==null)return Result.WAIT;
-        String actual=input.getText()==null?"":input.getText().toString();
-        return JarvisWatchUiRules.spotifyQueryVisible(title,actual)
+        AccessibilityNodeInfo field=spotifyEditableNode(root);
+        if(field==null || title==null)return Result.WAIT;
+        String shown=field.getText()==null?"":field.getText().toString();
+        return JarvisWatchUiRules.spotifyQueryVisible(title,shown)
             ?Result.DONE:Result.WAIT;
     }
 
-    private Result spotifySubmitQuery(AccessibilityNodeInfo root) {
-        AccessibilityNodeInfo input=spotifyEditableNode(root);
-        if(input!=null) {
-            if(Build.VERSION.SDK_INT>=30) {
-                int enter=AccessibilityNodeInfo.AccessibilityAction
-                    .ACTION_IME_ENTER.getId();
-                for(AccessibilityNodeInfo.AccessibilityAction action:input.getActionList()) {
-                    if(action.getId()==enter)
-                        return input.performAction(enter)?Result.DONE:Result.WAIT;
-                }
+    /** Detect an unexpected nonempty Spotify query after the keyboard
+     * Search action, before interacting with ANY search-result row. */
+    public static boolean spotifySubmittedQueryCorrupted(String title) {
+        JarvisWatchScreenService service=connected.get();
+        if(service==null || title==null || title.trim().isEmpty())return false;
+        AccessibilityNodeInfo root=service.appRoot(SPOTIFY_PKG);
+        if(root==null)root=service.spotifyRootUnderKeyboard();
+        if(root==null)return false;
+        AccessibilityNodeInfo field=service.spotifyEditableNode(root);
+        return field!=null &&
+            JarvisWatchUiRules.spotifySubmittedQueryCorrupted(title,
+                field.getText()==null?null:field.getText().toString());
+    }
+
+    private Result spotifySubmitQuery(AccessibilityNodeInfo root,String title) {
+        AccessibilityNodeInfo field=spotifyEditableNode(root);
+        if(field==null || title==null)return Result.WAIT;
+        if(!JarvisWatchUiRules.spotifyQueryVisible(title,
+             field.getText()==null?null:field.getText().toString()))
+            return Result.WAIT;
+        if(!spotifyImeVisible())return Result.DONE; // live search results
+        android.accessibilityservice.InputMethod ime=spotifyLiveInputMethod();
+        if(ime==null)return Result.WAIT;
+        try {
+            android.view.inputmethod.EditorInfo editor=ime.getCurrentInputEditorInfo();
+            android.accessibilityservice.InputMethod.AccessibilityInputConnection
+                connection=ime.getCurrentInputConnection();
+            if(editor==null || connection==null)return Result.WAIT;
+            int action=editor.imeOptions &
+                android.view.inputmethod.EditorInfo.IME_MASK_ACTION;
+            if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+               action==android.view.inputmethod.EditorInfo.IME_ACTION_GO ||
+               action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE)
+                connection.performEditorAction(action);
+            else {
+                // Wear IME has no declared action: one verified Enter pair.
+                connection.sendKeyEvent(new android.view.KeyEvent(
+                    android.view.KeyEvent.ACTION_DOWN,
+                    android.view.KeyEvent.KEYCODE_ENTER));
+                connection.sendKeyEvent(new android.view.KeyEvent(
+                    android.view.KeyEvent.ACTION_UP,
+                    android.view.KeyEvent.KEYCODE_ENTER));
             }
-            // Some Spotify versions update results on each keystroke and
-            // expose no IME Enter. Let the result search decide readiness.
-            return Result.DONE;
+            return Result.DONE; // results and text integrity verified after
+        }catch(RuntimeException failure) {
+            JarvisDiagnostics.error(JarvisDiagnostics.Event.ACCESSIBILITY_ERROR,failure);
+            return Result.WAIT;
         }
-        return Result.WAIT;
     }
 
     private static boolean spotifyTitleMatches(String label,String wanted) {
