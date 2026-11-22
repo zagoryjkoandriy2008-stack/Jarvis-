@@ -45,6 +45,24 @@ public final class JarvisDeviceRelayRulesTest {
             JarvisDeviceRelayRules.Target.WATCH)),"watch badge");
         ok("🖥".equals(JarvisDeviceRelayRules.icon(
             JarvisDeviceRelayRules.Target.COMPUTER)),"computer badge");
+        ok(JarvisDeviceRelayRules.isNotes("запиши нотатку купити каву"),
+            "notes explicitly from Windows");
+        ok(JarvisDeviceRelayRules.isNotes("покажи нотатки"),
+            "Pixel notes reader");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("створи нотатку завтра"),
+            "remote note write is allowed by phrase");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("покажи нотатки"),
+            "remote note read is allowed");
+        ok(JarvisDeviceRelayRules.permittedRemotePhone("видали останню нотатку"),
+            "explicit note deletion is permitted");
+        ok(!JarvisDeviceRelayRules.permittedRemotePhone("прочитай пароль"),
+            "no reading passwords");
+        ok(!JarvisDeviceRelayRules.permittedRemotePhone(
+            "запиши нотатку секретний токен ABC"),
+            "no remote credentials as notes");
+        ok(!JarvisDeviceRelayRules.permittedRemotePhone(
+            "запиши нотатку x\\nдруга команда"),
+            "no injected second note action");
         System.out.println("PASS JarvisDeviceRelayRulesTest");
     }
 }
