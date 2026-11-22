@@ -81,7 +81,8 @@ export class FileRelayState {
       return json({id:b.id,accepted:true,expiresInMs:TTL},202);
     }
     if(path==='/device/v1/files/ack' && method==='POST') {
-      let b;try{b=await request.json();}catch(_){return json({error:'Invalid JSON'},400);}
+      const b=await boundedJson(request,4096);
+      if(b==null)return json({error:'Invalid or oversized ACK'},413);
       const receiver=b?.target||'phone';
       if(receiver!=='phone' && receiver!=='computer')
         return json({error:'Unknown destination'},400);
