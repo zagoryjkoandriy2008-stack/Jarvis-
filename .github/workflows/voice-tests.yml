@@ -535,6 +535,10 @@ jobs:
           java -cp /tmp/song-tests com.andriy.jarvis.SongRecognitionCommandsTest
 
   android_compile:
+    # Owner request: do not compile apps on every source change.
+    # Pure contract tests on push are permitted; Android compilation requires
+    # a deliberate manual workflow_dispatch run, and still creates no APK.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
