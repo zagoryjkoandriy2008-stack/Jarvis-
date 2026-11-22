@@ -51,6 +51,7 @@ public partial class MainWindow : Window {
                     ScreenShareIndicator.Visibility=Visibility.Collapsed;
                     StopScreenShareButton.Visibility=Visibility.Collapsed;
                 }
+                _floating?.SetStreaming(active);
                 Status(detail);
             }));
         };
@@ -97,6 +98,7 @@ public partial class MainWindow : Window {
         _floating.ListenRequested+=ToggleListening;
         _floating.TargetRequested+=SetTarget;
         _floating.HideRequested+=()=>_floating.Hide();
+        _floating.StopSharingRequested+=()=>StopScreenShare_Click(this,new RoutedEventArgs());
         _floating.ShowRequested+=()=>{Show();WindowState=WindowState.Normal;Activate();};
         _floating.SetTarget(_target);
         if(_state.Settings.ShowFloatingOrb)_floating.Show();
@@ -377,6 +379,7 @@ public partial class MainWindow : Window {
         _store.Save(_state);
         ScreenShareIndicator.Visibility=Visibility.Collapsed;
         StopScreenShareButton.Visibility=Visibility.Collapsed;
+        _floating?.SetStreaming(false);
         Status("Передавання екрана заборонено на Windows.");
     }
     private void SaveSettingsButton_Click(object sender,RoutedEventArgs e) {
