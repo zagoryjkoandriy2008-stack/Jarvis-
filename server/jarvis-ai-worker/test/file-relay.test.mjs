@@ -53,3 +53,14 @@ test('oversized streamed upload rejected independently of content-length',async(
     body:'x'.repeat(1_500_010)});
   assert.equal((await state.fetch(request)).status,413);
 });
+
+test('ACK streaming body has strict bound and cannot clear inbox',async()=>{
+  const state=new FileRelayState();
+  const make=(name,body)=>new Request(url(name),{
+    method:'POST',body:JSON.stringify(body)});
+  assert.equal((await state.fetch(make('send',body))).status,202);
+  const bad=new Request(url('ack'),{method:'POST',body:' '.repeat(5000)});
+  assert.equal((await state.fetch(bad)).status,413);
+  const got=await (await state.fetch(new Request(url('latest')))).json();
+  assert.equal(got.available,true);
+});
