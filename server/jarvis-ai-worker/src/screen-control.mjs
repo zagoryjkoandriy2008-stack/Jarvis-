@@ -9,7 +9,7 @@ const ACCEPTED_KEYS=new Set([
   'UP','DOWN','LEFT','RIGHT','HOME','END','PAGEUP','PAGEDOWN',
   'CTRL_A','CTRL_C','CTRL_V'
 ]);
-const ACTIONS=new Set(['tap','double','drag','scroll','text','key']);
+const ACTIONS=new Set(['tap','double','right','drag','scroll','text','key']);
 const INPUT_TTL=4500;
 const MAX_PENDING=24;
 function response(body,status=200) {
@@ -22,7 +22,7 @@ export function validScreenInput(item) {
   if(!item||typeof item!=='object'||Array.isArray(item) ||
      !UUID.test(item.id||'')||!ACTIONS.has(item.kind))return false;
   switch(item.kind) {
-    case 'tap':case 'double':
+    case 'tap':case 'double':case 'right':
       return norm(item.x)&&norm(item.y);
     case 'drag':
       return norm(item.x)&&norm(item.y)&&norm(item.x2)&&norm(item.y2);
