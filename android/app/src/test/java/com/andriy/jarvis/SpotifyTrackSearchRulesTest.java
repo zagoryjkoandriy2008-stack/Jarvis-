@@ -321,6 +321,33 @@ public final class SpotifyTrackSearchRulesTest {
         ok(!SpotifyTrackSearchRules.untypedResultTitleCandidate(
             "Подкасти",260,345,210,45,0,0,684,1536),
             "podcast filter is not a song");
+        // Pixel 0.1.47 regression: the first \"Мама\" song plays, then a
+        // mistaken Play tap hits the green saved-check and opens \"Saved in\".
+        // The 4 visible filter chips prove this is search, NOT a playlist page.
+        ok("songs".equals(SpotifyTrackSearchRules.searchFilterCategory("Пісні")),
+            "Songs category from the photographed Spotify search filter");
+        ok("albums".equals(SpotifyTrackSearchRules.searchFilterCategory("Альбоми")),
+            "Albums category from search filter");
+        ok("playlists".equals(SpotifyTrackSearchRules.searchFilterCategory("Плейлісти")),
+            "Playlists category from search filter");
+        ok("artists".equals(SpotifyTrackSearchRules.searchFilterCategory("Виконавці")),
+            "Artists category from search filter");
+        ok("songs".equals(SpotifyTrackSearchRules.searchFilterCategory("Songs selected")),
+            "selected filter remains a category");
+        ok(SpotifyTrackSearchRules.searchFilterChip(
+            "Пісні",76,235,102,49,0,0,684,1536),
+            "upper Spotify search chip must block playlist Play");
+        ok(SpotifyTrackSearchRules.searchFilterChip(
+            "Плейлісти",389,235,171,49,0,0,684,1536),
+            "second independent category confirms search results page");
+        ok(!SpotifyTrackSearchRules.searchFilterChip(
+            "Пісня",76,352,110,33,0,0,684,1536),
+            "singular result type is not a filter chip");
+        ok(!SpotifyTrackSearchRules.searchFilterChip(
+            "Пісні",140,1250,130,42,0,0,684,1536),
+            "a lower page label must not be a search filter");
+        ok(SpotifyTrackSearchRules.searchFilterCategory("Мама").isEmpty(),
+            "song title is never a category");
         System.out.println("PASS SpotifyTrackSearchRulesTest");
     }
 }
