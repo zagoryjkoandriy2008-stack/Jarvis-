@@ -24,10 +24,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.12'
-      - uses: android-actions/setup-android@v3
-      - name: Install API 36 compiler and build tools (no emulator)
+      # Ubuntu hosted runner already has current cmdline-tools. Avoid
+      # setup-android's deprecated 'sdkmanager tools' package installation.
+      - name: Install Android API 36 from hosted SDK (no emulator)
+        shell: bash
         run: |
-          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          set -e
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Android SDK command-line manager is unavailable"
+            exit 1
+          fi
+          printf 'Using SDK manager: %s\n' "$SDKMANAGER"
+          (yes | "$SDKMANAGER" --licenses > /dev/null) || true
+          "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;36.0.0'
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
       - name: Compile Java and Android resources only (NEVER assemble APK)
         run: |
           gradle -p android :app:compileDebugJavaWithJavac --no-daemon --stacktrace
