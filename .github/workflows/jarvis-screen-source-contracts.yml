@@ -10,6 +10,10 @@ on:
       - 'server/jarvis-ai-worker/src/screen-control.mjs'
       - 'android/app/src/main/java/com/andriy/jarvis/JarvisRemoteTouchMapper.java'
       - '.github/workflows/jarvis-screen-source-contracts.yml'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisPcFileInboxActivity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisScreenViewCommands.java'
+      - 'server/jarvis-ai-worker/src/file-relay.mjs'
+      - 'tools/qa/windows_companion_static.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -120,3 +124,5 @@ jobs:
           assert "if: github.event_name == 'workflow_dispatch'" in android_workflow
           print('PASS Windows/Pixel/Cloudflare screenshot source contracts — no compilation')
           PY
+      - name: Extended Windows companion source-only QA
+        run: python3 tools/qa/windows_companion_static.py
