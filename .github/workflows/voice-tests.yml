@@ -237,6 +237,17 @@ jobs:
           grep -Fq 'spotifyLiveInputMethod()' "$service"
           grep -Fq 'spotifySubmittedQueryCorrupted(title)' "$controller"
           ! sed -n '/private Result spotifySubmitQuery(/,/private static boolean spotifyTitleMatches/p' "$service" | grep -Fq 'ACTION_IME_ENTER'
+      - name: Three-device security and shared Pixel notes contracts (no APK)
+        run: |
+          base=android/app/src/main/java/com/andriy/jarvis
+          grep -Fq 'if (!cloudRemote && handleMacro(phone,raw,completion)) return;' "$base/JarvisWearPhoneAssistant.java"
+          grep -Fq 'if(cloudRemote) {' "$base/JarvisWearPhoneAssistant.java"
+          grep -Fq 'JarvisDeviceRelayRules.permittedRemotePhone(raw)' "$base/JarvisWearPhoneAssistant.java"
+          grep -Fq 'private static String phoneNotes(Context phone,String raw,String normalized)' "$base/JarvisWearPhoneAssistant.java"
+          grep -Fq 'notes.clear();' "$base/MainActivity.java"
+          grep -Fq 'JarvisDeviceTargetSession.get()' "$base/FloatingJarvisService.java"
+          grep -Fq 'JarvisDeviceRelay.watchRequestPath()' "$base/JarvisWearMessageReceiver.java"
+          grep -Fq 'String safeDetail=detail==null?' "$base/JarvisDeviceRelay.java"
       - name: Watch7 Spotify fresh-task launch without losing next result (no APK)
         run: |
           watch=android/app/src/main/java/com/andriy/jarvis
