@@ -7,7 +7,7 @@
  */
 const DEVICES = new Set(['phone','watch','computer']);
 const MAX_COMMAND = 250;
-const MAX_DETAIL = 1600;
+const MAX_DETAIL = 5000;
 const QUEUE_LIMIT = 24;
 const TTL = 120_000;
 const LEASE = 12_000;
