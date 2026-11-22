@@ -35,6 +35,8 @@ public final class JarvisWindowsScreenActivity extends Activity {
     private final ExecutorService stream=Executors.newSingleThreadExecutor();
     private final ExecutorService stopTransport=Executors.newSingleThreadExecutor();
     private ImageView screen;
+    /** Main-thread only, bounded: never retain every JPEG frame in memory. */
+    private Bitmap displayedBitmap;
     private TextView status;
     private volatile boolean visible;
     private volatile String activeSession;
@@ -131,18 +133,29 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 }
                 byte[] jpeg=client.screenFrame(session);
                 if(jpeg!=null) {
-                    Bitmap bitmap=BitmapFactory.decodeByteArray(jpeg,0,jpeg.length);
-                    if(bitmap==null || bitmap.getWidth()>2048 ||
-                       bitmap.getHeight()>2048) {
-                        if(bitmap!=null)bitmap.recycle();
-                        throw new IllegalStateException("Не вдалося прочитати кадр екрана.");
-                    }
+                    // Check dimensions BEFORE allocating bitmap memory:
+                    // JPEG headers are untrusted network input even with
+                    // a strict 240 KB compressed-body limit.
+                    BitmapFactory.Options options=new BitmapFactory.Options();
+                    options.inJustDecodeBounds=true;
+                    BitmapFactory.decodeByteArray(jpeg,0,jpeg.length,options);
+                    if(options.outWidth<1 || options.outHeight<1 ||
+                       options.outWidth>2048 || options.outHeight>2048 ||
+                       ((long)options.outWidth*options.outHeight)>3_000_000L)
+                        throw new IllegalStateException(
+                            "Кадр екрана має неприпустимі розміри.");
+                    options.inJustDecodeBounds=false;
+                    options.inPreferredConfig=Bitmap.Config.RGB_565;
+                    Bitmap bitmap=BitmapFactory.decodeByteArray(
+                        jpeg,0,jpeg.length,options);
+                    if(bitmap==null)throw new IllegalStateException(
+                        "Не вдалося прочитати кадр екрана.");
                     displayed=true;
                     lastFrame=System.currentTimeMillis();
                     Bitmap ready=bitmap;
                     ui.post(()->{
                         if(visible && session.equals(activeSession)) {
-                            screen.setImageBitmap(ready);
+                            showBitmap(ready);
                             status.setText("● Windows онлайн · тільки перегляд "+
                                 "· зображення оновлюється автоматично");
                         }else ready.recycle();
@@ -172,6 +185,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 }
                 errors++;
                 if(errors>=4) {
+                    clearFrame(session);
                     showStatus(session,"Зв'язок з екраном перервано: "+
                         failure.getMessage()+". Закрий і відкрий перегляд повторно.");
                     break;
@@ -189,10 +203,21 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 "та налаштування приватного Cloudflare Relay.");
     }
 
+    private void showBitmap(Bitmap next) {
+        // UI thread only. Recycle the replaced frame after changing ImageView.
+        Bitmap previous=displayedBitmap;
+        displayedBitmap=next;
+        if(screen!=null) {
+            if(next==null)screen.setImageDrawable(null);
+            else screen.setImageBitmap(next);
+        }
+        if(previous!=null && previous!=next && !previous.isRecycled())
+            previous.recycle();
+    }
     private void clearFrame(String session) {
         ui.post(()->{
-            if(visible && session.equals(activeSession) && screen!=null)
-                screen.setImageDrawable(null);
+            if(visible && session.equals(activeSession))
+                showBitmap(null);
         });
     }
 
@@ -206,6 +231,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
     @Override protected void onPause() {
         // Revoke viewer on HOME, lock, switching apps or closing via button.
         visible=false;
+        showBitmap(null);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         String finishedSession=activeSession;
         activeSession=null;
@@ -225,7 +251,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
         super.onPause();
     }
     @Override protected void onDestroy() {
-        if(screen!=null)screen.setImageDrawable(null);
+        showBitmap(null);
         stream.shutdown();
         stopTransport.shutdown();
         super.onDestroy();
