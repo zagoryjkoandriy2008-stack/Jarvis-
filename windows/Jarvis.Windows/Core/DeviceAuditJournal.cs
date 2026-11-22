@@ -34,10 +34,28 @@ public sealed class DeviceAuditJournal {
     }
     private List<DeviceAuditEntry> ReadUnsafe() {
         if(!File.Exists(_path))return new();
-        var raw=File.ReadAllText(_path);
-        var data=JsonSerializer.Deserialize<List<DeviceAuditEntry>>(raw);
-        if(data==null)throw new InvalidDataException("Audit log JSON invalid.");
-        return data;
+        try {
+            // Bounded log: never deserialize an arbitrarily large or corrupt
+            // file supplied by another process into the UI or Relay path.
+            if(new FileInfo(_path).Length>1024*1024)
+                throw new InvalidDataException("Audit file exceeds 1 MiB.");
+            var raw=File.ReadAllText(_path);
+            return JsonSerializer.Deserialize<List<DeviceAuditEntry>>(raw)
+                ?? throw new InvalidDataException("Audit JSON is null.");
+        } catch(JsonException) {
+            PreserveCorruptAndReset();
+            return new();
+        } catch(InvalidDataException) {
+            PreserveCorruptAndReset();
+            return new();
+        }
+    }
+    private void PreserveCorruptAndReset() {
+        // Preserve the unreadable original for manual recovery. Never silently
+        // overwrite it, and never export it as part of the normal audit UI.
+        var backup=_path+".corrupt-"+_clock().ToUnixTimeMilliseconds()+
+            "-"+Guid.NewGuid().ToString("N");
+        File.Move(_path,backup,false);
     }
     private List<DeviceAuditEntry> Retain(IEnumerable<DeviceAuditEntry> input) {
         var cutoff=_clock()-Retention;

@@ -485,5 +485,12 @@ try {
         "audit export contains status only, not sensitive input");
     auditNow=auditNow.AddDays(8);
     Check(audit.Recent().Count==0,"audit retention expires old records");
+    File.WriteAllText(auditFile,"{not-json");
+    var repaired=new DeviceAuditJournal(auditFile,()=>auditNow,3);
+    repaired.Record(Guid.NewGuid(),"phone","system.status","completed",20);
+    Check(repaired.Recent().Count==1,"corrupt audit does not block new receipts");
+    var backups=Directory.GetFiles(auditDir,"audit.json.corrupt-*");
+    Check(backups.Length==1 && File.ReadAllText(backups[0])=="{not-json",
+        "invalid audit preserved for manual recovery without overwriting");
 } finally {Directory.Delete(auditDir,true);}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
