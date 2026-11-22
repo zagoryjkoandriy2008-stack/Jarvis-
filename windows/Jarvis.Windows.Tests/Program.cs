@@ -157,6 +157,18 @@ foreach(var phrase in new[]{"стан комп’ютера","статус пк"
 foreach(var phrase in new[]{"що на екрані","проаналізуй екран"})
     Check(CommandRouter.Parse(phrase).Kind==CommandKind.AnalyzeScreen,"screen AI parser: "+phrase);
 Check(DeviceRouting.IsSensitive(CommandKind.AnalyzeScreen),"screen AI is sensitive and local only");
+foreach(var command in new[]{
+    CommandKind.SystemStatus,CommandKind.Volume,CommandKind.OpenApp,
+    CommandKind.MediaNext,CommandKind.Timer
+}) Check(WindowsRemoteCommandPolicy.IsAllowed(command),
+    "safe command allowed from Pixel/Watch7: "+command);
+foreach(var command in new[]{
+    CommandKind.AnalyzeScreen,CommandKind.ClickNamed,CommandKind.ScrollPage,
+    CommandKind.TypeIntoActiveWindow,CommandKind.Wait,CommandKind.Ai,
+    CommandKind.FinanceAdd,CommandKind.FinanceRemote,CommandKind.NoteDelete
+}) Check(!WindowsRemoteCommandPolicy.IsAllowed(command),
+    "unsafe action rejected by remote Windows: "+command);
+
 Check(CommandRouter.Parse("пауза 2 секунди").Kind==CommandKind.Wait &&
     CommandRouter.Parse("пауза 2 секунди").Value==2,"bounded macro pause");
 Check(CommandRouter.Parse("пауза 11 секунд").Kind!=CommandKind.Wait,
