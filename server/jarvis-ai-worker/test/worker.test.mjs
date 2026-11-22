@@ -183,3 +183,44 @@ test('device relay requires the private bearer and never calls AI',async()=>{
   }}),{JARVIS_CLIENT_TOKEN:token});
   assert.equal(noBinding.status,503);
 });
+
+test('screenshot binary upload needs bearer; 240 KB cap is separate from command cap',async()=>{
+  let forwarded=0;
+  const bridgeEnv={
+    JARVIS_CLIENT_TOKEN:token,
+    DEVICE_RELAY:{
+      idFromName:()=>({name:'private-jarvis'}),
+      get:()=>({fetch:async req=>{
+        forwarded++;
+        return new Response(JSON.stringify({accepted:true}),{status:202,
+          headers:{'Content-Type':'application/json'}});
+      }})
+    }
+  };
+  const path='https://jarvis.example.workers.dev/device/v1/screen/frame?session=35c8d264-bca6-4a33-9155-84224d2fef09';
+  const jpeg=new Uint8Array(20_000);
+  jpeg[0]=255;jpeg[1]=216;
+  jpeg[jpeg.length-2]=255;jpeg[jpeg.length-1]=217;
+  const upload=auth=>new Request(path,{method:'POST',headers:{
+    'content-type':'image/jpeg',
+    ...(auth?{'authorization':'Bearer '+token}:{})
+  },body:jpeg});
+  assert.equal((await worker.fetch(upload(false),bridgeEnv)).status,401);
+  assert.equal(forwarded,0);
+  assert.equal((await worker.fetch(upload(true),bridgeEnv)).status,202);
+  assert.equal(forwarded,1);
+  const huge=new Uint8Array(240_100);
+  huge[0]=255;huge[1]=216;huge[huge.length-2]=255;huge[huge.length-1]=217;
+  const oversized=await worker.fetch(new Request(path,{method:'POST',headers:{
+    'content-type':'image/jpeg','authorization':'Bearer '+token
+  },body:huge}),bridgeEnv);
+  assert.equal(oversized.status,413);
+  assert.equal(forwarded,1);
+  const tooLongCommand=await worker.fetch(new Request(
+      'https://jarvis.example.workers.dev/device/v1/send',
+      {method:'POST',headers:{'authorization':'Bearer '+token,
+        'content-type':'application/json'},body:'x'.repeat(8300)}
+    ),bridgeEnv);
+  assert.equal(tooLongCommand.status,413);
+  assert.equal(forwarded,1);
+});
