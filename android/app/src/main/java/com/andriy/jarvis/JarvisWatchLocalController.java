@@ -92,11 +92,16 @@ public final class JarvisWatchLocalController {
                 done.finished(false,"Spotify не встановлено на годиннику.");
                 return;
             }
+            // A new explicit launch must not resume the last Now Playing,
+            // playlist, or Search Activity task. No data/cache deletion.
             spotify.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                (JarvisWatchSpotifyLaunchPolicy.freshTaskForOpenCommand()
+                    ? Intent.FLAG_ACTIVITY_CLEAR_TASK :
+                      Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             try {
                 JarvisDiagnostics.event(JarvisDiagnostics.Event.EXTERNAL_LAUNCH,1);
                 context.startActivity(spotify);
+                JarvisWatchSpotifyController.clearSearchAfterExplicitOpen();
                 context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
                     .putString(LAST_PACKAGE,"com.spotify.music").apply();
                 done.finished(true,"Відкриваю Spotify на Watch7.");
