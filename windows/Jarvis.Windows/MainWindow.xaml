@@ -57,6 +57,7 @@
             <ComboBox x:Name="AiMode" SelectedIndex="0" Width="135">
               <ComboBoxItem Content="chat"/><ComboBoxItem Content="web"/><ComboBoxItem Content="analysis"/><ComboBoxItem Content="image"/>
             </ComboBox>
+            <Button Click="AnalyzeScreenButton_Click" Content="👁 Аналіз екрана" ToolTip="Разовий знімок лише після згоди на ПК"/>
             <Button Click="RunButton_Click" Content="Виконати ↵"/>
             <Button Click="ClearConversationButton_Click" Content="Новий діалог"/>
           </StackPanel>
