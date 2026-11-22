@@ -15,6 +15,8 @@ public sealed class JarvisSettings {
     public bool EnableScreenShare { get; set; } // explicit owner consent, default OFF
     public bool EnableRemoteControl { get; set; } // explicit Windows approval for EACH viewer, default off
     public bool ShowFloatingOrb { get; set; } = true;
+    public bool LaunchAtSignIn { get; set; }
+    public bool MinimizeToTray { get; set; }
 }
 public sealed class MoneyEntry {
     public Guid Id { get; set; } = Guid.NewGuid();

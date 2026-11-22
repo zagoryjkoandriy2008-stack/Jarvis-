@@ -16,6 +16,13 @@ public partial class MainWindow : Window {
     private readonly VoiceService _voice=new();
     private readonly AiClient _ai=new();
     private readonly WindowsFileExchange _fileExchange=new();
+    private TrayStartupService? _tray;
+    private bool _allowExit;
+    private bool _automationPaused;
+    public bool StartMinimizedAfterLogin=>_state.Settings.LaunchAtSignIn;
+    public void HideFloatingForBackground()=>_floating?.Hide();
+    public void RestoreFromTray() { Show();WindowState=WindowState.Normal;Activate(); }
+    private void QuitFromTray() { _allowExit=true;Close();System.Windows.Application.Current.Shutdown(); }
     private readonly FinanceService _finance;
     private DeviceRelayClient? _relay;
     private readonly WindowsScreenPublisher _screenPublisher;
@@ -107,6 +114,8 @@ public partial class MainWindow : Window {
         EnableScreenShare.IsChecked=_state.Settings.EnableScreenShare;
         EnableRemoteControl.IsChecked=_state.Settings.EnableRemoteControl;
         ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
+        LaunchAtSignIn.IsChecked=_state.Settings.LaunchAtSignIn;
+        MinimizeToTray.IsChecked=_state.Settings.MinimizeToTray;
         Topmost=_state.Settings.OnTop;
         NotesText.Text=_state.Notes;
         VoiceChoices.ItemsSource=_voice.Voices;
@@ -134,6 +143,18 @@ public partial class MainWindow : Window {
         CurrentDeviceLabel.Text=DeviceRouting.Label(_target);
         SourceInitialized+=OnSourceInitialized;
         Closing+=OnClosing;
+        _tray=new TrayStartupService();
+        _tray.ShowRequested+=()=>Dispatcher.BeginInvoke(new Action(RestoreFromTray));
+        _tray.ListenRequested+=()=>Dispatcher.BeginInvoke(new Action(ToggleListening));
+        _tray.DevicesRequested+=()=>Dispatcher.BeginInvoke(new Action(()=>{
+            RestoreFromTray();CheckDevices_Click(this,new RoutedEventArgs());
+        }));
+        _tray.PauseChanged+=paused=>Dispatcher.BeginInvoke(new Action(()=>{
+            _automationPaused=paused;
+            if(paused)_operation?.Cancel();
+            Status(paused?"Автоматику призупинено.":"Автоматику відновлено.");
+        }));
+        _tray.ExitRequested+=()=>Dispatcher.BeginInvoke(new Action(QuitFromTray));
     }
 
     private void OnSourceInitialized(object? sender,EventArgs e) {
@@ -152,6 +173,10 @@ public partial class MainWindow : Window {
         return IntPtr.Zero;
     }
     private void OnClosing(object? sender,CancelEventArgs e) {
+        if(!_allowExit && _state.Settings.MinimizeToTray) {
+            e.Cancel=true;Hide();return;
+        }
+        _tray?.Dispose();_tray=null;
         if(_source!=null) {
             if(_hotkeyRegistered)UnregisterHotKey(_source.Handle,HotkeyId);
             _source.RemoveHook(HotkeyHook);
@@ -169,10 +194,11 @@ public partial class MainWindow : Window {
 
     private void ToggleListening() {
         if(_voice.IsListening) {
-            _voice.StopListening(); MicButton.Content="🎙 Слухати";
+            _voice.StopListening(); MicButton.Content="🎙 Слухати";_tray?.SetListening(false);
         } else {
             _voice.Start(RecognizerChoices.SelectedItem as string);
             MicButton.Content=_voice.IsListening?"■ Слухаю…":"🎙 Слухати";
+            _tray?.SetListening(_voice.IsListening);
         }
         _floating?.SetListening(_voice.IsListening);
     }
@@ -270,6 +296,7 @@ public partial class MainWindow : Window {
     }
 
     private async Task HandleUtteranceAsync(string raw,bool forceComputer=false) {
+        if(_automationPaused){Reply("Автоматику призупинено.",false);return;}
         if(_busy) {Status("Попередня команда ще виконується.");return;}
         _busy=true;
         using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -558,6 +585,9 @@ public partial class MainWindow : Window {
             }
             if(previouslySharingAllowed && !_state.Settings.EnableScreenShare)
                 _=_screenPublisher.RevokeAsync();
+            TrayStartupService.ConfigureAutostart(LaunchAtSignIn.IsChecked==true);
+            _state.Settings.LaunchAtSignIn=LaunchAtSignIn.IsChecked==true;
+            _state.Settings.MinimizeToTray=MinimizeToTray.IsChecked==true;
             _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
             _state.Settings.VoiceName=VoiceChoices.SelectedItem as string??"";
             _state.Settings.RecognizerCulture=RecognizerChoices.SelectedItem as string??"";
@@ -625,8 +655,8 @@ public partial class MainWindow : Window {
     }
     private async Task<DeviceRelayClient.RemoteResult> ExecuteRemoteAsync(
         DeviceRelayClient.RemoteCommand request) {
-        if(!_state.Settings.EnableDeviceRelay)
-            return new(false,"Користувач Windows вимкнув дистанційне керування.");
+        if(!_state.Settings.EnableDeviceRelay || _automationPaused)
+            return new(false,"Дистанційне керування або автоматику призупинено.");
         if(_busy)return new(false,"JARVIS Windows зайнятий.");
         if(request.Origin is not ("phone" or "watch") ||
            request.Target!="computer" || request.Command.Length is <1 or >250 ||
