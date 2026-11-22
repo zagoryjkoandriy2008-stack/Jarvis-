@@ -1,3 +1,5 @@
+import {ScreenControlState} from './screen-control.mjs';
+
 /** Privacy-first screen snapshots for a single personal JARVIS installation.
  * Frames are transient process memory inside the Durable Object, NEVER KV/R2,
  * Durable Object storage, AI prompts, logs or files. The Windows user must
@@ -53,6 +55,7 @@ export class ScreenRelayState {
     this.frame=null;
     this.frameTime=0;
     this.previousUpload=0;
+    this.control=new ScreenControlState(clock);
     // A Windows owner revocation is final for this viewer ID. Without
     // a deny-list, a still-running Pixel heartbeat would simply re-open
     // the SAME session and re-enable capture a few seconds later.
@@ -73,6 +76,7 @@ export class ScreenRelayState {
   reset() {
     this.session=null;this.viewerLastSeen=0;
     this.frame=null;this.frameTime=0;this.previousUpload=0;
+    this.control.reset();
   }
   async fetch(request) {
     const url=new URL(request.url);
@@ -80,6 +84,11 @@ export class ScreenRelayState {
     const method=request.method;
     const now=this.clock();
     const session=url.searchParams.get('session');
+    if(path.startsWith('/device/v1/screen/control/')) {
+      if(!UUID.test(session||'')||!this.active()||this.session!==session)
+        return json({error:'Screen viewer inactive'},403);
+      return this.control.fetch(request,session,this.session);
+    }
     if(path==='/device/v1/screen/view' && method==='POST') {
       let body;
       try {body=await request.json();}
@@ -123,8 +132,8 @@ export class ScreenRelayState {
     }
     if(path==='/device/v1/screen/state' && method==='GET') {
       return json(this.active()
-        ?{active:true,session:this.session}
-        :{active:false});
+        ?{active:true,session:this.session,...this.control.status()}
+        :{active:false,...this.control.status()});
     }
     if(path==='/device/v1/screen/frame') {
       if(!UUID.test(session||'') || !this.active() ||
