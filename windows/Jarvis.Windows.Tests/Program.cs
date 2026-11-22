@@ -177,4 +177,11 @@ Check(MacroEngine.New("робочий режим","відкрий блокнот
     "macro allows bounded wait between actions");
 Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,CommandKind.ClickNamed)
     ==JarvisDevice.Computer,"UI automation stays local on PC");
+Check(WindowsFileExchange.MaxFileBytes==1048576,"file exchange explicit 1 MiB limit");
+if(!OperatingSystem.IsWindows()) {
+    try {
+        await WindowsSystemMonitor.SnapshotAsync(CancellationToken.None);
+        throw new Exception("system monitor should be Windows-only");
+    }catch(PlatformNotSupportedException) { assertions++; }
+}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
