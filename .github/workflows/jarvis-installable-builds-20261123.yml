@@ -58,7 +58,7 @@ jobs:
             export JARVIS_RELEASE_STORE_FILE="$RUNNER_TEMP/jarvis-stable.jks"
             printf '%s' "$JARVIS_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$JARVIS_RELEASE_STORE_FILE"
             chmod 600 "$JARVIS_RELEASE_STORE_FILE"
-            gradle -p android :app:assembleRelease --no-daemon --stacktrace
+            gradle -p android :app:assembleRelease --no-daemon --max-workers=2 --no-parallel -Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' --stacktrace
             apk="android/app/build/outputs/apk/release/app-release.apk"
             label=stable
             package=com.andriy.jarvis.stable
@@ -70,7 +70,7 @@ jobs:
             rm -f "$JARVIS_RELEASE_STORE_FILE"
           else
             echo "::warning::Stable key missing; preview cannot upgrade installed stable app."
-            gradle -p android :app:assembleDebug --no-daemon --stacktrace
+            gradle -p android :app:assembleDebug --no-daemon --max-workers=2 --no-parallel -Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' --stacktrace
             apk="android/app/build/outputs/apk/debug/app-debug.apk"
             label=preview
             package=com.andriy.jarvis.preview
