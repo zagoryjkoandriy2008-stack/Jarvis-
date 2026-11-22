@@ -25,6 +25,7 @@ public final class JarvisScreenViewCommands {
             case "покажи екран windows":
             case "покажи екран компьютера":
             case "покажи екран компютера":
+            case "показати екран компютера":
                 return true;
             default:return false;
         }
