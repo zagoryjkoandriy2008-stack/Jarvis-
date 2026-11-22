@@ -105,6 +105,15 @@
           </StackPanel>
         </Grid>
       </TabItem>
+      <TabItem Header="Система ПК">
+        <StackPanel Margin="18" Width="670" HorizontalAlignment="Left">
+          <TextBlock Text="🖥 Моніторинг Windows" FontSize="19" FontWeight="Bold" Margin="0,0,0,9"/>
+          <TextBlock Text="Показники знімаються лише за запитом, без фонової телеметрії. Команда: «стан комп'ютера» або «статус пк». Також доступна з Pixel і Watch7 у режимі «комп'ютер»." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <Button Content="↻ Оновити показники" Click="RefreshSystemStatus_Click" Width="225" HorizontalAlignment="Left"/>
+          <TextBox x:Name="SystemStatusReport" Height="110" Margin="0,12,0,0" IsReadOnly="True" TextWrapping="Wrap"/>
+          <TextBlock Text="Температури CPU/GPU не відображаються: Windows не має універсального надійного API для них. Пізніше можна додати окремий датчик через LibreHardwareMonitor." TextWrapping="Wrap" Foreground="#A4B4CD" Margin="0,12,0,0"/>
+        </StackPanel>
+      </TabItem>
       <TabItem Header="Обмін файлами">
         <StackPanel Margin="20" Width="660" HorizontalAlignment="Left">
           <TextBlock Text="📂 Обмін файлами Windows ↔ Pixel" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
