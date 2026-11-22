@@ -97,6 +97,11 @@ public sealed class DeviceRelayClient : IDisposable {
 
     public async Task ListenAsync(CancellationToken cancellation) {
         while(!cancellation.IsCancellationRequested) {
+            if(!_settings.EnableDeviceRelay) {
+                try {await Task.Delay(3500,cancellation);}
+                catch(OperationCanceledException) {break;}
+                continue; // opt-in required; no network traffic when off
+            }
             try {
                 var (url,token)=Credentials();
                 using var received=await SendAsync(Request(HttpMethod.Get,
