@@ -2798,12 +2798,23 @@ public final class MainActivity extends Activity implements RecognitionListener 
             "🖼 Останнє зображення",
             "⏰ Поставити будильник",
             "🗣 Перевірити голос Watch7",
-            "Діагностика"
+            "Діагностика",
+            "🎵 Spotify Remote — синхронізація"
         };
         AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Налаштування Дімона")
             .setItems(actions, (d, which) -> {
                 switch (which) {
+                    case 18:
+                        SpotifyPlaylistSync.resolveOnWatch(this,
+                            SpotifyMusicCommands.Kind.RAP,"реп",uri -> {
+                                if (isFinishing() || isDestroyed()) return;
+                                showDialogWithoutWake(new AlertDialog.Builder(this)
+                                    .setTitle("Spotify Remote · Watch7")
+                                    .setMessage(SpotifyPlaylistSync.summaryOnWatch(this))
+                                    .setPositiveButton("Закрити",null).create());
+                            });
+                        break;
                     case 17:
                         showDialogWithoutWake(new AlertDialog.Builder(this)
                             .setTitle("Діагностика")
