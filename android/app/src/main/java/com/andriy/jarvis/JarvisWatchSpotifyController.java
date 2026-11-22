@@ -171,6 +171,7 @@ public final class JarvisWatchSpotifyController {
         int revealAttempts;
         long lastRevealAt;
         int queryRetries;
+        int submittedQueryRepairs;
         int keyboardDismissals;
         int searchRecoveryRound;
         String selectedPlaylistTitle;
@@ -280,6 +281,21 @@ public final class JarvisWatchSpotifyController {
             if(now>deadline) {
                 done(false,"Spotify не завершив пошук на годиннику. "+
                     "Перевір екран, інтернет і авторизацію.");
+                return;
+            }
+            if(kind==SpotifyMusicCommands.Kind.TRACK &&
+               step==JarvisWatchScreenService.SpotifyStep.SELECT_RESULT &&
+               JarvisWatchScreenService.spotifySubmittedQueryCorrupted(title)) {
+                // Do not select a different song after the Wear IME replaced
+                // letters with commas. Repair through IME only once.
+                if(submittedQueryRepairs++==0) {
+                    status("Пошук Spotify змінив назву. Відновлюю "+
+                        "правильний текст через клавіатуру…");
+                    stageStart=now;
+                    MAIN.postDelayed(()->run(
+                        JarvisWatchScreenService.SpotifyStep.SET_QUERY),650L);
+                } else done(false,"Spotify Watch7 повторно змінив текст пошуку. "+
+                    "Не натискаю випадкові пісні або плейлисти.");
                 return;
             }
             if(kind==SpotifyMusicCommands.Kind.TRACK &&
@@ -434,11 +450,15 @@ public final class JarvisWatchSpotifyController {
                         done(false,"Spotify Watch7 не показав результат №"+
                             (resultOrdinal+1)+" у доступному списку. "+
                             "Не натискав інші кнопки навмання.");
+                    } else if(step==JarvisWatchScreenService.SpotifyStep.SUBMIT_QUERY &&
+                               SystemClock.elapsedRealtime()-stageStart>8500L) {
+                        done(false,"Клавіатура Spotify не прийняла команду Пошук. "+
+                            "Перезапусти службу спеціальних можливостей Дімона на Watch7.");
                     } else if(step==JarvisWatchScreenService.SpotifyStep.VERIFY_QUERY &&
                               SystemClock.elapsedRealtime()-stageStart>8500L) {
                         if(++queryRetries<=2) {
-                            // ACTION_SET_TEXT is idempotent. Retry only if the
-                            // actual Spotify search field still lacks the text.
+                            // Repair only if the Spotify editor still lacks
+                            // the correct text; IME commit is verified next.
                             MAIN.postDelayed(()->run(JarvisWatchScreenService.SpotifyStep.SET_QUERY),2000L);
                         } else done(false,"Клавіатура Spotify відкрилася, але "+
                             "назва пісні не з'явилася в полі пошуку Watch7.");
