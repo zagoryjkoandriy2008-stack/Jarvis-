@@ -135,6 +135,17 @@ public final class SpotifyUiLabelsTest {
             SpotifyUiLabels.toolbarPair(205,110,265,158,302,110,322,130,1f) ||
             SpotifyUiLabels.toolbarPair(305,110,365,158,102,70,228,196,1f))
             throw new AssertionError("wrong row, tiny track Play or wrong side accepted");
+        // Green check opens Spotify \"Saved in\"; never treat it as Play.
+        if(!SpotifyUiLabels.saveCollectionAction("Saved in") ||
+           !SpotifyUiLabels.saveCollectionAction("Saved in Rap") ||
+           !SpotifyUiLabels.saveCollectionAction("Add to your library") ||
+           !SpotifyUiLabels.saveCollectionAction("Remove from Liked Songs") ||
+           !SpotifyUiLabels.saveCollectionAction("Збережено в плейлісті") ||
+           !SpotifyUiLabels.saveCollectionAction("Додати до плейліста") ||
+           SpotifyUiLabels.saveCollectionAction("Play") ||
+           SpotifyUiLabels.saveCollectionAction("Мама") ||
+           SpotifyUiLabels.saveCollectionAction("Відтворити"))
+            throw new AssertionError("Saved-in green check must never be a Play target");
         System.out.println("PASS SpotifyUiLabelsTest");
     }
 }
