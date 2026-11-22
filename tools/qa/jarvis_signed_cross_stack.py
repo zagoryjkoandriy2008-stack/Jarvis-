@@ -65,6 +65,12 @@ assert "/device/v2/" in android_routes
 assert "commands/(?:send|result|heartbeat|status)" in android_routes
 assert "JarvisDeviceV2Paths.signedPhonePath(path)" in android_keys
 assert "JarvisSignedDeviceCommands.setEnabled" in app
+center=read("android/app/src/main/java/com/andriy/jarvis/JarvisDeviceCenterActivity.java")
+watch_link=read("android/app/src/main/java/com/andriy/jarvis/JarvisWearPhoneLink.java")
+assert "showWatchCenter()" in center
+assert '"__jarvis_pc__:покажи пристрої"' in center
+assert "closePreservingMode()" in center and "closePreservingMode()" in watch_link
+assert 'secondaryButton("🔗 Центр пристроїв"' in app
 assert "PairGrantsSave_Click" in wpf and "PairRevoke_Click" in wpf
 assert "DeviceReceiptJournal" in pc
 assert '"shell.run"' not in pc
