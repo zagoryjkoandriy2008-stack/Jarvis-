@@ -10,6 +10,7 @@ const MAX_COMMAND = 250;
 const MAX_DETAIL = 5000;
 const QUEUE_LIMIT = 24;
 const TTL = 120_000;
+const DELIVERY_TTL = 25_000; // sender waits about 30s for execution
 const LEASE = 12_000;
 const LIVE = 35_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -105,7 +106,10 @@ export class DeviceRelay {
         await store.put('live:'+device,now);
         const ready=[];
         for(const [key,item] of rows) {
-          if(item.target!==device || now-item.created>TTL ||
+          // Never deliver a stale queued financial command after its
+          // sender has already timed out and perhaps checked/retried.
+          // Keep result records up to 2 minutes for safe ACK reconciliation.
+          if(item.target!==device || now-item.created>DELIVERY_TTL ||
              item.state==='done' || item.leaseUntil>now)continue;
           ready.push({key,item});
         }
