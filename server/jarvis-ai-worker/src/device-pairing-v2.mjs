@@ -146,6 +146,20 @@ export class DevicePairingV2 {
       await store.put('v2:pending:'+body.pairingId,pending);
       return json({pairingId:body.pairingId,state:'waiting-for-windows-approval'},202);
     }
+    if(path==='/device/v2/pair/pending' && request.method==='POST') {
+      if(!parsed || !ID.test(parsed.body.pairingId||''))
+        return json({error:'Invalid pairing query'},400);
+      const pending=await store.get('v2:pending:'+parsed.body.pairingId);
+      if(!pending || pending.expires<=now)return json({error:'Pairing unavailable'},404);
+      const computer=await store.get('v2:device:computer');
+      const ownerKey=computer?.enabled?computer.publicKey:pending.computerPublicKey;
+      if(!await verifySignedRequest(request,'computer',ownerKey,store,now,parsed.raw))
+        return json({error:'Windows signature required'},403);
+      return json({pairingId:pending.id,state:pending.status,
+        phoneFingerprint:pending.phonePublicKey?
+          (await digest(pending.phonePublicKey)).slice(0,16).toUpperCase():null,
+        expiresInMs:Math.max(0,pending.expires-now)});
+    }
     if(path==='/device/v2/pair/approve' && request.method==='POST') {
       if(!parsed)return json({error:'Invalid approval'},400);
       const {body}=parsed;

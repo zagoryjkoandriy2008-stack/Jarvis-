@@ -49,6 +49,10 @@ test('P-256 pairing needs code and explicit signed Windows approval',async()=>{
  const pending=await call(p,get(null,'/device/v2/pair/request',
     {pairingId:id,device:'phone',code,publicKey:phone.publicKey}));
  assert.equal(pending.status,202);
+ const seen=await call(p,await signed('/device/v2/pair/pending',
+    {pairingId:id},'computer',pc.key));
+ assert.equal(seen.body.state,'requested');
+ assert.match(seen.body.phoneFingerprint,/^[0-9A-F]{16}$/);
  const bad=await call(p,get(null,'/device/v2/pair/approve',
    {pairingId:id,approve:true}));
  assert.equal(bad.status,403);

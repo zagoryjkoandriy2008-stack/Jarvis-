@@ -59,11 +59,22 @@ export class DeviceRelay {
     const rows=await store.list({prefix:'m:'});
     for(const [key,value] of rows)
       if(now-value.created>TTL)await store.delete(key);
-    const remaining=await store.list({prefix:'m:'});
-    if(remaining.size && typeof store.setAlarm==='function') {
-      const next=Math.min(...[...remaining.values()].map(x=>x.created+TTL+2000));
-      await store.setAlarm(Math.max(now+1000,next));
+    // Pairing codes and signed request nonces must not remain in storage.
+    for(const prefix of ['v2:pending:','v2:nonce:']) {
+      const expired=await store.list({prefix});
+      for(const [key,value] of expired)
+        if(value.expires<=now)await store.delete(key);
     }
+    const remaining=await store.list({prefix:'m:'});
+    const pending=await store.list({prefix:'v2:pending:'});
+    const nonces=await store.list({prefix:'v2:nonce:'});
+    const expiries=[
+      ...[...remaining.values()].map(x=>x.created+TTL+2000),
+      ...[...pending.values()].map(x=>x.expires+1000),
+      ...[...nonces.values()].map(x=>x.expires+1000)
+    ];
+    if(expiries.length && typeof store.setAlarm==='function')
+      await store.setAlarm(Math.max(now+1000,Math.min(...expiries)));
   }
 
   async fetch(request) {
