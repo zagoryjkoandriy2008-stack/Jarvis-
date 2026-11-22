@@ -2021,22 +2021,30 @@ public final class MainActivity extends Activity implements RecognitionListener 
             "🎙 Вибрати голос Android ("+(ttsReady?available.size():"завантажується")+")",
             "🎚 Тембр: "+WatchTtsVoiceChoice.toneLabel(tone),
             "🔊 Прослухати голос",
-            "⚙ Додати голоси в Wear OS"
+            "⚙ Додати голоси в Wear OS",
+            "ℹ Довідка про голоси"
         };
         String info=!ttsReady
             ?"Синтез мовлення запускається. Список може бути доступний після ініціалізації TTS."
             :available.isEmpty()
             ?"Українських голосів в Android TTS не знайдено. Можна використати системний голос, змінити тембр або встановити українські голоси в налаштуваннях годинника."
             :"Показані лише українські голоси, які Android TTS повідомляє як доступні на цьому годиннику. Назви можуть бути технічними; голоси, що потребують мережі, позначені окремо.";
+        // Android AlertDialog uses one content slot: message OR list.
+        // Using setMessage together with setItems hides the actions on Wear OS.
         showDialogWithoutWake(new AlertDialog.Builder(this)
             .setTitle("Голос Дімона · Watch7")
-            .setMessage(info)
             .setItems(actions,(dialog,which)->{
                 switch(which){
                     case 0:showWatchVoiceChoices();break;
                     case 1:showWatchVoiceToneChoices();break;
                     case 2:previewCurrentVoice();break;
                     case 3:openSystemVoiceSettings();break;
+                    case 4:
+                        showDialogWithoutWake(new AlertDialog.Builder(this)
+                            .setTitle("Доступні голоси Watch7")
+                            .setMessage(info)
+                            .setPositiveButton("Зрозуміло",null).create());
+                        break;
                     default:break;
                 }
             }).setNegativeButton("Закрити",null).create());
@@ -2044,8 +2052,11 @@ public final class MainActivity extends Activity implements RecognitionListener 
 
     private void showWatchVoiceChoices() {
         ArrayList<Voice> available=ukrainianVoices();
-        final String[] choices=new String[available.size()+1];
+        // Keep the default voice selectable even when Ukrainian TTS data is
+        // absent. A separate action opens Wear OS voice-pack settings.
+        final String[] choices=new String[available.size()+2];
         choices[0]="Системний голос Android · за замовчуванням";
+        choices[choices.length-1]="⚙ Додати українські голоси у Wear OS";
         final java.util.ArrayList<String> ids=new java.util.ArrayList<>();
         for(int i=0;i<available.size();i++){
             Voice voice=available.get(i);
@@ -2064,6 +2075,11 @@ public final class MainActivity extends Activity implements RecognitionListener 
         AlertDialog.Builder dialog=new AlertDialog.Builder(this)
             .setTitle("Вибрати український голос")
             .setSingleChoiceItems(choices,checked,(d,index)->{
+                if(index==choices.length-1) {
+                    d.dismiss();
+                    openSystemVoiceSettings();
+                    return;
+                }
                 String selected=index==0?"":ids.get(index-1);
                 if(index>0 && ttsReady && tts!=null) {
                     int applied;
@@ -2095,10 +2111,9 @@ public final class MainActivity extends Activity implements RecognitionListener 
             })
             .setNegativeButton("Закрити",null)
             .setNeutralButton("Тембр",(d,which)->showWatchVoiceToneChoices());
-        if(!ttsReady)dialog.setMessage(
-            "TTS ще запускається. Вибір можна зберегти, а після ініціалізації оновити список.");
-        else if(available.isEmpty())dialog.setMessage(
-            "Інших українських голосів Android зараз не надає. Обери системний голос, зміни тембр або встанови голоси у Wear OS.");
+        // Do not set a message here: it would replace the radio-button list.
+        // A single fallback plus the voice-pack action remains usable with
+        // no installed Ukrainian voice or while TTS initializes.
         showDialogWithoutWake(dialog.create());
     }
 
