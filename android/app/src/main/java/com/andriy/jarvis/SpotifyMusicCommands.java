@@ -11,6 +11,13 @@ public final class SpotifyMusicCommands {
     public enum Kind { OPEN, RAP, UKRAINIAN, PLAYLIST, TRACK, NEXT_RESULT }
     private SpotifyMusicCommands() {}
 
+    /** Every completed on-watch Spotify automation should restore the
+     * watch assistant for the next spoken command, not just song search. */
+    public static boolean resumeWatchListeningAfter(Kind kind) {
+        return kind==Kind.TRACK || kind==Kind.PLAYLIST ||
+            kind==Kind.RAP || kind==Kind.UKRAINIAN;
+    }
+
     public static final class NamedPlaylist {
         public final String name;
         public final boolean shuffle;
