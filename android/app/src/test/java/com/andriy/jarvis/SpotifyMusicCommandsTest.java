@@ -107,6 +107,16 @@ public final class SpotifyMusicCommandsTest {
         is("увімкни ліхтарик",null);
         is("включи spotify пошук",null);
         is("що таке реп",null);
+        for (SpotifyMusicCommands.Kind kind:SpotifyMusicCommands.Kind.values()) {
+            boolean playback=kind==SpotifyMusicCommands.Kind.TRACK ||
+                kind==SpotifyMusicCommands.Kind.PLAYLIST ||
+                kind==SpotifyMusicCommands.Kind.RAP ||
+                kind==SpotifyMusicCommands.Kind.UKRAINIAN;
+            if(SpotifyMusicCommands.resumeWatchListeningAfter(kind)!=playback)
+                throw new AssertionError("Watch7 assistant return regression: "+kind);
+        }
+        if(SpotifyMusicCommands.resumeWatchListeningAfter(null))
+            throw new AssertionError("Null command must not restart Watch7 microphone");
         System.out.println("PASS SpotifyMusicCommandsTest");
     }
 }
