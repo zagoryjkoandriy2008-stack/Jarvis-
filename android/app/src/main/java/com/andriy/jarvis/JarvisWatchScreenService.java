@@ -1111,7 +1111,8 @@ public final class JarvisWatchScreenService extends AccessibilityService {
     private Result spotifySelectMixedResult(AccessibilityNodeInfo root,
             String query,int ordinal,Completion cb) {
         if(root==null || ordinal<0 || ordinal>=SpotifyResultCursor.MAX_RESULTS ||
-           spotifyImeVisible())return Result.WAIT;
+           spotifyImeVisible() || spotifySubmittedQueryCorrupted(query))
+            return Result.WAIT; // final guard even if Spotify changes asynchronously
         lastSearchSelection=null;
         Rect frame=new Rect();root.getBoundsInScreen(frame);
         ArrayList<AccessibilityNodeInfo> nodes=new ArrayList<>(spotifyNodes(root));
