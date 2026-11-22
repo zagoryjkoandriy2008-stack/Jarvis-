@@ -1,0 +1,66 @@
+/** Single-file, short-lived personal Windows -> Pixel inbox.
+ * In-memory Durable Object only: no R2/KV/storage, AI prompts, or logs.
+ * Shared bearer is only a prototype, not end-to-end encryption.
+ */
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TTL=120_000;
+export const MAX_FILE_BYTES=1_048_576;
+function json(body,status=200) {
+  return new Response(JSON.stringify(body),{status,headers:{
+    'content-type':'application/json; charset=utf-8',
+    'cache-control':'no-store','x-content-type-options':'nosniff'
+  }});
+}
+function fileBytes(encoded) {
+  if(typeof encoded!=='string' || !encoded.length ||
+     encoded.length>1_398_104 || encoded.length%4!==0 ||
+     !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))return -1;
+  const extra=encoded.endsWith('==')?2:encoded.endsWith('=')?1:0;
+  const size=encoded.length/4*3-extra;
+  return size>0&&size<=MAX_FILE_BYTES?size:-1;
+}
+export function validFile(body) {
+  return body && typeof body==='object' && !Array.isArray(body) &&
+    UUID.test(body.id||'') && body.source==='computer' &&
+    body.target==='phone' &&
+    typeof body.name==='string' &&
+    /^[^\\/:*?"<>|\x00-\x1f]{1,100}$/.test(body.name) &&
+    body.name!=='.' && body.name!=='..' &&
+    typeof body.mime==='string' &&
+    /^[a-z0-9.+-]+\/[a-z0-9.+-]{1,80}$/.test(body.mime) &&
+    fileBytes(body.data)>0;
+}
+export class FileRelayState {
+  constructor(clock=()=>Date.now()){this.clock=clock;this.file=null;}
+  active(){
+    if(this.file && this.clock()>=this.file.expires)this.file=null;
+    return this.file;
+  }
+  async fetch(request) {
+    const path=new URL(request.url).pathname;
+    const method=request.method;
+    if(path==='/device/v1/files/latest' && method==='GET') {
+      const f=this.active();
+      return json(f?{available:true,id:f.id,name:f.name,mime:f.mime,
+        size:f.size,expiresInMs:Math.max(0,f.expires-this.clock()),data:f.data}
+        :{available:false});
+    }
+    if(path==='/device/v1/files/send' && method==='POST') {
+      if(this.active())return json({error:'Phone inbox already contains a file'},409);
+      let b;try{b=await request.json();}catch(_){return json({error:'Invalid JSON'},400);}
+      if(!validFile(b))return json({error:'File invalid or exceeds 1 MiB'},400);
+      this.file={id:b.id,name:b.name,mime:b.mime,data:b.data,
+        size:fileBytes(b.data),expires:this.clock()+TTL};
+      return json({id:b.id,accepted:true,expiresInMs:TTL},202);
+    }
+    if(path==='/device/v1/files/ack' && method==='POST') {
+      let b;try{b=await request.json();}catch(_){return json({error:'Invalid JSON'},400);}
+      const f=this.active();
+      if(!UUID.test(b?.id||'')||!f||f.id!==b.id)
+        return json({error:'File unavailable'},404);
+      this.file=null;
+      return json({received:true});
+    }
+    return json({error:'Not found'},404);
+  }
+}
