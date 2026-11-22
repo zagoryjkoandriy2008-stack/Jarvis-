@@ -36,7 +36,7 @@ assert "await store.delete('v2:live:phone')" in pair
 assert "NONCE_TTL" in pair and "PAIR_TTL" in pair
 assert "Math.abs(now-Number(stamped))>SIGN_TTL" in pair
 assert "SignedDeviceLocalPolicy.IsAllowed" in pc
-assert 'new DeviceReceiptJournal' in pc
+assert "DeviceReceiptJournal _receipts=new()" in pc
 assert "status=\"unknown\"" in pc
 assert "signed:true" in pc_keys and "DataProtectionScope.CurrentUser" in pc_keys
 assert "EnableSignedRelay" in settings and "SignedWatchDelegation" in settings
