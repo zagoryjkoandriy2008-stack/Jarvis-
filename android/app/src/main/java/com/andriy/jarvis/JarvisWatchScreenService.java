@@ -928,8 +928,11 @@ public final class JarvisWatchScreenService extends AccessibilityService {
      * Ukrainian/Russian/English text. Never send ACTION_IME_ENTER on the
      * separate Compose node: Gboard can replace text with punctuation. */
     private android.accessibilityservice.InputMethod spotifyLiveInputMethod() {
+        // A full-screen Wear IME may become the active window while Spotify
+        // remains visible underneath; accept only its verified Spotify root.
         if(Build.VERSION.SDK_INT<33 || !spotifyImeVisible() ||
-           appRoot(SPOTIFY_PKG)==null)return null;
+           (appRoot(SPOTIFY_PKG)==null && spotifyRootUnderKeyboard()==null))
+            return null;
         try {
             android.accessibilityservice.InputMethod ime=getInputMethod();
             if(ime==null || !ime.getCurrentInputStarted() ||
