@@ -27,7 +27,7 @@ public final class SpotifyPlaylistSyncRules {
             String uri = SpotifyUriRules.canonical(line.substring(divider + 1).trim());
             if (name.isEmpty() || name.length() > 75 || alias.isEmpty() ||
                 uri == null || !used.add(alias)) return null;
-            if (out.length() > 0) out.append('\\n');
+            if (out.length() > 0) out.append('\n');
             out.append(name).append(" | ").append(uri);
         }
         return out.length() <= MAX_CHARS ? out.toString() : null;
