@@ -109,7 +109,10 @@
         <StackPanel Margin="20" Width="660" HorizontalAlignment="Left">
           <TextBlock Text="📂 Передати файл на Pixel" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
           <TextBlock Text="Вибери один файл до 1 МіБ. Він зберігатиметься тільки в оперативній пам'яті приватного Cloudflare Relay максимум 2 хвилини. На Pixel відкрий перегляд Windows → «📂 Файли ПК» → «Зберегти». Не передавай паролі чи секрети: це HTTPS, але ще не наскрізне шифрування." TextWrapping="Wrap" Foreground="#A4B4CD" Margin="0,0,0,12"/>
-          <Button Content="📤 Вибрати файл і передати на Pixel" Click="SendFileToPixel_Click" Width="315" HorizontalAlignment="Left"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="📤 Передати на Pixel" Click="SendFileToPixel_Click" Width="225"/>
+            <Button Content="📥 Отримати з Pixel" Click="ReceiveFileFromPixel_Click" Width="225"/>
+          </StackPanel>
           <TextBox x:Name="FileExchangeStatus" Margin="0,12,0,0" Height="120" IsReadOnly="True" TextWrapping="Wrap"/>
         </StackPanel>
       </TabItem>
