@@ -29,7 +29,6 @@ public final class EcdsaSignatureCodec {
             throw new IllegalArgumentException("Non-canonical DER scalar.");
         if(length==33){start++;length--;}
         System.arraycopy(der,start,result,offset+32-length,length);
-        pos[0]+=der[pos[0]-1] & 0; // no-op kept explicit for parser isolation
         pos[0]=start+length;
     }
 }

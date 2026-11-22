@@ -348,12 +348,17 @@ public final class AiChatClient {
      * Synchronous NETWORK THREAD ONLY. No remote AI request is involved. */
     JSONObject deviceRelayRequest(String route,String method,
                                   JSONObject payload) throws Exception {
+        return deviceRelayRequest(route,method,payload,java.util.Collections.emptyMap());
+    }
+    JSONObject deviceRelayRequest(String route,String method,
+                                  JSONObject payload,
+                                  java.util.Map<String,String> extraHeaders) throws Exception {
         if(android.os.Looper.myLooper()==android.os.Looper.getMainLooper())
             throw new IllegalStateException("Device relay requires a background thread.");
         if(!isConfigured())throw new IllegalStateException(
             "Спочатку налаштуй Cloudflare AI Worker на Pixel.");
         if(route==null || !route.matches(
-            "^/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack|files/send)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
+            "^(?:/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack|files/send)|/device/v2/pair/(?:request|verify))(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
             throw new IllegalArgumentException("Неправильний шлях JARVIS Relay.");
         if(!"GET".equals(method) && !"POST".equals(method))
             throw new IllegalArgumentException("Недопустимий метод Relay.");
@@ -370,6 +375,12 @@ public final class AiChatClient {
             connection.setRequestProperty("Authorization","Bearer "+
                 decrypt(prefs.getString("code_encrypted","")));
             connection.setRequestProperty("Accept","application/json");
+            if(extraHeaders!=null)for(java.util.Map.Entry<String,String> entry:extraHeaders.entrySet()) {
+                if(!entry.getKey().matches("X-Jarvis-(?:Device|Timestamp|Nonce|Signature)") ||
+                   entry.getValue()==null || entry.getValue().length()>180)
+                    throw new IllegalArgumentException("Недозволений заголовок pairing.");
+                connection.setRequestProperty(entry.getKey(),entry.getValue());
+            }
             if("POST".equals(method)) {
                 byte[] data=(payload==null?"{}":payload.toString())
                     .getBytes(StandardCharsets.UTF_8);

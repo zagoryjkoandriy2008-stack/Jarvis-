@@ -1069,6 +1069,11 @@ public final class MainActivity extends Activity implements RecognitionListener 
             LinearLayout.LayoutParams wolParams=new LinearLayout.LayoutParams(-1,dp(48));
             wolParams.topMargin=dp(7);
             content.addView(wolSettings,wolParams);
+            Button pairingSettings=secondaryButton("🔒 Спарювання Windows ↔ Pixel",
+                ()->startActivity(new Intent(this,JarvisDevicePairingActivity.class)));
+            LinearLayout.LayoutParams pairingParams=new LinearLayout.LayoutParams(-1,dp(48));
+            pairingParams.topMargin=dp(7);
+            content.addView(pairingSettings,pairingParams);
         }
         if(!isWatchDevice) {
             Button alarmPermissions=secondaryButton("⏰ Дозволи будильників Watch7",
