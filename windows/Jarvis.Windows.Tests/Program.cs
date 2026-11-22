@@ -112,10 +112,13 @@ try {
     Check(!restartedBeforeAck.TryClaim(commandId,out var pending)&&
         pending is {Ok:null},
         "unconfirmed command does not reexecute after restart");
-    first.Complete(commandId,true,"команду виконано");
+    first.Complete(commandId,true,"secret-password-token-should-not-be-persisted");
+    Check(!System.IO.File.ReadAllText(receiptPath).Contains(
+        "secret-password-token-should-not-be-persisted"),
+        "receipt journal never persists private command output");
     var restartedAfterAck=new DeviceReceiptJournal(receiptPath);
     Check(!restartedAfterAck.TryClaim(commandId,out var completed) &&
-        completed is {Ok:true,Detail:"команду виконано"},
+        completed is {Ok:true,Detail:"Команда вже виконана; повтор не запускаю."},
         "successful command reuses original ACK after restart");
     restartedAfterAck.Complete(commandId,false,"false duplicate");
     var finalJournal=new DeviceReceiptJournal(receiptPath);

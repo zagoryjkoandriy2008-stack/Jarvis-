@@ -23,7 +23,10 @@ public sealed class DeviceReceiptJournal {
                 File.ReadAllText(_file)) ?? new();
             foreach(var entry in rows)
                 if(DateTimeOffset.UtcNow-entry.ReceivedAt<TimeSpan.FromMinutes(10))
-                    _entries[entry.Id]=entry;
+                    _entries[entry.Id]=entry with {Detail=AckSummary(entry.Ok)};
+            // Rewrite old versions that persisted a private transcript.
+            // Only generic receipt status is safe to keep for deduplication.
+            Save();
         }catch(JsonException) {
             // Failing closed matters: do not replay unknown actions when the
             // receipt file is corrupted. Notify the app instead.
@@ -33,6 +36,11 @@ public sealed class DeviceReceiptJournal {
         }
     }
 
+    private static string AckSummary(bool? ok)=>ok switch {
+        true=>"Команда вже виконана; повтор не запускаю.",
+        false=>"Команда завершилася невдало; повтор не запускаю.",
+        _=>""
+    };
     public bool TryClaim(Guid id,out Receipt? existing) {
         if(id==Guid.Empty)throw new ArgumentException("Invalid command ID.");
         lock(_gate) {
@@ -57,8 +65,10 @@ public sealed class DeviceReceiptJournal {
             if(!_entries.TryGetValue(id,out var previous))
                 throw new InvalidOperationException("Command not claimed.");
             if(previous.Ok.HasValue)return;
-            var done=previous with {Ok=ok,Detail=detail.Length<=1400
-                ?detail:detail[..1400]};
+            // Never persist command text, AI output, finance balances or notes.
+            // The original ACK is sent immediately from RAM; a retry after
+            // process restart sends generic status without repeating side effects.
+            var done=previous with {Ok=ok,Detail=AckSummary(ok)};
             _entries[id]=done;
             Save();
         }
