@@ -451,4 +451,11 @@ Check(MacroV2Engine.EventDue(loginMacro,"jarvis.login",loginNow.AddSeconds(65)),
     "login trigger can fire after one-minute safety interval");
 Check(!MacroV2Engine.EventDue(loginMacro,"network.online",loginNow.AddSeconds(65)),
     "login does not react to network events");
+var powerGate=new WindowsPowerTransitionPolicy();
+Check(!powerGate.IsSuspended,"startup begins active");
+Check(!powerGate.Resume(),"unexpected resume ignored");
+Check(powerGate.Suspend() && powerGate.IsSuspended,"first suspend blocks operations");
+Check(!powerGate.Suspend(),"duplicate suspend must not revoke twice");
+Check(powerGate.Resume() && !powerGate.IsSuspended,"resume restores passive listeners");
+Check(!powerGate.Resume(),"duplicate resume ignored");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

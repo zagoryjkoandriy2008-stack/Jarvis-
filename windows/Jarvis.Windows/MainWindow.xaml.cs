@@ -21,7 +21,8 @@ public partial class MainWindow : Window {
         try {
             for(int n=0;n<150;n++) {
                 await Task.Delay(200,_lifetime.Token);
-                if(generation!=_wakeGeneration||!_state.Settings.EnableWakeWord)return;
+                if(generation!=_wakeGeneration||!_state.Settings.EnableWakeWord||
+                   _power.IsSuspended)return;
                 if(!_busy&&!_voice.IsListening&&!_voice.IsSpeaking) {
                     _wake.Start(_state.Settings.RecognizerCulture);
                     return;
@@ -31,7 +32,8 @@ public partial class MainWindow : Window {
         }catch(OperationCanceledException){}
     }
     private void WakeDetected() {
-        if(_automationPaused||_busy||_voice.IsListening||_voice.IsSpeaking)return;
+        if(_power.IsSuspended||_automationPaused||_busy||
+           _voice.IsListening||_voice.IsSpeaking)return;
         _voice.Start(_state.Settings.RecognizerCulture);
         MicButton.Content=_voice.IsListening?"■ Слухаю…":"🎙 Слухати";
         _tray?.SetListening(_voice.IsListening);
@@ -62,6 +64,8 @@ public partial class MainWindow : Window {
     private bool _busy;
     private bool _runningMacro;
     private readonly MacroEventService _macroEvents=new();
+    private readonly WindowsPowerTransitionPolicy _power=new();
+    private bool _powerEventsAttached;
     private readonly MacroUsbDeviceService _usbEvents=new();
     private readonly MacroProcessStartService _processStarts=new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
@@ -85,7 +89,7 @@ public partial class MainWindow : Window {
             MacroCondition,cancel);
     }
     private async Task RunMacroV2ExclusiveAsync(MacroDefinitionV2 macro,bool scheduled) {
-        if(_busy||_automationPaused)return;
+        if(_power.IsSuspended||_busy||_automationPaused)return;
         _busy=true;
         using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _operation=operation;
@@ -113,7 +117,7 @@ public partial class MainWindow : Window {
     public void RunLoginMacros() {
         if(!_state.Settings.LaunchAtSignIn||_lifetime.IsCancellationRequested)return;
         Dispatcher.BeginInvoke(new Action(async()=>{
-            if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+            if(_power.IsSuspended||_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
             var due=_state.MacrosV2.Where(m=>
                 MacroV2Engine.EventDue(m,"jarvis.login",DateTimeOffset.Now))
                 .Take(3).ToArray();
@@ -125,7 +129,7 @@ public partial class MainWindow : Window {
         using var timer=new PeriodicTimer(TimeSpan.FromSeconds(30));
         try {
             while(await timer.WaitForNextTickAsync(cancel)) {
-                if(_busy||_automationPaused)continue;
+                if(_power.IsSuspended||_busy||_automationPaused)continue;
                 // A due macro on cooldown must not starve other scheduled macros.
                 var due=_state.MacrosV2.Where(m=>
                     MacroV2Engine.ScheduleDue(m,DateTimeOffset.Now))
@@ -252,7 +256,7 @@ public partial class MainWindow : Window {
         _macroEvents.Triggered+=eventName=>{
             if(Dispatcher.HasShutdownStarted)return;
             Dispatcher.BeginInvoke(new Action(async()=>{
-                if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+                if(_power.IsSuspended||_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
                 var eligible=_state.MacrosV2.Where(m=>
                     MacroV2Engine.EventDue(m,eventName,DateTimeOffset.Now))
                     .Take(3).ToArray();
@@ -265,7 +269,7 @@ public partial class MainWindow : Window {
         _processStarts.Triggered+=eventName=>{
             if(Dispatcher.HasShutdownStarted)return;
             Dispatcher.BeginInvoke(new Action(async()=>{
-                if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+                if(_power.IsSuspended||_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
                 var eligible=_state.MacrosV2.Where(m=>
                     MacroV2Engine.EventDue(m,eventName,DateTimeOffset.Now))
                     .Take(3).ToArray();
@@ -282,7 +286,7 @@ public partial class MainWindow : Window {
         _usbEvents.Triggered+=eventName=>{
             if(Dispatcher.HasShutdownStarted)return;
             Dispatcher.BeginInvoke(new Action(async()=>{
-                if(_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
+                if(_power.IsSuspended||_busy||_automationPaused||_lifetime.IsCancellationRequested)return;
                 var eligible=_state.MacrosV2.Where(m=>
                     MacroV2Engine.EventDue(m,eventName,DateTimeOffset.Now))
                     .Take(3).ToArray();
@@ -321,10 +325,52 @@ public partial class MainWindow : Window {
         _tray.ExitRequested+=()=>Dispatcher.BeginInvoke(new Action(QuitFromTray));
     }
 
+    private void OnPowerModeChanged(object sender,PowerModeChangedEventArgs args) {
+        if(Dispatcher.HasShutdownStarted||_lifetime.IsCancellationRequested)return;
+        Dispatcher.BeginInvoke(new Action(()=>{
+            if(_lifetime.IsCancellationRequested)return;
+            if(args.Mode==PowerModes.Suspend && _power.Suspend()) {
+                // Local, synchronous revocation before Windows suspends.
+                // Do not allow pending AI/macro/remote actions across sleep.
+                _operation?.Cancel();
+                _wakeGeneration++;
+                _wake.Stop();
+                _voice.StopListening();
+                _voice.StopVoice();
+                _macroEvents.SetForegroundTrackingEnabled(false);
+                _processStarts.SetEnabled(false);
+                _usbEvents.SetEnabled(_source,false);
+                if(_state.Settings.EnableScreenShare ||
+                   _state.Settings.EnableRemoteControl)
+                    StopScreenShare_Click(this,new RoutedEventArgs());
+                Status("Windows засинає. Слухання й автоматика зупинені; "+
+                    "дистанційний екран відкликано.");
+            }else if(args.Mode==PowerModes.Resume && _power.Resume()) {
+                // Restore only explicitly configured passive listeners.
+                // Screen capture and remote control require NEW local consent.
+                _macroEvents.SetForegroundTrackingEnabled(_state.MacrosV2.Any(m=>
+                    m.Enabled && m.EventTrigger.StartsWith("app.active:",StringComparison.Ordinal)));
+                _processStarts.SetEnabled(_state.MacrosV2.Any(m=>
+                    m.Enabled && m.EventTrigger.StartsWith("app.start:",StringComparison.Ordinal)));
+                _usbEvents.SetEnabled(_source,_state.MacrosV2.Any(m=>m.Enabled &&
+                    MacroUsbEventName.TryParse(m.EventTrigger,out _,out _)));
+                if(_state.Settings.EnableWakeWord)_=ResumeWakeAsync();
+                Status("Windows прокинулась. Перевіряю мережу й відновлюю "+
+                    "лише дозволені локальні слухачі. Екран лишається вимкненим.");
+            }
+        }));
+    }
+
     private void OnSourceInitialized(object? sender,EventArgs e) {
         _source=PresentationSource.FromVisual(this) as HwndSource;
         if(_source==null)return;
         _source.AddHook(HotkeyHook);
+        try {
+            SystemEvents.PowerModeChanged+=OnPowerModeChanged;
+            _powerEventsAttached=true;
+        }catch(Exception ex){
+            Status("Windows не дозволила відстежувати сон: "+ex.GetType().Name);
+        }
         _usbEvents.SetEnabled(_source,_state.MacrosV2.Any(m=>m.Enabled &&
             MacroUsbEventName.TryParse(m.EventTrigger,out _,out _)));
         _hotkeyRegistered=RegisterHotKey(_source.Handle,HotkeyId,
@@ -341,6 +387,10 @@ public partial class MainWindow : Window {
     private void OnClosing(object? sender,CancelEventArgs e) {
         if(!_allowExit && _state.Settings.MinimizeToTray) {
             e.Cancel=true;Hide();return;
+        }
+        if(_powerEventsAttached) {
+            SystemEvents.PowerModeChanged-=OnPowerModeChanged;
+            _powerEventsAttached=false;
         }
         _processStarts.Dispose();
         _usbEvents.Dispose();
@@ -470,6 +520,7 @@ public partial class MainWindow : Window {
     }
 
     private async Task HandleUtteranceAsync(string raw,bool forceComputer=false) {
+        if(_power.IsSuspended){Status("Windows переходить у сон. Команду не виконано.");return;}
         if(_automationPaused){Reply("Автоматику призупинено.",false);return;}
         if(_busy) {Status("Попередня команда ще виконується.");return;}
         _busy=true;
