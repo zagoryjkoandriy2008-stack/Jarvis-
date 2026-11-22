@@ -1,3 +1,4 @@
+import {routeProviders} from './ai-provider-router.mjs';
 export {DeviceRelay} from './device-relay.mjs';
 /**
  * Personal JARVIS AI. API key is stored only in Cloudflare Worker secrets.
@@ -230,6 +231,15 @@ export default {
     try { body = JSON.parse(raw); } catch { return json({error:'Invalid JSON'},400); }
     const input = validateInput(body);
     if (!input) return json({error:'Invalid message/history/attachment'},400);
+    // Optional text/desktop model router. Existing API stays unchanged when
+    // providers are not configured in Cloudflare Secrets.
+    if((body.mode==='chat'||body.mode==='desktop'||!body.mode) &&
+       (env.JARVIS_AI_PRIMARY || env.JARVIS_AI_FALLBACK)) {
+      const routed=await routeProviders({env,input,body,createPayload,
+        openaiPayload:createPayload(body,input,env),fetchImpl:fetch,extractText});
+      if(routed.ok)return json({reply:routed.reply});
+      return json({error:'AI provider unavailable',reason:'provider_error'},routed.status===429?429:502);
+    }
     let upstream;
     try {
       upstream = await fetch('https://api.openai.com/v1/responses',{
