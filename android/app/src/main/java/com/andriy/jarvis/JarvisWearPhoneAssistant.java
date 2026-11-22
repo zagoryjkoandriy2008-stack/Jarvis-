@@ -56,24 +56,36 @@ public final class JarvisWearPhoneAssistant {
             JarvisDeviceRelay.send(phone,"watch","computer",command,completion::finished);
             return;
         }
+        final boolean cloudRemote=watchNode!=null &&
+            watchNode.startsWith("device-relay:");
+        // An authenticated bearer alone must NEVER expand the relay's
+        // allowed commands through a user-defined macro, Telegram follow-up,
+        // or conversational AI fallback.
+        if(cloudRemote && (!JarvisDeviceRelay.enabled(phone) ||
+           !JarvisDeviceRelayRules.permittedRemotePhone(raw))) {
+            completion.finished(false,"Дистанційну дію Pixel відхилено.");
+            return;
+        }
         final String normalized = CommandPatterns.normalizeControlVerb(raw);
         if (normalized.isEmpty()) {
             completion.finished(false,"Не розпізнав голосову команду.");
             return;
         }
 
-        if (handleMacro(phone,raw,completion)) return;
+        if (!cloudRemote && handleMacro(phone,raw,completion)) return;
 
         // Telegram: explicit user-authored messages only. Do not give an AI
         // model implicit power to choose contacts, write drafts or send.
-        TelegramReplyCommands.Request telegram = TelegramReplyCommands.parse(raw);
+        TelegramReplyCommands.Request telegram =
+            cloudRemote?null:TelegramReplyCommands.parse(raw);
         if (telegram != null) {
             TelegramReplyController.perform(phone,telegram,completion::finished);
             return;
         }
-        if (TelegramReplyCommands.dialogAction(raw) !=
+        if (!cloudRemote &&
+            (TelegramReplyCommands.dialogAction(raw) !=
                 TelegramReplyCommands.DialogAction.NONE ||
-            TelegramReplyController.needsFollowupDictation(phone)) {
+             TelegramReplyController.needsFollowupDictation(phone))) {
             if (TelegramReplyController.handleFollowup(phone,raw,
                     completion::finished)) return;
         }
@@ -344,6 +356,12 @@ public final class JarvisWearPhoneAssistant {
             return;
         }
 
+        // Relay may only execute proven local functionality. Never let
+        // an unsupported remote command enter conversational AI.
+        if(cloudRemote) {
+            completion.finished(false,"Pixel не підтримує цю дистанційну команду.");
+            return;
+        }
         // Only free-form, non-device-control speech reaches the phone's AI.
         // No API key, personal token or other credential is sent to the watch.
         if (aiBusy) {
