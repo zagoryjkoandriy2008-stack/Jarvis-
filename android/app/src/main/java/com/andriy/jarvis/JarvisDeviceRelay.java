@@ -32,6 +32,7 @@ public final class JarvisDeviceRelay {
     private static final String WATCH_REPLY="/jarvis/device-bridge/v1/watch-reply";
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static final ExecutorService IO=Executors.newSingleThreadExecutor();
+    private static final ExecutorService OUTBOUND=Executors.newCachedThreadPool();
     private static ScheduledExecutorService periodic;
     private static final Set<String> pending=new HashSet<>();
     private JarvisDeviceRelay(){}
@@ -64,7 +65,7 @@ public final class JarvisDeviceRelay {
             done.finished(false,"Неправильний дистанційний запит.");return;
         }
         Context app=context.getApplicationContext();
-        IO.execute(()->{
+        OUTBOUND.execute(()->{
             try {
                 AiChatClient ai=new AiChatClient(app);
                 String id=UUID.randomUUID().toString();
@@ -142,7 +143,15 @@ public final class JarvisDeviceRelay {
                 String command=item.optString("command","");
                 if(!JarvisWearProtocol.validId(id) ||
                    command.length()>250 || command.isEmpty())continue;
-                if(!claim(app,id))continue;
+                if(!claim(app,id)) {
+                    String receipt=app.getSharedPreferences(PREFS,0)
+                        .getString("result:"+id,null);
+                    if(receipt!=null && receipt.length()>=2 &&
+                       (receipt.startsWith("1:")||receipt.startsWith("0:")))
+                        sendAck(app,id,device,receipt.startsWith("1:"),
+                            receipt.substring(2));
+                    continue;
+                }
                 if("phone".equals(device)) {
                     if(!"computer".equals(origin) &&
                        !"watch".equals(origin)) {
@@ -204,13 +213,24 @@ public final class JarvisDeviceRelay {
     private static void complete(Context app,String id,String device,
                                  boolean ok,String detail) {
         if(!JarvisWearProtocol.validId(id))return;
-        IO.execute(()->{
+        final String safeDetail=detail==null?"":detail.substring(
+            0,Math.min(1000,detail.length()));
+        // Persist ACK before network I/O. If the Worker lease expires before
+        // the ACK, resend the same result, NEVER re-execute the action.
+        app.getSharedPreferences(PREFS,0).edit().putString("result:"+id,
+            (ok?"1:":"0:")+safeDetail).apply();
+        synchronized(JarvisDeviceRelay.class){pending.remove(id);}
+        sendAck(app,id,device,ok,safeDetail);
+    }
+
+    private static void sendAck(Context app,String id,String device,
+                                boolean ok,String detail) {
+        OUTBOUND.execute(()->{
             try {
                 JSONObject reply=new JSONObject();
                 reply.put("id",id);reply.put("device",device);
                 reply.put("ok",ok);
-                reply.put("detail",detail==null?"":detail.substring(
-                    0,Math.min(1000,detail.length())));
+                reply.put("detail",detail);
                 AiChatClient ai=new AiChatClient(app);
                 ai.deviceRelayRequest("/device/v1/ack","POST",reply);
             }catch(Exception error) {
