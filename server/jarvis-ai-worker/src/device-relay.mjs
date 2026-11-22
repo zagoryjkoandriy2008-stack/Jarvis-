@@ -43,6 +43,20 @@ export function sendJson(data,status=200) {
 export class DeviceRelay {
   constructor(state,env) { this.state=state;this.env=env; }
 
+  /** Durable Object storage expiry is a security property, not only a
+   * read-time filter. An alarm erases old command text after inactivity. */
+  async alarm() {
+    const now=Date.now(),store=this.state.storage;
+    const rows=await store.list({prefix:'m:'});
+    for(const [key,value] of rows)
+      if(now-value.created>TTL)await store.delete(key);
+    const remaining=await store.list({prefix:'m:'});
+    if(remaining.size && typeof store.setAlarm==='function') {
+      const next=Math.min(...[...remaining.values()].map(x=>x.created+TTL+2000));
+      await store.setAlarm(Math.max(now+1000,next));
+    }
+  }
+
   async fetch(request) {
     const url=new URL(request.url);
     const path=url.pathname;
@@ -73,6 +87,8 @@ export class DeviceRelay {
         await store.put(key,{id:body.id,origin:body.origin,target:body.target,
           command:body.command,created:now,leaseUntil:0,state:'pending',
           ok:null,detail:''});
+        // Ensure payloads are removed even if no client ever polls again.
+        if(typeof store.setAlarm==='function')await store.setAlarm(now+TTL+2000);
         return sendJson({id:body.id,state:'pending'},202);
       }
 
