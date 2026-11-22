@@ -152,6 +152,17 @@ foreach(var (speech,kind,value,name) in new (string,CommandKind,int,string)[]{
     if(name.Length>0)Check(parsed.Argument==name,
         "UIA control name must preserve exact text: "+speech);
 }
+foreach(var phrase in new[]{"стан комп’ютера","статус пк","комп'ютер статус"})
+    Check(CommandRouter.Parse(phrase).Kind==CommandKind.SystemStatus,"health parser: "+phrase);
+foreach(var phrase in new[]{"що на екрані","проаналізуй екран"})
+    Check(CommandRouter.Parse(phrase).Kind==CommandKind.AnalyzeScreen,"screen AI parser: "+phrase);
+Check(DeviceRouting.IsSensitive(CommandKind.AnalyzeScreen),"screen AI is sensitive and local only");
+Check(CommandRouter.Parse("пауза 2 секунди").Kind==CommandKind.Wait &&
+    CommandRouter.Parse("пауза 2 секунди").Value==2,"bounded macro pause");
+Check(CommandRouter.Parse("пауза 11 секунд").Kind!=CommandKind.Wait,
+    "reject unbounded macro delay");
+Check(MacroEngine.New("робочий режим","відкрий блокнот\nпауза 2 секунди\nгучність 35").Actions.Count==3,
+    "macro allows bounded wait between actions");
 Check(DeviceRouting.EffectiveTarget(JarvisDevice.Computer,CommandKind.ClickNamed)
     ==JarvisDevice.Computer,"UI automation stays local on PC");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
