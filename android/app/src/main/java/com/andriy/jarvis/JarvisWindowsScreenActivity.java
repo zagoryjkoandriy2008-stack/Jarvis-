@@ -437,7 +437,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
 
     /** Touches on black FIT_CENTER margins are rejected. One short tap is
      * a click; two taps are a double click; one-finger drag moves an icon;
-     * two-finger vertical swipe scrolls the PC page. */
+     * long press right-clicks; two-finger swipe scrolls the PC page. */
     private boolean handleTouch(MotionEvent event) {
         if(!controlling || displayedBitmap==null ||
            System.currentTimeMillis()-freshFrameAt>3500)return true;
@@ -477,6 +477,10 @@ public final class JarvisWindowsScreenActivity extends Activity {
                     if(pendingTap!=null)ui.removeCallbacks(pendingTap);
                     pendingTap=null;
                     sendPointer("drag",start,end);
+                }else if(event.getEventTime()-event.getDownTime()>=550L) {
+                    if(pendingTap!=null)ui.removeCallbacks(pendingTap);
+                    pendingTap=null;
+                    sendPointer("right",end,null);
                 }else tapOrDouble(end);
                 return true;
             case MotionEvent.ACTION_CANCEL:
