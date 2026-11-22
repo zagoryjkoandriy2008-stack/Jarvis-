@@ -5,7 +5,8 @@ public static class MacroEngine {
     private static readonly HashSet<CommandKind> Allowed = new() {
         CommandKind.OpenApp, CommandKind.OpenSettings, CommandKind.WebSearch,
         CommandKind.Volume, CommandKind.Speak, CommandKind.MediaToggle,
-        CommandKind.MediaNext, CommandKind.MediaPrevious, CommandKind.Timer
+        CommandKind.MediaNext, CommandKind.MediaPrevious, CommandKind.Timer,
+        CommandKind.Wait
     };
     public static MacroDefinition New(string trigger,string actionLines) {
         var steps=actionLines.Split(new[]{'\r','\n'},
@@ -33,7 +34,9 @@ public static class MacroEngine {
             var command=CommandRouter.Parse(line);
             if(!Allowed.Contains(command.Kind))
                 throw new InvalidOperationException("Дія макросу заборонена.");
-            await execute(command);
+            if(command.Kind==CommandKind.Wait)
+                await Task.Delay(TimeSpan.FromSeconds(command.Value),cancellationToken);
+            else await execute(command);
             await Task.Delay(250,cancellationToken);
         }
     }
