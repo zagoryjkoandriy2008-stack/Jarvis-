@@ -1,0 +1,44 @@
+name: JARVIS signed device integration contracts (no APK/EXE)
+on:
+  push:
+    paths:
+      - 'server/jarvis-ai-worker/src/device-*.mjs'
+      - 'windows/Jarvis.Windows/Core/**'
+      - 'windows/Jarvis.Windows/MainWindow.xaml.cs'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisSignedDeviceCommands.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceRelay.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceIdentity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceV2Paths.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/AiChatClient.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDevicePairingActivity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceCenterActivity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWearPhoneLink.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWakeOnLan.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/MainActivity.java'
+      - 'tools/qa/jarvis_signed_cross_stack.py'
+      - 'tools/qa/JarvisV2RouteContract.java'
+      - '.github/workflows/jarvis-signed-cross-stack.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed command routing and authorization, no binaries
+        run: python3 tools/qa/jarvis_signed_cross_stack.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify strict Android v2 signed endpoints (pure Java, no APK)
+        run: |
+          mkdir -p /tmp/jarvis-v2-route-test
+          javac -d /tmp/jarvis-v2-route-test \
+            android/app/src/main/java/com/andriy/jarvis/JarvisDeviceV2Paths.java \
+            tools/qa/JarvisV2RouteContract.java
+          java -cp /tmp/jarvis-v2-route-test com.andriy.jarvis.JarvisV2RouteContract

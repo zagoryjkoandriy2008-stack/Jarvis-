@@ -1,0 +1,30 @@
+name: JARVIS Windows WPF compile-only DLL (NO EXE/APK)
+on:
+  push:
+    paths:
+      - 'windows/Jarvis.Windows/**'
+      - '.github/workflows/jarvis-windows-xaml-dll-check.yml'
+      - 'windows/Jarvis.Windows.CompileCheck/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wpf-compile:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate XAML and compile classes to library only (no Windows EXE)
+        shell: pwsh
+        run: |
+          dotnet build windows/Jarvis.Windows.CompileCheck/Jarvis.Windows.CompileCheck.csproj --configuration Release -p:UseAppHost=false -p:GenerateRuntimeConfigurationFiles=false
+          if ($LASTEXITCODE -ne 0) { throw "Windows WPF source compile failed" }
+          if (Test-Path windows/Jarvis.Windows.CompileCheck/bin/Release/net8.0-windows/Jarvis.Windows.exe) {
+            throw "Safety rule: no EXE must be created"
+          }
+          if (-not (Test-Path windows/Jarvis.Windows.CompileCheck/bin/Release/net8.0-windows/Jarvis.Windows.dll)) {
+            throw "Expected ephemeral source validation DLL was not created"
+          }

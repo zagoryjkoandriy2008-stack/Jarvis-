@@ -1064,6 +1064,29 @@ public final class MainActivity extends Activity implements RecognitionListener 
                 new LinearLayout.LayoutParams(-1,dp(48));
             windowsScreenParams.topMargin=dp(7);
             content.addView(windowsScreen,windowsScreenParams);
+            Button wolSettings=secondaryButton("⚡ Wake-on-LAN · увімкнення ПК",
+                ()->startActivity(new Intent(this,JarvisWakeOnLanActivity.class)));
+            LinearLayout.LayoutParams wolParams=new LinearLayout.LayoutParams(-1,dp(48));
+            wolParams.topMargin=dp(7);
+            content.addView(wolSettings,wolParams);
+            Button pairingSettings=secondaryButton("🔒 Спарювання Windows ↔ Pixel",
+                ()->startActivity(new Intent(this,JarvisDevicePairingActivity.class)));
+            LinearLayout.LayoutParams pairingParams=new LinearLayout.LayoutParams(-1,dp(48));
+            pairingParams.topMargin=dp(7);
+            content.addView(pairingSettings,pairingParams);
+            Button deviceHub=secondaryButton("🔗 Центр пристроїв Windows / Pixel / Watch7",
+                ()->startActivity(new Intent(this,JarvisDeviceCenterActivity.class)));
+            LinearLayout.LayoutParams deviceHubParams=
+                new LinearLayout.LayoutParams(-1,dp(48));
+            deviceHubParams.topMargin=dp(7);
+            content.addView(deviceHub,deviceHubParams);
+        } else {
+            Button watchDeviceHub=secondaryButton("🔗 Центр пристроїв",
+                ()->startActivity(new Intent(this,JarvisDeviceCenterActivity.class)));
+            LinearLayout.LayoutParams watchDeviceHubParams=
+                new LinearLayout.LayoutParams(-1,dp(45));
+            watchDeviceHubParams.topMargin=dp(6);
+            content.addView(watchDeviceHub,watchDeviceHubParams);
         }
         if(!isWatchDevice) {
             Button alarmPermissions=secondaryButton("⏰ Дозволи будильників Watch7",
@@ -1182,6 +1205,19 @@ public final class MainActivity extends Activity implements RecognitionListener 
             LinearLayout.LayoutParams deviceParams=new LinearLayout.LayoutParams(-1,-2);
             deviceParams.topMargin=dp(7);
             hero.addView(deviceRelayToggle,deviceParams);
+            CheckBox signedRelayToggle=new CheckBox(this);
+            signedRelayToggle.setText("🔐 Windows: команди з підписом P-256 (v2)");
+            signedRelayToggle.setTextColor(MUTED);
+            signedRelayToggle.setTextSize(TypedValue.COMPLEX_UNIT_SP,isCompact?11:12);
+            signedRelayToggle.setButtonTintList(ColorStateList.valueOf(CYAN));
+            signedRelayToggle.setChecked(JarvisSignedDeviceCommands.enabled(this));
+            signedRelayToggle.setOnCheckedChangeListener((button,active)->{
+                JarvisSignedDeviceCommands.setEnabled(this,active);
+                setStatus(active?"Команди Windows передаватимуться лише через перевірений "+
+                    "P-256 канал. Потрібні pairing і v2 на ПК. Відкату на v1 немає.":
+                    "Підписаний режим Windows вимкнено.");
+            });
+            hero.addView(signedRelayToggle,new LinearLayout.LayoutParams(-1,-2));
             TextView remoteInfo=makeText(
                 "Команди з Windows і Watch7 проходять лише через твій "+
                 "авторизований Cloudflare Relay. JARVIS Finance зберігається "+
@@ -5312,6 +5348,24 @@ public final class MainActivity extends Activity implements RecognitionListener 
             appendDialogue("Дімон", result);
             setStatus(result);
         })) return;
+        // A sleeping/offline PC cannot receive a cloud command. WoL is sent
+        // from the phone's LAN, even if computer mode was selected.
+        if(JarvisWakeOnLan.isWakeCommand(raw)) {
+            if(isWatchDevice) {
+                if(watchPhoneLink==null){setStatus("Pixel не підключений для Wake-on-LAN.");return;}
+                watchPhoneLink.assistant("__jarvis_pc__:"+raw,(ok,detail)->{
+                    if(isFinishing()||isDestroyed())return;
+                    appendDialogue("Дімон",detail);setStatus(detail);
+                    if(voiceEnabled)speakReply(detail);
+                });
+            }else JarvisWakeOnLan.sendAndConfirm(this,
+                detail->setStatus(detail),(ok,detail)->{
+                if(isFinishing()||isDestroyed())return;
+                appendDialogue("Дімон",detail);setStatus(detail);
+                if(voiceEnabled)speakReply(detail);
+            });
+            return;
+        }
         JarvisPhoneMode.Transition modeTransition = JarvisPhoneMode.transition(raw);
         JarvisDeviceRelayRules.Target change=JarvisDeviceRelayRules.select(raw);
         if(change!=JarvisDeviceRelayRules.Target.NONE) {

@@ -22,6 +22,8 @@
       <StackPanel Grid.Column="1" VerticalAlignment="Center">
         <TextBlock Text="JARVIS / WINDOWS" FontSize="24" FontWeight="Bold" Foreground="#53D7EA"/>
         <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
+        <TextBlock x:Name="AIControlIndicator" Text="🟠 ШІ керує Windows · СТОП для скасування"
+                   Foreground="#FFE69B" FontWeight="Bold" Visibility="Collapsed"/>
         <TextBlock x:Name="ScreenShareIndicator" Text="🔴 Екран транслюється на Pixel" Foreground="#FF786C" FontWeight="Bold" Visibility="Collapsed"/>
         <StackPanel x:Name="ControlRequestPanel" Visibility="Collapsed"
             Orientation="Horizontal" Margin="0,5,0,0">
@@ -64,7 +66,7 @@
         </Grid>
       </TabItem>
       <TabItem Header="Пристрої">
-        <StackPanel Margin="20">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20">
           <TextBlock Text="Обери пристрій для наступних голосових команд" FontSize="17" FontWeight="Bold" Margin="0,0,0,10"/>
           <TextBlock Text="Команди «телефон», «годинник», «комп'ютер» змінюють ціль, а JARVIS Finance завжди використовує базу Pixel. Комп'ютер може приймати лише дозволені локальні дії." Foreground="#A4B4CD" TextWrapping="Wrap" Width="680" HorizontalAlignment="Left" Margin="0,0,0,10"/>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
@@ -74,9 +76,51 @@
           </StackPanel>
           <TextBlock x:Name="CurrentDeviceLabel" Text="🖥 Комп'ютер" FontSize="19" Foreground="#53D7EA" FontWeight="Bold"/>
           <Button Content="Перевірити підключення" Click="CheckDevices_Click" Width="230" HorizontalAlignment="Left" Margin="0,14,0,14"/>
-          <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="180" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
+          <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="140" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
+           <StackPanel Orientation="Horizontal" Margin="0,8">
+             <Button Content="Історія команд" Click="RefreshDeviceAudit_Click"/>
+             <Button Content="Експорт історії" Click="ExportDeviceAudit_Click"/>
+           </StackPanel>
+           <TextBox x:Name="DeviceAuditReport" IsReadOnly="True" Height="115" Width="680"
+                    HorizontalAlignment="Left" TextWrapping="Wrap"
+                    VerticalScrollBarVisibility="Auto"
+                    ToolTip="Лише час, ID, джерело, тип дії, статус, тривалість, код помилки."/>
           <TextBlock Text="На годиннику команди передає Pixel. Для цього потрібні оновлений Android-код, розгорнутий Cloudflare Relay та дозвіл приймати команди." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,12,0,0" Width="680" HorizontalAlignment="Left"/>
-        </StackPanel>
+          <Separator Margin="0,12"/>
+          <TextBlock Text="🔒 Захищене спарювання Pixel з Windows — P-256"
+                     FontWeight="Bold" FontSize="16" Foreground="#53D7EA"/>
+          <TextBlock Text="1. Створи одноразовий код на ПК. 2. Введи ID і код на Pixel. 3. Перевір відбиток ключа телефона. 4. Підтвердь на ПК. Паролі і ключі не передаються."
+                     TextWrapping="Wrap" Width="680" Margin="0,8"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="1 · Створити код" Click="PairBegin_Click"/>
+            <Button Content="3 · Перевірити запит" Click="PairPending_Click"/>
+            <Button Content="4 · Підтвердити Pixel" Click="PairApprove_Click"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="Перелік спарених" Click="PairList_Click"/>
+            <Button Content="Відкликати Pixel" Click="PairRevoke_Click"/>
+          </StackPanel>
+          <TextBlock Text="Дозволи для спареного Pixel / команд із Watch7"
+                     FontWeight="Bold" FontSize="14" Margin="0,12,0,4"/>
+          <CheckBox x:Name="GrantReadOnly" IsChecked="True"
+                    Content="Стан і перелік пристроїв" Margin="0,3"/>
+          <CheckBox x:Name="GrantMedia"
+                    Content="Медіа й гучність Windows" Margin="0,3"/>
+          <CheckBox x:Name="GrantApps"
+                    Content="Запуск перевірених програм (браузер, Блокнот, калькулятор)" Margin="0,3"/>
+          <CheckBox x:Name="GrantLocks"
+                    Content="Блокування Windows / вимкнення монітора (ще й локальна згода)" Margin="0,3"/>
+          <CheckBox x:Name="GrantWatch"
+                    Content="Делегувати команди Galaxy Watch7 через спарений Pixel" Margin="0,3"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="Прочитати дозволи" Click="PairGrantsLoad_Click"/>
+            <Button Content="Зберегти дозволи" Click="PairGrantsSave_Click"/>
+          </StackPanel>
+          <TextBox x:Name="PairingCodeReport" Width="680" Height="115" IsReadOnly="True"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,8"/>
+          <TextBlock Foreground="#FFCC99" TextWrapping="Wrap" Width="680"
+                     Text="До переходу всіх клієнтів на підписаний Relay v2 старий спільний ключ v1 залишається обмеженим, але не захищений pairing."/>
+        </StackPanel></ScrollViewer>
       </TabItem>
       <TabItem Header="JARVIS Finance">
         <Grid Margin="12">
@@ -96,13 +140,36 @@
           <TextBlock Text="Точна голосова фраза → локальні дії (по одній команді на рядок; макрос не виконує shell-код)" Foreground="#A4B4CD" TextWrapping="Wrap"/>
           <TextBox x:Name="MacroTrigger" Grid.Row="1" Margin="0,10,0,0" Height="36" ToolTip="Наприклад: робочий режим"/>
           <TextBox x:Name="MacroActions" Grid.Row="2" Margin="0,8,0,0" Height="108" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="відкрий блокнот&#10;гучність 40&#10;скажи починаю роботу"/>
-          <StackPanel Grid.Row="3">
+          <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"><StackPanel>
             <StackPanel Orientation="Horizontal">
               <Button Click="SaveMacroButton_Click" Content="Зберегти макрос"/>
               <Button Click="RunMacroButton_Click" Content="Перевірити"/>
             </StackPanel>
-            <ListBox x:Name="MacroList" Background="#1D304A" Foreground="#EAF8FF" Margin="4" Height="180"/>
-          </StackPanel>
+            <ListBox x:Name="MacroList" Background="#1D304A" Foreground="#EAF8FF" Margin="4" Height="100"/>
+            <Separator Margin="0,12"/>
+            <TextBlock Text="Розумні макроси v2: тригер, умови, дії, розклад" FontSize="16" FontWeight="Bold"/>
+            <TextBlock Text="Безпечні шаблони (лише заповнять поля, не запускаються)" TextWrapping="Wrap" Margin="0,5,0,3"/>
+            <ComboBox x:Name="MacroV2TemplateList" DisplayMemberPath="Name" Height="32" Margin="0,4"/>
+            <Button Content="Заповнити редактор із шаблону" Click="FillMacroV2Template_Click" Margin="0,4,0,10"/>
+            <TextBox x:Name="MacroV2Name" Margin="0,6" ToolTip="Назва: Робочий режим"/>
+            <TextBox x:Name="MacroV2Trigger" Margin="0,6" ToolTip="Голосовий тригер: робота"/>
+            <TextBox x:Name="MacroV2Schedule" Margin="0,6" ToolTip="Розклад HH:mm або порожньо"/>
+            <TextBlock Text="Тригер за подією: network.online, network.offline або app.active:notepad (необов'язково)" TextWrapping="Wrap"/>
+            <TextBox x:Name="MacroV2Event" Margin="0,6" ToolTip="network.online / network.offline / app.active:notepad / app.start:notepad / jarvis.login / device.attach:vid_046d&amp;pid_c52b"/>
+            <TextBlock Text="Мінімальна пауза між запусками (секунди, 0–86400)"/>
+            <TextBox x:Name="MacroV2Cooldown" Text="60" Margin="0,6"/>
+            <TextBlock Text="Умови: день=пн,вт; час=09:00-18:00; інтернет=так; процес=notepad"/>
+            <TextBox x:Name="MacroV2Conditions" Height="70" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" Margin="0,6"/>
+            <TextBlock Text="Дії: якщо умова / інакше / кінець; повтори 1..5 / кінець"/>
+            <TextBox x:Name="MacroV2Steps" Height="120" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" Margin="0,6"/>
+            <StackPanel Orientation="Horizontal">
+              <Button Click="SaveMacroV2Button_Click" Content="Зберегти v2"/>
+              <Button Click="RunMacroV2Button_Click" Content="Перевірити v2"/>
+            </StackPanel>
+            <ListBox x:Name="MacroV2List" Height="105" Background="#1D304A" Foreground="#EAF8FF"/>
+          </StackPanel></ScrollViewer>
         </Grid>
       </TabItem>
       <TabItem Header="Система ПК">
@@ -154,6 +221,7 @@
             <TextBox x:Name="WorkerUrl" Margin="0,5,0,12"/>
             <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A4B4CD"/>
             <PasswordBox x:Name="WorkerToken" Background="#1D304A" Foreground="White" Padding="10" Margin="0,5,0,12"/>
+            <CheckBox x:Name="EnableSignedRelay" Content="Використовувати підписані команди v2 з Pixel/Watch7 після спарювання (потрібне налаштування на Pixel)" Margin="0,8"/>
             <CheckBox x:Name="EnableDeviceRelay" Content="Дозволити з'єднання з Pixel і Watch7 через приватний Cloudflare Relay" Margin="0,8" ToolTip="Команди передаються через твій Cloudflare Worker. Увімкни тільки для власного акаунта."/>
             <CheckBox x:Name="EnableScreenShare" Content="🖥 Дозволити Pixel переглядати мій екран (тільки за активного запиту)" Margin="0,8" ToolTip="Містить усі видимі вікна, включно з особистими даними; передається HTTPS через твій Cloudflare Worker."/>
             <TextBlock Text="🔒 Кадри не зберігаються. Для початку потрібна кнопка на Pixel; індикатор трансляції видно у Windows. Працює лише поки JARVIS відкритий." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
@@ -162,6 +230,13 @@
                 Margin="0,8" ToolTip="Дозвіл лише на власному Windows; кожне нове підключення потрібно явно схвалити на комп'ютері."/>
             <TextBlock Text="Керування не починається без натискання «Дозволити» на ПК. Видимі всі дії. Прихованого доступу або роботи на екрані входу немає."
                 Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
+            <CheckBox x:Name="LaunchAtSignIn" Content="Запускати JARVIS після входу у Windows (без адміністратора)" Margin="0,8"/>
+            <CheckBox x:Name="MinimizeToTray" Content="Згортати в трей при закритті вікна" Margin="0,8"/>
+            <CheckBox x:Name="EnableAiDesktop" Content="Дозволяти локальний AI Desktop Agent після підтвердження" Margin="0,8"/>
+            <CheckBox x:Name="UseAiDesktopVision" Content="AI Desktop: передавати JPEG екрана в ШІ під час сесії (за замовчуванням OFF)" Margin="0,8"/>
+            <CheckBox x:Name="EnableWakeWord" Content="Офлайн-пробудження «Джарвіс» (потребує Windows-розпізнавача)" Margin="0,8"/>
+            <TextBlock Text="За відсутності мовного пакета режим не запускається; whisper.cpp буде додано окремо."
+                Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,6"/>
             <CheckBox x:Name="ShowFloatingOrb" Content="Показувати плаваючого JARVIS" IsChecked="True" Margin="0,8"/>
             <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
             <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>

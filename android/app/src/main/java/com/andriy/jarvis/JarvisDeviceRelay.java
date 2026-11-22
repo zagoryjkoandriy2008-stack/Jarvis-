@@ -65,6 +65,11 @@ public final class JarvisDeviceRelay {
             done.finished(false,"Неправильний дистанційний запит.");return;
         }
         Context app=context.getApplicationContext();
+        if("computer".equals(target) && JarvisSignedDeviceCommands.enabled(app)) {
+            // Owner explicitly selected P-256 mode. Never fall back to bearer-only v1.
+            JarvisSignedDeviceCommands.send(app,origin,command,done);
+            return;
+        }
         OUTBOUND.execute(()->{
             try {
                 AiChatClient ai=new AiChatClient(app);
@@ -102,6 +107,8 @@ public final class JarvisDeviceRelay {
         periodic.scheduleWithFixedDelay(()->{
             if(!enabled(app))return;
             try {
+                if(JarvisSignedDeviceCommands.enabled(app))
+                    JarvisSignedDeviceCommands.heartbeat(app);
                 poll(app,"phone",null);
                 // A watch is online only when paired; do not advertise it
                 // while disconnected or the companion has no Wear link.

@@ -17,13 +17,18 @@ public sealed class DeviceRelayClient : IDisposable {
     private readonly StateStore _store;
     private readonly JarvisSettings _settings;
     private readonly DeviceReceiptJournal _receipts=new();
+    private readonly DeviceAuditJournal _audit=new();
+    public IReadOnlyList<DeviceAuditEntry> AuditRecent(int max=50)=>_audit.Recent(max);
+    public void ExportAudit(string path)=>_audit.Export(path);
+    private readonly DevicePairingService _signed;
     public event Func<RemoteCommand,Task<RemoteResult>>? CommandReceived;
     public event Action<string>? Status;
 
-    public sealed record RemoteCommand(Guid Id,string Origin,string Target,string Command);
+    public sealed record RemoteCommand(Guid Id,string Origin,string Target,string Command,bool Signed=false);
     public sealed record RemoteResult(bool Ok,string Detail);
     public DeviceRelayClient(StateStore store,JarvisSettings settings) {
         _store=store;_settings=settings;
+        _signed=new DevicePairingService(store,settings);
     }
     private (Uri Url,string Token) Credentials() {
         var endpoint=_settings.WorkerUrl;
@@ -54,6 +59,17 @@ public sealed class DeviceRelayClient : IDisposable {
             await using var stream=await response.Content.ReadAsStreamAsync(cancel);
             return await JsonDocument.ParseAsync(stream,cancellationToken:cancel);
         }
+    }
+    public sealed record DevicePresence(bool Online,long? LastSeenMs,long? AgeMs,long TtlMs,string Pairing);
+    public async Task<DevicePresence> GetPresenceAsync(JarvisDevice device,CancellationToken cancel) {
+        var (url,token)=Credentials();
+        using var json=await SendAsync(Request(HttpMethod.Get,
+            new Uri(url,$"/device/v1/status?device={DeviceRouting.WireId(device)}").ToString(),token),cancel);
+        var v=json.RootElement;
+        return new(v.GetProperty("online").GetBoolean(),
+            v.GetProperty("lastSeenMs").ValueKind==JsonValueKind.Null?null:v.GetProperty("lastSeenMs").GetInt64(),
+            v.GetProperty("ageMs").ValueKind==JsonValueKind.Null?null:v.GetProperty("ageMs").GetInt64(),
+            v.GetProperty("ttlMs").GetInt64(),v.GetProperty("pairing").GetString()??"unknown");
     }
     public async Task<bool> IsOnlineAsync(JarvisDevice device,CancellationToken cancel) {
         var (url,token)=Credentials();
@@ -95,7 +111,115 @@ public sealed class DeviceRelayClient : IDisposable {
         return new(false,"Команду доставлено до черги, але пристрій не підтвердив виконання за 30 с.");
     }
 
+    private static string SignedCommandText(JsonElement value) {
+        var kind=value.GetProperty("kind").GetString()??"";
+        var payload=value.GetProperty("payload");
+        return kind switch {
+            "system.status"=>"стан комп'ютера",
+            "devices.list"=>"покажи пристрої",
+            "media.toggle"=>"пауза",
+            "media.next"=>"наступна пісня",
+            "media.previous"=>"попередня пісня",
+            "application.open" when payload.TryGetProperty("name",out var name) &&
+                name.GetString() is "notepad" or "calculator" or "browser" =>
+                    "відкрий "+name.GetString(),
+            "volume.set" when payload.TryGetProperty("value",out var percent)
+                && percent.TryGetInt32(out var amount) && amount is >=0 and <=100 =>
+                    "гучність "+amount,
+            "windows.lock"=>"заблокуй windows",
+            "monitor.off"=>"вимкни монітор",
+            _=>"" // unknown type: NEVER turn into freeform model/voice command
+        };
+    }
+    private async Task PollSignedAsync(CancellationToken cancel) {
+        using var pending=await _signed.SignedPostAsync(
+            "/device/v2/commands/poll",new {device="computer"},cancel);
+        var items=pending.RootElement.GetProperty("items");
+        foreach(var item in items.EnumerateArray()){
+            cancel.ThrowIfCancellationRequested();
+            var stopwatch=System.Diagnostics.Stopwatch.StartNew();
+            var id=Guid.Parse(item.GetProperty("requestId").GetString()!);
+            var now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var expires=item.GetProperty("expiresAt").GetInt64();
+            var origin=item.GetProperty("origin").GetString()??"";
+            var raw=SignedCommandText(item);
+            var risk=item.GetProperty("requiresApproval").GetBoolean();
+            var kind=item.GetProperty("kind").GetString()??"";
+            var status="failed";var errorCode="POLICY_DENIED";var detail="Дія недозволена.";
+            // Signed Windows key asks the Worker again immediately before
+            // performing work; revocation during the queue lease fails closed.
+            var granted=false;
+            if(expires>now && (origin is "watch" or "phone") && raw.Length>0 &&
+               SignedDeviceLocalPolicy.IsAllowed(_settings,origin,kind,risk)) {
+                try {
+                    granted=await RevalidateSignedCommandAsync(id,cancel);
+                }catch(OperationCanceledException){throw;}
+                catch(Exception){granted=false;}
+            }
+            if(granted) {
+                if(!_receipts.TryClaim(id,out var prior)) {
+                    status=prior?.Ok.HasValue==true?(prior.Ok.Value?"completed":"failed"):"unknown";
+                    errorCode=prior?.Ok.HasValue==true?"":"RESULT_UNKNOWN";
+                    detail=prior?.Ok.HasValue==true?prior.Detail:
+                        "Попереднє виконання не підтверджене. Повтор не запускаю.";
+                } else {
+                    var command=new RemoteCommand(id,origin,"computer",raw,true);
+                    RemoteResult result;
+                    if(CommandReceived==null)result=new(false,"Windows не приймає команди.");
+                    else try{result=await CommandReceived.Invoke(command);}
+                    catch(Exception){result=new(false,"Не вдалося виконати дію на Windows.");}
+                    _receipts.Complete(id,result.Ok,result.Detail);
+                    status=result.Ok?"completed":"failed";
+                    errorCode=result.Ok?"":"EXECUTION_FAILED";
+                    detail=result.Detail;
+                }
+            } else if(expires<=now) {
+                status="unknown";errorCode="EXPIRED";
+                detail="Команда прострочена й не виконувалася.";
+            } else {
+                errorCode="PERMISSION_REVOKED";
+                detail="Дозвіл на виконання відкликано або сервер не підтвердив його.";
+            }
+            var ackDelivered=false;
+            try {
+                using var ack=await _signed.SignedPostAsync("/device/v2/commands/ack",new {
+                    version=2,requestId=id.ToString(),status,errorCode,
+                    detail=detail[..Math.Min(480,detail.Length)],
+                    timestamp=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                },cancel);
+                ackDelivered=true;
+            }catch(OperationCanceledException){throw;}
+             catch(Exception error){
+                Status?.Invoke("Підписане підтвердження команди не доставлене: "+error.GetType().Name);
+            }
+            try {
+                _audit.Record(id,origin,kind,status,
+                    Math.Min(120000,stopwatch.ElapsedMilliseconds),
+                    ackDelivered?errorCode:"ACK_DELIVERY_FAILED");
+            }catch(Exception auditFailure){
+                Status?.Invoke("Журнал команд недоступний: "+
+                    auditFailure.GetType().Name);
+            }
+        }
+    }
+
+    /** Signed Windows target permission check. Always revalidate after any
+     * local owner confirmation dialog, not only when the queue was leased.
+     * No fallback to bearer-only v1 if this signed check fails.
+     */
+    public async Task<bool> RevalidateSignedCommandAsync(Guid requestId,
+            CancellationToken cancel) {
+        if(requestId==Guid.Empty || !_settings.EnableDeviceRelay ||
+           !_settings.EnableSignedRelay)return false;
+        using var response=await _signed.SignedPostAsync(
+            "/device/v2/commands/authorize",
+            new {requestId=requestId.ToString()},cancel);
+        return response.RootElement.TryGetProperty("authorized",out var allowed)
+            && allowed.GetBoolean();
+    }
+
     public async Task ListenAsync(CancellationToken cancellation) {
+        var consecutiveErrors=0;
         while(!cancellation.IsCancellationRequested) {
             if(!_settings.EnableDeviceRelay) {
                 try {await Task.Delay(3500,cancellation);}
@@ -103,6 +227,12 @@ public sealed class DeviceRelayClient : IDisposable {
                 continue; // opt-in required; no network traffic when off
             }
             try {
+                if(_settings.EnableSignedRelay) {
+                    await PollSignedAsync(cancellation);
+                    consecutiveErrors=0;
+                    try{await Task.Delay(3000,cancellation);}catch(OperationCanceledException){break;}
+                    continue;
+                }
                 var (url,token)=Credentials();
                 using var received=await SendAsync(Request(HttpMethod.Get,
                     new Uri(url,"/device/v1/poll?device=computer").ToString(),token),cancellation);
@@ -140,11 +270,18 @@ public sealed class DeviceRelayClient : IDisposable {
                             cancellation);
                     }catch(Exception error){Status?.Invoke("Не вдалося передати ACK: "+error.Message);}
                 }
+                consecutiveErrors=0;
             }catch(OperationCanceledException) {break;}
-             catch(Exception error) {Status?.Invoke("Зв'язок Windows: "+error.Message);}
-            try {await Task.Delay(3000,cancellation);}
+             catch(Exception error) {
+                consecutiveErrors=Math.Min(5,consecutiveErrors+1);
+                if(consecutiveErrors==1||consecutiveErrors==5)
+                    Status?.Invoke("Зв'язок Windows: "+error.Message);
+             }
+            var retryMs=consecutiveErrors==0?3000:
+                Math.Min(45000,3000*(1<<consecutiveErrors))+Random.Shared.Next(200,950);
+            try {await Task.Delay(retryMs,cancellation);}
             catch(OperationCanceledException) {break;}
         }
     }
-    public void Dispose()=>_http.Dispose();
+    public void Dispose(){_signed.Dispose();_http.Dispose();}
 }

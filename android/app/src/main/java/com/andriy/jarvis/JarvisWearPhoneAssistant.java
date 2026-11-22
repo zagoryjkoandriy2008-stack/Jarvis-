@@ -47,6 +47,10 @@ public final class JarvisWearPhoneAssistant {
         final String desktopPrefix="__jarvis_pc__:";
         if(raw.startsWith(desktopPrefix)) {
             String command=raw.substring(desktopPrefix.length()).trim();
+            if(JarvisWakeOnLan.isWakeCommand(command)) {
+                JarvisWakeOnLan.sendAndConfirm(phone,null,completion::finished);
+                return;
+            }
             if(!JarvisDeviceRelay.enabled(phone) ||
                command.isEmpty() || command.length()>225 ||
                JarvisDeviceRelayRules.isFinance(command)) {
@@ -54,6 +58,13 @@ public final class JarvisWearPhoneAssistant {
                 return;
             }
             JarvisDeviceRelay.send(phone,"watch","computer",command,completion::finished);
+            return;
+        }
+        // A direct Watch voice command to wake the PC must be routed to
+        // Pixel's Wi-Fi, not to the offline Windows Relay.
+        if(JarvisWakeOnLan.isWakeCommand(raw) &&
+           (watchNode==null || !watchNode.startsWith("device-relay:"))) {
+            JarvisWakeOnLan.sendAndConfirm(phone,null,completion::finished);
             return;
         }
         final boolean cloudRemote=watchNode!=null &&

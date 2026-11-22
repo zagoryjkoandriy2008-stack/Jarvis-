@@ -18,6 +18,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Explicit user approval through Android special-access settings required. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
@@ -73,6 +74,9 @@
         <!-- Owner-only view of remote Windows screen; never exported to
              another app, no screenshots written to Android storage. -->
         <activity android:name=".JarvisPcFileInboxActivity" android:exported="false" />
+        <activity android:name=".JarvisWakeOnLanActivity" android:exported="false" />
+        <activity android:name=".JarvisDevicePairingActivity" android:exported="false" />
+        <activity android:name=".JarvisDeviceCenterActivity" android:exported="false" />
         <activity android:name=".JarvisWindowsScreenActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <service android:name=".FinanceReminderJob"

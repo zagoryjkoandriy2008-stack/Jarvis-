@@ -1,5 +1,7 @@
 import {ScreenRelayState} from './screen-relay.mjs';
 import {FileRelayState} from './file-relay.mjs';
+import {DevicePairingV2} from './device-pairing-v2.mjs';
+import {DeviceCommandBrokerV2} from './device-command-broker-v2.mjs';
 /** JARVIS private three-device relay. Only trusted device clients call these
  * endpoints. The same user-controlled Worker bearer token authenticates them.
  * This first-party prototype is NOT suitable for multi-user public deployment.
@@ -48,6 +50,8 @@ export class DeviceRelay {
     this.state=state;this.env=env;
     this.screen=new ScreenRelayState();
     this.fileInbox=new FileRelayState();
+    this.pairing=new DevicePairingV2(this.state.storage);
+    this.v2Commands=new DeviceCommandBrokerV2(this.state.storage);
   }
 
   /** Durable Object storage expiry is a security property, not only a
@@ -57,11 +61,28 @@ export class DeviceRelay {
     const rows=await store.list({prefix:'m:'});
     for(const [key,value] of rows)
       if(now-value.created>TTL)await store.delete(key);
-    const remaining=await store.list({prefix:'m:'});
-    if(remaining.size && typeof store.setAlarm==='function') {
-      const next=Math.min(...[...remaining.values()].map(x=>x.created+TTL+2000));
-      await store.setAlarm(Math.max(now+1000,next));
+    // Pairing codes and signed request nonces must not remain in storage.
+    for(const prefix of ['v2:pending:','v2:nonce:','v2:command:','v2:live:']) {
+      const expired=await store.list({prefix});
+      for(const [key,value] of expired)
+        if((prefix==='v2:command:'? value.command?.expiresAt+180000 :
+              prefix==='v2:live:'?value+35000:value.expires)<=now)
+          await store.delete(key);
     }
+    const remaining=await store.list({prefix:'m:'});
+    const pending=await store.list({prefix:'v2:pending:'});
+    const nonces=await store.list({prefix:'v2:nonce:'});
+    const commands=await store.list({prefix:'v2:command:'});
+    const v2Live=await store.list({prefix:'v2:live:'});
+    const expiries=[
+      ...[...remaining.values()].map(x=>x.created+TTL+2000),
+      ...[...pending.values()].map(x=>x.expires+1000),
+      ...[...nonces.values()].map(x=>x.expires+1000),
+      ...[...commands.values()].map(x=>x.command.expiresAt+180000),
+      ...[...v2Live.values()].map(x=>x+35000)
+    ];
+    if(expiries.length && typeof store.setAlarm==='function')
+      await store.setAlarm(Math.max(now+1000,Math.min(...expiries)));
   }
 
   async fetch(request) {
@@ -69,6 +90,11 @@ export class DeviceRelay {
     const path=url.pathname;
     const now=Date.now();
     const store=this.state.storage;
+    if(path.startsWith('/device/v2/pair/'))return this.pairing.fetch(request);
+    if(path.startsWith('/device/v2/commands/'))return this.v2Commands.fetch(request);
+    if(path.startsWith('/device/v1/') &&
+       await store.get('v2:legacy-disabled')===true)
+      return sendJson({error:'Legacy Relay revoked; signed v2 required'},403);
     // Screenshots exist ONLY in short-lived object RAM. Do not touch durable
     // storage, history, logs or AI when serving screen viewer/frame calls.
     if(path.startsWith('/device/v1/screen/'))
@@ -164,6 +190,16 @@ export class DeviceRelay {
           :{id,done:false});
       }
 
+      if(path==='/device/v1/status' && request.method==='GET') {
+        const device=url.searchParams.get('device');
+        if(!validDevice(device))return sendJson({error:'Unknown device'},400);
+        const last=await store.get('live:'+device);
+        const fresh=Number.isFinite(last)&&now-last<LIVE;
+        return sendJson({device,online:fresh,state:fresh?'online':'offline',
+          lastSeenMs:Number.isFinite(last)?last:null,
+          ageMs:Number.isFinite(last)?Math.max(0,now-last):null,
+          ttlMs:LIVE,pairing:'legacy-shared-token'});
+      }
       if(path==='/device/v1/online' && request.method==='GET') {
         const device=url.searchParams.get('device');
         if(!validDevice(device))return sendJson({error:'Unknown device'},400);

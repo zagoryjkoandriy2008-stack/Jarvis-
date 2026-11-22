@@ -1,3 +1,4 @@
+import {routeProviders} from './ai-provider-router.mjs';
 export {DeviceRelay} from './device-relay.mjs';
 /**
  * Personal JARVIS AI. API key is stored only in Cloudflare Worker secrets.
@@ -75,7 +76,7 @@ function validAttachment(a) {
 function validateInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
   const mode = body.mode ?? 'chat';
-  if (!['chat','web','image','analysis'].includes(mode)) return null;
+  if (!['chat','web','image','analysis','desktop'].includes(mode)) return null;
   const message = typeof body.message === 'string' ? body.message.trim() : '';
   if (!message || message.length > MAX_MESSAGE_CHARS) return null;
   if (body.effort != null && !['none','low','medium','high'].includes(body.effort)) return null;
@@ -174,7 +175,7 @@ function createPayload(body, input, env) {
     instructions:INSTRUCTIONS,
     input, store:false,
     reasoning:{effort: mode === 'image' ? 'none' : body.effort || 'medium'},
-    max_output_tokens:mode === 'image' ? 400 : 4000,
+    max_output_tokens:mode === 'image' ? 400 : mode === 'desktop' ? 900 : 4000,
   };
   if (mode === 'web') {
     payload.tools = [{type:'web_search',search_context_size:'medium'}];
@@ -196,7 +197,7 @@ export default {
     if (url.pathname === '/health' && request.method === 'GET') return json({status:'ok'});
     // Commands are explicit user actions, never model responses. Protected by
     // the same private bearer as /chat, with short-lived Durable Object queue.
-    if(url.pathname.startsWith('/device/v1/')) {
+    if(url.pathname.startsWith('/device/v1/') || url.pathname.startsWith('/device/v2/')) {
       if(!env.JARVIS_CLIENT_TOKEN)return json({error:'Relay not configured'},503);
       if(!safeBearer(request.headers.get('authorization'),env.JARVIS_CLIENT_TOKEN))
         return json({error:'Unauthorized'},401);
@@ -217,7 +218,10 @@ export default {
       return object.fetch(request);
     }
     if (url.pathname !== '/chat' || request.method !== 'POST') return json({error:'Not found'},404);
-    if (!env.OPENAI_API_KEY || !env.JARVIS_CLIENT_TOKEN) return json({error:'Server is not configured'},503);
+    const routingEnabled=Boolean(env.JARVIS_AI_PRIMARY || env.JARVIS_AI_FALLBACK);
+    if (!env.JARVIS_CLIENT_TOKEN ||
+       (!routingEnabled && !env.OPENAI_API_KEY))
+      return json({error:'Server is not configured'},503);
     if (!safeBearer(request.headers.get('authorization'),env.JARVIS_CLIENT_TOKEN))
       return json({error:'Unauthorized'},401);
     const length = Number(request.headers.get('content-length'));
@@ -230,6 +234,15 @@ export default {
     try { body = JSON.parse(raw); } catch { return json({error:'Invalid JSON'},400); }
     const input = validateInput(body);
     if (!input) return json({error:'Invalid message/history/attachment'},400);
+    // Optional text/desktop model router. Existing API stays unchanged when
+    // providers are not configured in Cloudflare Secrets.
+    if((body.mode==='chat'||body.mode==='desktop'||!body.mode) &&
+       (env.JARVIS_AI_PRIMARY || env.JARVIS_AI_FALLBACK)) {
+      const routed=await routeProviders({env,input,body,createPayload,
+        openaiPayload:createPayload(body,input,env),fetchImpl:fetch,extractText});
+      if(routed.ok)return json({reply:routed.reply});
+      return json({error:'AI provider unavailable',reason:'provider_error'},routed.status===429?429:502);
+    }
     let upstream;
     try {
       upstream = await fetch('https://api.openai.com/v1/responses',{

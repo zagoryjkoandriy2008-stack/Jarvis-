@@ -1,0 +1,128 @@
+using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
+
+namespace Jarvis.Windows.Core;
+
+/// <summary>
+/// Event-driven local Windows macro triggers. Network availability and Win32
+/// foreground-window hooks. No polling, screen capture or privileged input.
+/// Foreground tracking activates only for explicitly configured app macros.
+/// </summary>
+/// <summary>Pure foreground transition gate, testable without Win32.</summary>
+public sealed class MacroForegroundTransition {
+    private string? _previous;
+    public void Baseline(string? name)=>_previous=name;
+    public void Reset()=>_previous=null;
+    public bool TryObserve(string? name,out string eventName) {
+        eventName="";
+        if(name==null) {
+            // Unknown/protected foreground still breaks the previous app
+            // transition. Never emit an event for an unknown process.
+            _previous=null;
+            return false;
+        }
+        if(!System.Text.RegularExpressions.Regex.IsMatch(
+           name,@"^[a-z0-9._-]{1,50}$"))return false;
+        if(name==_previous)return false;
+        _previous=name;
+        eventName="app.active:"+name;
+        return true;
+    }
+}
+
+public sealed class MacroEventService : IDisposable {
+    private const uint EventSystemForeground=0x0003;
+    private const uint WinEventOutOfContext=0;
+    private bool _running;
+    private IntPtr _hook;
+    private readonly MacroForegroundTransition _transitions=new();
+    private readonly WinEventProc _foregroundCallback;
+    public event Action<string>? Triggered;
+    public MacroEventService() {
+        _foregroundCallback=OnForegroundChanged;
+    }
+    private delegate void WinEventProc(IntPtr hook,uint eventId,
+        IntPtr hwnd,int objectId,int childId,uint eventThread,uint eventTime);
+
+    [DllImport("user32.dll",SetLastError=true)]
+    private static extern IntPtr SetWinEventHook(uint eventMin,uint eventMax,
+        IntPtr module,WinEventProc callback,uint processId,uint threadId,uint flags);
+    [DllImport("user32.dll",SetLastError=true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool UnhookWinEvent(IntPtr hook);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint processId);
+
+    private static string? ProcessForWindow(IntPtr hwnd) {
+        if(hwnd==IntPtr.Zero)return null;
+        try {
+            GetWindowThreadProcessId(hwnd,out uint pid);
+            if(pid==0)return null;
+            using var process=Process.GetProcessById((int)pid);
+            var name=process.ProcessName.ToLowerInvariant();
+            // Restrict event payload; never emit titles, paths or window text.
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                name,@"^[a-z0-9._-]{1,50}$")?name:null;
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    public void Start(bool trackForeground=false) {
+        if(_running)return;
+        _running=true;
+        NetworkChange.NetworkAvailabilityChanged+=OnNetworkAvailabilityChanged;
+        SetForegroundTrackingEnabled(trackForeground);
+    }
+
+    public void SetForegroundTrackingEnabled(bool enable) {
+        if(!_running)return;
+        if(!enable) {
+            if(_hook!=IntPtr.Zero) {
+                UnhookWinEvent(_hook);
+                _hook=IntPtr.Zero;
+            }
+            _transitions.Reset();
+            return;
+        }
+        if(_hook!=IntPtr.Zero)return;
+        // Snapshot current app: opening JARVIS or enabling tracking must not
+        // immediately run a macro before a *new* window transition.
+        _transitions.Baseline(ProcessForWindow(GetForegroundWindow()));
+        // Include JARVIS's own foreground transitions. Otherwise a switch
+        // Chrome → JARVIS → Chrome is invisible (duplicate app is suppressed).
+        _hook=SetWinEventHook(EventSystemForeground,EventSystemForeground,
+            IntPtr.Zero,_foregroundCallback,0,0,WinEventOutOfContext);
+        if(_hook==IntPtr.Zero)
+            _transitions.Reset(); // Windows declined the hook: fail closed
+    }
+
+    private void OnForegroundChanged(IntPtr hook,uint eventId,IntPtr hwnd,
+            int objectId,int childId,uint eventThread,uint eventTime) {
+        if(!_running || hook!=_hook || eventId!=EventSystemForeground ||
+           objectId!=0 || childId!=0)return;
+        var current=ProcessForWindow(hwnd);
+        if(_transitions.TryObserve(current,out var eventName))
+            Triggered?.Invoke(eventName);
+    }
+
+    private void OnNetworkAvailabilityChanged(object? sender,
+            NetworkAvailabilityEventArgs e) {
+        if(!_running)return;
+        Triggered?.Invoke(e.IsAvailable?"network.online":"network.offline");
+    }
+
+    public void Dispose() {
+        if(!_running)return;
+        _running=false;
+        NetworkChange.NetworkAvailabilityChanged-=OnNetworkAvailabilityChanged;
+        if(_hook!=IntPtr.Zero) {
+            UnhookWinEvent(_hook);
+            _hook=IntPtr.Zero;
+        }
+        _transitions.Reset();
+    }
+}

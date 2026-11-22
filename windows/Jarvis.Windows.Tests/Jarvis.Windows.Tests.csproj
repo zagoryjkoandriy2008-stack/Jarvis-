@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
+    <PackageReference Include="System.Management" Version="9.0.11" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Jarvis.Windows/Core/CommandRouter.cs" Link="Core/CommandRouter.cs" />
@@ -15,9 +16,20 @@
     <Compile Include="../Jarvis.Windows/Core/WindowsFileExchange.cs" Link="Core/WindowsFileExchange.cs" />
     <Compile Include="../Jarvis.Windows/Core/DeviceRouting.cs" Link="Core/DeviceRouting.cs" />
     <Compile Include="../Jarvis.Windows/Core/DeviceReceiptJournal.cs" Link="Core/DeviceReceiptJournal.cs" />
+    <Compile Include="../Jarvis.Windows/Core/DeviceAuditJournal.cs" Link="Core/DeviceAuditJournal.cs" />
     <Compile Include="../Jarvis.Windows/Core/FinanceCommandClassifier.cs" Link="Core/FinanceCommandClassifier.cs" />
     <Compile Include="../Jarvis.Windows/Core/LocalState.cs" Link="Core/LocalState.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroEngine.cs" Link="Core/MacroEngine.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroV2Engine.cs" Link="Core/MacroV2Engine.cs" />
+    <Compile Include="../Jarvis.Windows/Core/WindowsPowerTransitionPolicy.cs" Link="Core/WindowsPowerTransitionPolicy.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroUsbEventService.cs" Link="Core/MacroUsbEventService.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroEventService.cs" Link="Core/MacroEventService.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroProcessStartService.cs" Link="Core/MacroProcessStartService.cs" />
+    <Compile Include="../Jarvis.Windows/Core/LargeFileTransferService.cs" Link="Core/LargeFileTransferService.cs" />
+    <Compile Include="../Jarvis.Windows/Core/ClipboardBridge.cs" Link="Core/ClipboardBridge.cs" />
+    <Compile Include="../Jarvis.Windows/Core/DeviceTrustPolicy.cs" Link="Core/DeviceTrustPolicy.cs" />
+    <Compile Include="../Jarvis.Windows/Core/SignedDeviceLocalPolicy.cs" Link="Core/SignedDeviceLocalPolicy.cs" />
+    <Compile Include="../Jarvis.Windows/Core/DevicePairingService.cs" Link="Core/DevicePairingService.cs" />
     <Compile Include="../Jarvis.Windows/Core/AiClient.cs" Link="Core/AiClient.cs" />
   </ItemGroup>
 </Project>

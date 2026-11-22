@@ -28,8 +28,8 @@ public partial class FloatingOrb : Window {
     public event Action? StopSharingRequested;
     public event Action<JarvisDevice>? TargetRequested;
     private bool _dragging;
-    private Point _pressed;
-    private Point _windowAtPress;
+    private System.Windows.Point _pressed;
+    private System.Windows.Point _windowAtPress;
     public FloatingOrb() {
         InitializeComponent();
         Left=Math.Max(10,SystemParameters.WorkArea.Right-Width-24);
@@ -66,7 +66,7 @@ public partial class FloatingOrb : Window {
         if(e.ChangedButton!=MouseButton.Left)return;
         _dragging=true;
         _pressed=PointToScreen(e.GetPosition(this));
-        _windowAtPress=new Point(Left,Top);
+        _windowAtPress=new System.Windows.Point(Left,Top);
         Mouse.Capture((IInputElement)sender);
     }
     private void Orb_DragEnd(object sender,MouseButtonEventArgs e) {

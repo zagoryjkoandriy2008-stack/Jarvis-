@@ -11,5 +11,6 @@ public static class WindowsRemoteCommandPolicy {
         CommandKind.MediaNext or CommandKind.MediaPrevious or
         CommandKind.Speak or CommandKind.Timer or CommandKind.WebSearch or
         CommandKind.SpotifySearch or CommandKind.SpotifyPlaylist or
-        CommandKind.SystemStatus;
+        CommandKind.SystemStatus or CommandKind.DeviceList or
+        CommandKind.LockWindows or CommandKind.MonitorOff;
 }

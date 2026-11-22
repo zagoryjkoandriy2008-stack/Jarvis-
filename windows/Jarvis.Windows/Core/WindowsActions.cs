@@ -6,6 +6,20 @@ using System.Windows;
 namespace Jarvis.Windows.Core;
 
 public static class WindowsActions {
+    [DllImport("user32.dll",SetLastError=true)]
+    private static extern bool LockWorkStation();
+    [DllImport("user32.dll",CharSet=CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr window,uint message,IntPtr wparam,IntPtr lparam);
+    public static void LockCurrentSession() {
+        if(!LockWorkStation())
+            throw new InvalidOperationException("Windows не дозволила заблокувати сеанс.");
+    }
+    public static void TurnOffMonitor() {
+        const uint WM_SYSCOMMAND=0x0112;
+        const int SC_MONITORPOWER=0xF170;
+        SendMessage(new IntPtr(0xFFFF),WM_SYSCOMMAND,new IntPtr(SC_MONITORPOWER),new IntPtr(2));
+    }
+
     private static readonly Dictionary<string,string> Applications=
         new(StringComparer.OrdinalIgnoreCase) {
             ["блокнот"]="notepad.exe",["notepad"]="notepad.exe",

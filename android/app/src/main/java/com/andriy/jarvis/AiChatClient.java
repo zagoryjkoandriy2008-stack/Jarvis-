@@ -348,12 +348,30 @@ public final class AiChatClient {
      * Synchronous NETWORK THREAD ONLY. No remote AI request is involved. */
     JSONObject deviceRelayRequest(String route,String method,
                                   JSONObject payload) throws Exception {
+        return deviceRelayRequest(route,method,payload,java.util.Collections.emptyMap());
+    }
+    JSONObject deviceRelayRequest(String route,String method,
+                                  JSONObject payload,
+                                  java.util.Map<String,String> extraHeaders) throws Exception {
+        return deviceRelayRequest(route,method,payload,extraHeaders,null);
+    }
+    /** rawJson binds the exact UTF-8 bytes sent to the preceding P-256
+     * signature. Do not serialize an org.json object again after signing.
+     */
+    JSONObject deviceRelayRequest(String route,String method,
+                                  JSONObject payload,
+                                  java.util.Map<String,String> extraHeaders,
+                                  String rawJson) throws Exception {
+        if(rawJson!=null && (!"POST".equals(method) ||
+            !JarvisDeviceV2Paths.signedPhonePath(route)))
+            throw new IllegalArgumentException("Signed bytes require a v2 POST endpoint.");
         if(android.os.Looper.myLooper()==android.os.Looper.getMainLooper())
             throw new IllegalStateException("Device relay requires a background thread.");
         if(!isConfigured())throw new IllegalStateException(
             "Спочатку налаштуй Cloudflare AI Worker на Pixel.");
-        if(route==null || !route.matches(
-            "^/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack|files/send)(?:\\?[a-zA-Z0-9=&-]{1,220})?$"))
+        if(route==null || !(JarvisDeviceV2Paths.httpAllowed(route) ||
+            route.matches(
+                "^/device/v1/(?:send|poll|ack|result|online|screen/view|screen/stop|screen/state|screen/control/request|screen/control/state|screen/control/input|screen/control/decision|screen/control/disable|screen/control/poll|files/latest|files/ack|files/send)(?:\\?[a-zA-Z0-9=&-]{1,220})?$")))
             throw new IllegalArgumentException("Неправильний шлях JARVIS Relay.");
         if(!"GET".equals(method) && !"POST".equals(method))
             throw new IllegalArgumentException("Недопустимий метод Relay.");
@@ -370,8 +388,15 @@ public final class AiChatClient {
             connection.setRequestProperty("Authorization","Bearer "+
                 decrypt(prefs.getString("code_encrypted","")));
             connection.setRequestProperty("Accept","application/json");
+            if(extraHeaders!=null)for(java.util.Map.Entry<String,String> entry:extraHeaders.entrySet()) {
+                if(!entry.getKey().matches("X-Jarvis-(?:Device|Timestamp|Nonce|Signature)") ||
+                   entry.getValue()==null || entry.getValue().length()>180)
+                    throw new IllegalArgumentException("Недозволений заголовок pairing.");
+                connection.setRequestProperty(entry.getKey(),entry.getValue());
+            }
             if("POST".equals(method)) {
-                byte[] data=(payload==null?"{}":payload.toString())
+                byte[] data=(rawJson!=null?rawJson:
+                    payload==null?"{}":payload.toString())
                     .getBytes(StandardCharsets.UTF_8);
                 if(data.length>("/device/v1/files/send".equals(route)?1500000:8192))throw new IllegalArgumentException(
                     "Повідомлення для Relay завелике.");

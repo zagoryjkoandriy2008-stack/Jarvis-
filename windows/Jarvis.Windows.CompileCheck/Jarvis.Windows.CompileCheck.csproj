@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compile-only WPF DLL, NEVER the executable or installer. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Jarvis.Windows</AssemblyName>
+    <RootNamespace>Jarvis.Windows</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Jarvis.Windows/**/*.cs"
+             Exclude="../Jarvis.Windows/obj/**;../Jarvis.Windows/bin/**"
+             LinkBase="Source" />
+    <!-- App.xaml is ApplicationDefinition and cannot go into a library. Its
+         code-behind is still compiled; the root XML is statically validated. -->
+    <Page Include="../Jarvis.Windows/MainWindow.xaml" Link="MainWindow.xaml" />
+    <Page Include="../Jarvis.Windows/FloatingOrb.xaml" Link="FloatingOrb.xaml" />
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+    <PackageReference Include="System.Speech" Version="9.0.11" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
+    <PackageReference Include="System.Management" Version="9.0.11" />
+    <!-- Work around net8.0-windows NuGet compile reference selection.
+         Reference the package's exact net8.0 assembly, not a machine-global DLL. -->
+    <Reference Include="System.Management" Condition="Exists('$(NuGetPackageRoot)system.management/9.0.11/ref/net8.0/System.Management.dll')">
+      <HintPath>$(NuGetPackageRoot)system.management/9.0.11/ref/net8.0/System.Management.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Management" Condition="!Exists('$(NuGetPackageRoot)system.management/9.0.11/ref/net8.0/System.Management.dll') And Exists('$(NuGetPackageRoot)system.management/9.0.11/lib/net8.0/System.Management.dll')">
+      <HintPath>$(NuGetPackageRoot)system.management/9.0.11/lib/net8.0/System.Management.dll</HintPath>
+    </Reference>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+</Project>
