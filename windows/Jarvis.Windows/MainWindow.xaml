@@ -22,8 +22,10 @@
       <StackPanel Grid.Column="1" VerticalAlignment="Center">
         <TextBlock Text="JARVIS / WINDOWS" FontSize="24" FontWeight="Bold" Foreground="#53D7EA"/>
         <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
+        <TextBlock x:Name="ScreenShareIndicator" Text="🔴 Екран транслюється на Pixel" Foreground="#FF786C" FontWeight="Bold" Visibility="Collapsed"/>
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="StopScreenShareButton" Content="■ Зупинити екран" Click="StopScreenShare_Click" Visibility="Collapsed" Background="#D34C4C" Foreground="White"/>
         <Button x:Name="OrbToggleButton" Content="◎ Плаваючий" Click="OrbToggle_Click" ToolTip="Показати або приховати плаваючого JARVIS"/>
         <Button x:Name="MicButton" Click="MicButton_Click" Content="🎙 Слухати"/>
         <Button Click="StopButton_Click" Content="■ Стоп"/>
@@ -116,6 +118,8 @@
             <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A4B4CD"/>
             <PasswordBox x:Name="WorkerToken" Background="#1D304A" Foreground="White" Padding="10" Margin="0,5,0,12"/>
             <CheckBox x:Name="EnableDeviceRelay" Content="Дозволити з'єднання з Pixel і Watch7 через приватний Cloudflare Relay" Margin="0,8" ToolTip="Команди передаються через твій Cloudflare Worker. Увімкни тільки для власного акаунта."/>
+            <CheckBox x:Name="EnableScreenShare" Content="🖥 Дозволити Pixel переглядати мій екран (тільки за активного запиту)" Margin="0,8" ToolTip="Містить усі видимі вікна, включно з особистими даними; передається HTTPS через твій Cloudflare Worker."/>
+            <TextBlock Text="🔒 Кадри не зберігаються. Для початку потрібна кнопка на Pixel; індикатор трансляції видно у Windows. Працює лише поки JARVIS відкритий." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
             <CheckBox x:Name="ShowFloatingOrb" Content="Показувати плаваючого JARVIS" IsChecked="True" Margin="0,8"/>
             <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
             <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>
