@@ -1197,6 +1197,11 @@ public final class FloatingJarvisService extends Service {
         // "Покажи екран комп'ютера" is a LOCAL Pixel viewer action.
         // It is not a request for Windows to click/type or to send frames to AI.
         if(JarvisScreenViewCommands.files(raw)) {
+            if(getPackageManager().hasSystemFeature(
+                    android.content.pm.PackageManager.FEATURE_WATCH)) {
+                reply("Обмін файлами з ПК доступний через JARVIS на Pixel.");
+                return;
+            }
             if(!JarvisDeviceRelay.enabled(this) ||
                !new AiChatClient(this).isConfigured()) {
                 reply("Для обміну файлами увімкни приватний Relay на Pixel.");
