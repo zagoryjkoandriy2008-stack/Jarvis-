@@ -146,3 +146,49 @@ test('legacy v1 routes are denied after explicit owner revocation, not only type
    assert.equal(response.status,403,path);
  }
 });
+
+test('post-lease authorization blocks revoked phones and changed capabilities',async()=>{
+ const storage=fakeStorage(),phone=await keypair(),pc=await keypair();
+ await storage.put('v2:device:phone',{enabled:true,publicKey:phone.spki});
+ await storage.put('v2:device:computer',{enabled:true,publicKey:pc.spki});
+ const broker=new DeviceCommandBrokerV2(storage,()=>now);
+ const request=command();
+ assert.equal((await post(broker,'/device/v2/commands/send',
+   request,'phone',phone.privateKey)).status,202);
+ const first=await post(broker,'/device/v2/commands/poll',
+   {device:'computer'},'computer',pc.privateKey);
+ assert.equal(first.result.items.length,1);
+ let checked=await post(broker,'/device/v2/commands/authorize',
+   {requestId:request.requestId},'computer',pc.privateKey);
+ assert.equal(checked.result.authorized,true);
+ await storage.put('v2:device:phone',{enabled:false,publicKey:phone.spki});
+ checked=await post(broker,'/device/v2/commands/authorize',
+   {requestId:request.requestId},'computer',pc.privateKey);
+ assert.equal(checked.result.authorized,false);
+ assert.equal(checked.result.reason,'DEVICE_REVOKED');
+
+ // A permissions change made after queuing must also block execution.
+ await storage.put('v2:device:phone',{enabled:true,publicKey:phone.spki});
+ await storage.put('v2:grants:phone',{
+   readOnly:true,media:true,apps:false,locks:false,watchDelegation:false});
+ const media={...command('media.next'),requestId:crypto.randomUUID()};
+ assert.equal((await post(broker,'/device/v2/commands/send',
+   media,'phone',phone.privateKey)).status,202);
+ const leased=await post(broker,'/device/v2/commands/poll',
+   {device:'computer'},'computer',pc.privateKey);
+ assert.ok(leased.result.items.some(x=>x.requestId===media.requestId));
+ await storage.put('v2:grants:phone',{
+   readOnly:true,media:false,apps:false,locks:false,watchDelegation:false});
+ checked=await post(broker,'/device/v2/commands/authorize',
+   {requestId:media.requestId},'computer',pc.privateKey);
+ assert.equal(checked.result.authorized,false);
+ assert.equal(checked.result.reason,'PERMISSION_REVOKED');
+
+ const forged=await post(broker,'/device/v2/commands/authorize',
+   {requestId:media.requestId},'phone',phone.privateKey);
+ assert.equal(forged.status,403,'only target Windows can authorize execution');
+ const unknown=await post(broker,'/device/v2/commands/authorize',
+   {requestId:crypto.randomUUID()},'computer',pc.privateKey);
+ assert.equal(unknown.result.authorized,false);
+ assert.equal(unknown.result.reason,'NOT_FOUND');
+});

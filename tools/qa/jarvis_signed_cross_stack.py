@@ -29,6 +29,8 @@ assert "validateDeviceRequest(body,now)" in broker
 assert "authenticatedBy:device" in broker
 assert "Device permission not granted" in broker
 assert "DEVICE_REVOKED" in broker
+assert "/device/v2/commands/authorize" in broker and "PERMISSION_REVOKED" in broker
+assert '"/device/v2/commands/authorize"' in pc
 assert "watchDelegation" in broker and "DEFAULT_DEVICE_GRANTS" in pair
 assert "legacy-disabled" in pair and "grants:phone" in pair
 assert "await store.delete('v2:grants:phone')" in pair

@@ -132,6 +132,35 @@ export class DeviceCommandBrokerV2 {
       }
       return json({version:2,status:'running',items,serverTime:now});
     }
+    // The target MUST re-check owner permission before a side effect,
+    // not only when a command was first enqueued or leased. This closes
+    // the revocation/permissions-change gap for commands still in flight.
+    if(path==='/device/v2/commands/authorize') {
+      if(device!=='computer' || !stringId(body.requestId))
+        return json({error:'Wrong target or request'},403);
+      const item=await store.get('v2:command:'+body.requestId);
+      if(!item || item.command.target!==device)
+        return json({authorized:false,reason:'NOT_FOUND'});
+      const eligible=item.status==='running' &&
+        item.command.expiresAt>now &&
+        item.createdAt+DELIVERY_TTL>now &&
+        item.leaseUntil>now;
+      if(!eligible)return json({authorized:false,reason:'NOT_ACTIVE'});
+      const sender=await store.get('v2:device:'+item.authenticatedBy);
+      if(!sender?.enabled)return json({authorized:false,reason:'DEVICE_REVOKED'});
+      const grants=await store.get('v2:grants:phone')||DEFAULT_DEVICE_GRANTS;
+      const kind=item.command.kind;
+      const ownerPermit=item.authenticatedBy!=='phone' || (
+        (item.command.origin!=='watch'||grants.watchDelegation) &&
+        (classifyDeviceAction(kind)!=='readOnly'||grants.readOnly) &&
+        (!(kind.startsWith('media.')||kind==='volume.set')||grants.media) &&
+        (kind!=='application.open'||grants.apps) &&
+        (!['windows.lock','monitor.off'].includes(kind)||grants.locks)
+      );
+      if(!ownerPermit)return json({authorized:false,reason:'PERMISSION_REVOKED'});
+      return json({authorized:true,requestId:body.requestId,
+        expiresAt:Math.min(item.leaseUntil,item.command.expiresAt)});
+    }
     if(path==='/device/v2/commands/ack') {
       if(!validateDeviceReceipt(body) || device!=='computer' ||
          body.timestamp<now-30000 || body.timestamp>now+30000 ||

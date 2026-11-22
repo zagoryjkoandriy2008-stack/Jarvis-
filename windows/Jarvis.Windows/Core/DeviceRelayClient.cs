@@ -142,8 +142,21 @@ public sealed class DeviceRelayClient : IDisposable {
             var risk=item.GetProperty("requiresApproval").GetBoolean();
             var kind=item.GetProperty("kind").GetString()??"";
             var status="failed";var errorCode="POLICY_DENIED";var detail="Дія недозволена.";
+            // Signed Windows key asks the Worker again immediately before
+            // performing work; revocation during the queue lease fails closed.
+            var granted=false;
             if(expires>now && (origin is "watch" or "phone") && raw.Length>0 &&
-                SignedDeviceLocalPolicy.IsAllowed(_settings,origin,kind,risk)) {
+               SignedDeviceLocalPolicy.IsAllowed(_settings,origin,kind,risk)) {
+                try {
+                    using var verified=await _signed.SignedPostAsync(
+                        "/device/v2/commands/authorize",
+                        new {requestId=id.ToString()},cancel);
+                    granted=verified.RootElement.TryGetProperty("authorized",out var permitted)
+                        && permitted.GetBoolean();
+                }catch(OperationCanceledException){throw;}
+                catch(Exception){granted=false;}
+            }
+            if(granted) {
                 if(!_receipts.TryClaim(id,out var prior)) {
                     status=prior?.Ok.HasValue==true?(prior.Ok.Value?"completed":"failed"):"unknown";
                     errorCode=prior?.Ok.HasValue==true?"":"RESULT_UNKNOWN";
@@ -163,6 +176,9 @@ public sealed class DeviceRelayClient : IDisposable {
             } else if(expires<=now) {
                 status="unknown";errorCode="EXPIRED";
                 detail="Команда прострочена й не виконувалася.";
+            } else {
+                errorCode="PERMISSION_REVOKED";
+                detail="Дозвіл на виконання відкликано або сервер не підтвердив його.";
             }
             try {
                 using var ack=await _signed.SignedPostAsync("/device/v2/commands/ack",new {
