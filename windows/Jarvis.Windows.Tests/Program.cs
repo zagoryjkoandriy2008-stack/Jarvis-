@@ -209,4 +209,52 @@ Check(!DeviceTrustPolicy.IsValid(new DeviceCommandV2(2,Guid.NewGuid(),
     "watch","computer","windows.lock",new(),DateTimeOffset.UtcNow,
     DateTimeOffset.UtcNow.AddMinutes(1),false,"watch"),DateTimeOffset.UtcNow),
     "v2 remote lock requires approval");
+
+var clip=ClipboardBridge.Create("computer","Український текст",DateTimeOffset.UtcNow);
+Check(ClipboardBridge.Accept(clip,DateTimeOffset.UtcNow,"phone",null),"explicit clipboard accepted");
+Check(!ClipboardBridge.Accept(clip,DateTimeOffset.UtcNow,"phone",clip.Hash),"clipboard loop prevented");
+Check(!ClipboardBridge.Accept(clip,DateTimeOffset.UtcNow.AddSeconds(60),"phone",null),"clipboard TTL");
+try{ClipboardBridge.Create("computer","sk-proj-secret",DateTimeOffset.UtcNow);
+    throw new Exception("clipboard secret permitted");}
+catch(InvalidOperationException){assertions++;}
+var sampleDirectory=Path.Combine(Path.GetTempPath(),"jarvis-chunks-"+Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(sampleDirectory);
+try{
+    var sourcePath=Path.Combine(sampleDirectory,"source.bin");
+    var encryptedFolder=Path.Combine(sampleDirectory,"enc");
+    var restoredPath=Path.Combine(sampleDirectory,"received.bin");
+    var sourceData=new byte[LargeFileTransferService.ChunkBytes*2+27];
+    System.Security.Cryptography.RandomNumberGenerator.Fill(sourceData);
+    await File.WriteAllBytesAsync(sourcePath,sourceData);
+    var key=new byte[32];
+    System.Security.Cryptography.RandomNumberGenerator.Fill(key);
+    var manifest=await LargeFileTransferService.EncryptToDirectoryAsync(
+        sourcePath,encryptedFolder,key,null,CancellationToken.None);
+    Check(manifest.Chunks==3 && manifest.TotalBytes==sourceData.LongLength,
+        "large-file streaming creates correct chunk count");
+    await LargeFileTransferService.RestoreAsync(manifest,encryptedFolder,
+        restoredPath,key,null,CancellationToken.None);
+    Check(File.ReadAllBytes(restoredPath).SequenceEqual(sourceData),
+        "large-file AEAD restore passes byte-perfect comparison");
+    var wrongKey=new byte[32];
+    System.Security.Cryptography.RandomNumberGenerator.Fill(wrongKey);
+    var tamperedDestination=Path.Combine(sampleDirectory,"should-not-exist.bin");
+    try{
+        await LargeFileTransferService.RestoreAsync(manifest,encryptedFolder,
+            tamperedDestination,wrongKey,null,CancellationToken.None);
+        throw new Exception("wrong AEAD key accepted");
+    }catch(System.Security.Cryptography.CryptographicException){assertions++;}
+    Check(!File.Exists(tamperedDestination),"failed decrypt cannot leave output");
+    var chunkPath=Path.Combine(encryptedFolder,manifest.TransferId.ToString("N")+".00001.jfc");
+    var part=File.ReadAllBytes(chunkPath);
+    part[^1]^=0x10;
+    await File.WriteAllBytesAsync(chunkPath,part);
+    var tampered=Path.Combine(sampleDirectory,"tamper.bin");
+    try{
+        await LargeFileTransferService.RestoreAsync(manifest,encryptedFolder,
+            tampered,key,null,CancellationToken.None);
+        throw new Exception("corrupted transfer accepted");
+    }catch(System.Security.Cryptography.CryptographicException){assertions++;}
+    Check(!File.Exists(tampered),"tampered output deleted");
+}finally{Directory.Delete(sampleDirectory,true);}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
