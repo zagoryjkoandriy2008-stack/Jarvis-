@@ -5253,6 +5253,7 @@ public final class MainActivity extends Activity implements RecognitionListener 
                change==JarvisDeviceRelayRules.Target.WATCH ||
                (!isWatchDevice && change==JarvisDeviceRelayRules.Target.PHONE)) {
                 deviceControlTarget=change;
+                if(!isWatchDevice)JarvisDeviceTargetSession.select(change);
                 if(watchDeviceBadge!=null)
                     watchDeviceBadge.setText(JarvisDeviceRelayRules.icon(change));
                 if(isWatchDevice && JarvisPhoneMode.isActive())
@@ -5297,13 +5298,15 @@ public final class MainActivity extends Activity implements RecognitionListener 
             });
             return;
         }
+        JarvisDeviceRelayRules.Target phoneTarget=
+            JarvisDeviceTargetSession.get();
         if(!isWatchDevice && change==JarvisDeviceRelayRules.Target.NONE &&
-           (deviceControlTarget==JarvisDeviceRelayRules.Target.COMPUTER ||
-            deviceControlTarget==JarvisDeviceRelayRules.Target.WATCH) &&
+           (phoneTarget==JarvisDeviceRelayRules.Target.COMPUTER ||
+            phoneTarget==JarvisDeviceRelayRules.Target.WATCH) &&
            !JarvisDeviceRelayRules.isFinance(raw)) {
-            String target=deviceControlTarget==JarvisDeviceRelayRules.Target.COMPUTER
+            String target=phoneTarget==JarvisDeviceRelayRules.Target.COMPUTER
                 ?"computer":"watch";
-            setStatus(JarvisDeviceRelayRules.icon(deviceControlTarget)+
+            setStatus(JarvisDeviceRelayRules.icon(phoneTarget)+
                 " Передаю команду іншому пристрою…");
             JarvisDeviceRelay.send(this,"phone",target,raw,(ok,detail)->{
                 if(isFinishing()||isDestroyed())return;
