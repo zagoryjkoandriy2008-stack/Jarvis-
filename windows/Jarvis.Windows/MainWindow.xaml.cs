@@ -237,7 +237,8 @@ public partial class MainWindow : Window {
                     await RunMacroV2ExclusiveAsync(candidate,false);
             }));
         };
-        _macroEvents.Start();
+        _macroEvents.Start(_state.MacrosV2.Any(m=>m.Enabled &&
+            m.EventTrigger.StartsWith("app.active:",StringComparison.Ordinal)));
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
         _floating=new FloatingOrb();
         _floating.ListenRequested+=ToggleListening;
@@ -720,8 +721,18 @@ public partial class MainWindow : Window {
             var macro=MacroV2Engine.New(MacroV2Name.Text,MacroV2Trigger.Text,
                 MacroV2Schedule.Text,MacroV2Conditions.Text,MacroV2Steps.Text,
                 MacroV2Event.Text,cooldownSeconds);
+            // An edit must not reset the persisted cooldown or re-run a
+            // scheduled macro on the same day. Preserve stable identity.
+            var previous=_state.MacrosV2.FirstOrDefault(m=>
+                m.Name.Equals(macro.Name,StringComparison.OrdinalIgnoreCase));
+            if(previous!=null) {
+                macro.Id=previous.Id;
+                macro.LastRun=previous.LastRun;
+            }
             _state.MacrosV2.RemoveAll(m=>m.Name.Equals(macro.Name,StringComparison.OrdinalIgnoreCase));
             _state.MacrosV2.Add(macro);_store.Save(_state);
+            _macroEvents.SetForegroundTrackingEnabled(_state.MacrosV2.Any(m=>
+                m.Enabled && m.EventTrigger.StartsWith("app.active:",StringComparison.Ordinal)));
             RefreshMacros();Status("Макрос v2 збережено.");
         }catch(Exception ex){Reply("Макрос v2: "+ex.Message,false);}
     }

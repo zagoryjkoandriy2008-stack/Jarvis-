@@ -323,4 +323,24 @@ try {
     MacroV2Engine.New("Мережева подія","тест","","","гучність 20","network.online",-1);
     throw new Exception("negative macro cooldown accepted");
 }catch(ArgumentException){assertions++;}
+
+var appMacro=MacroV2Engine.New("Блокнот активний","блокнот","","",
+    "гучність 20","APP.ACTIVE:Notepad",120);
+Check(appMacro.EventTrigger=="app.active:notepad",
+    "v2 app process event normalized to lowercase");
+Check(MacroV2Engine.EventDue(appMacro,"app.active:notepad",DateTimeOffset.UtcNow),
+    "v2 app activation event matches exact process");
+Check(!MacroV2Engine.EventDue(appMacro,"app.active:calc",DateTimeOffset.UtcNow),
+    "v2 app activation does not match neighboring process");
+try {
+    MacroV2Engine.New("Злочинний тригер","хибна команда","","",
+        "гучність 20","app.active:../../powershell");
+    throw new Exception("v2 untrusted app path accepted");
+} catch(ArgumentException){assertions++;}
+try {
+    MacroV2Engine.New("Злочинний тригер","хибна команда","","",
+        "гучність 20","app.active:");
+    throw new Exception("v2 blank app name accepted");
+} catch(ArgumentException){assertions++;}
+
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

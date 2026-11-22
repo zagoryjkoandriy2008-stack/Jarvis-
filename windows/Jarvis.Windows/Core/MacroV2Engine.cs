@@ -7,7 +7,7 @@ public sealed class MacroDefinitionV2 {
     public string Trigger { get; set; } = "";
     public bool Enabled { get; set; } = true;
     public string ScheduleLocal { get; set; } = ""; // HH:mm in Windows timezone, empty=voice only
-    public string EventTrigger { get; set; } = ""; // opt-in network.online/offline
+    public string EventTrigger { get; set; } = ""; // opt-in network.online/offline or app.active:process
     public List<string> Conditions { get; set; } = new();
     public List<string> Steps { get; set; } = new();
     public DateTimeOffset? LastRun { get; set; }
@@ -32,7 +32,7 @@ public static class MacroV2Engine {
             string conditionLines,string actionLines,string eventTrigger="",int cooldownSeconds=60) {
         var m=new MacroDefinitionV2 {
             Name=name.Trim(),Trigger=trigger.Trim(),ScheduleLocal=schedule.Trim(),
-            EventTrigger=eventTrigger.Trim(),CooldownSeconds=cooldownSeconds,
+            EventTrigger=eventTrigger.Trim().ToLowerInvariant(),CooldownSeconds=cooldownSeconds,
             Conditions=conditionLines.Split(new[]{'\r','\n'},
                 StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries).ToList(),
             Steps=actionLines.Split(new[]{'\r','\n'},
@@ -50,8 +50,11 @@ public static class MacroV2Engine {
                 macro.ScheduleLocal,"HH:mm",CultureInfo.InvariantCulture,
                 DateTimeStyles.None,out _))
             throw new ArgumentException("Розклад: HH:mm або порожнє поле.");
-        if(macro.EventTrigger is not ("" or "network.online" or "network.offline"))
-            throw new ArgumentException("Подія має бути network.online або network.offline.");
+        if(macro.EventTrigger is not ("" or "network.online" or "network.offline") &&
+           !System.Text.RegularExpressions.Regex.IsMatch(macro.EventTrigger,
+              @"^app\.active:[a-z0-9._-]{1,50}$"))
+            throw new ArgumentException(
+                "Подія: network.online, network.offline або app.active:ім'я_процесу.");
         foreach(var condition in macro.Conditions)ValidateCondition(condition);
         var root=Compile(macro.Steps);
         if(ExpandedCount(root)>30)throw new ArgumentException("Макрос має максимум 30 фактичних дій.");
@@ -118,7 +121,7 @@ public static class MacroV2Engine {
             DateTimeOffset now) =>
         macro.Enabled &&
         macro.EventTrigger.Length>0 &&
-        macro.EventTrigger.Equals(eventName,StringComparison.Ordinal) &&
+        macro.EventTrigger.Equals(eventName,StringComparison.OrdinalIgnoreCase) &&
         CooldownElapsed(macro,now);
 
     public static bool ScheduleDue(MacroDefinitionV2 m,DateTimeOffset now) {
