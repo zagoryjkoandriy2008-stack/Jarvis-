@@ -17,6 +17,7 @@ public partial class MainWindow : Window {
     private readonly FinanceService _finance;
     private DeviceRelayClient? _relay;
     private readonly WindowsScreenPublisher _screenPublisher;
+    private string? _pendingControlSession;
     private FloatingOrb? _floating;
     private JarvisDevice _target=JarvisDevice.Computer;
     private readonly CancellationTokenSource _lifetime=new();
@@ -55,6 +56,31 @@ public partial class MainWindow : Window {
                 Status(detail);
             }));
         };
+        _screenPublisher.ControlRequested+=session=>Dispatcher.BeginInvoke(
+            new Action(()=>{
+                if(!_state.Settings.EnableRemoteControl||
+                   !_state.Settings.EnableScreenShare)return;
+                _pendingControlSession=session;
+                ControlRequestPanel.Visibility=Visibility.Visible;
+                ControlActivePanel.Visibility=Visibility.Collapsed;
+                // This is the single visible user-consent gate. Only
+                // clicking Allow on the Windows machine enables input.
+                Show();
+                WindowState=WindowState.Normal;
+                Activate();
+                Status("📱 Pixel просить керувати мишею і клавіатурою. "+
+                    "Підтверди або відхили на Windows.");
+            }));
+        _screenPublisher.ControlStatus+=(active,detail)=>Dispatcher.BeginInvoke(
+            new Action(()=>{
+                ControlActivePanel.Visibility=active
+                    ?Visibility.Visible:Visibility.Collapsed;
+                if(!active) {
+                    ControlRequestPanel.Visibility=Visibility.Collapsed;
+                    _pendingControlSession=null;
+                }
+                Status(detail);
+            }));
         _=_screenPublisher.RunAsync(_lifetime.Token);
         try {
             _relay=new DeviceRelayClient(_store,_state.Settings);
@@ -77,6 +103,7 @@ public partial class MainWindow : Window {
         StayOnTop.IsChecked=_state.Settings.OnTop;
         EnableDeviceRelay.IsChecked=_state.Settings.EnableDeviceRelay;
         EnableScreenShare.IsChecked=_state.Settings.EnableScreenShare;
+        EnableRemoteControl.IsChecked=_state.Settings.EnableRemoteControl;
         ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
         Topmost=_state.Settings.OnTop;
         NotesText.Text=_state.Notes;
@@ -371,11 +398,41 @@ public partial class MainWindow : Window {
     private void StayOnTop_Changed(object sender,RoutedEventArgs e) {
         if(IsLoaded)Topmost=StayOnTop.IsChecked==true;
     }
+    private async void AllowControl_Click(object sender,RoutedEventArgs e) {
+        string? session=_pendingControlSession;
+        if(session==null)return;
+        ControlRequestPanel.Visibility=Visibility.Collapsed;
+        try {
+            bool ok=await _screenPublisher.DecideControlAsync(session,true);
+            if(!ok)Status("Запит на керування застарів або дозвіл вимкнений.");
+        }catch(Exception ex){
+            Status("Не вдалося дозволити керування: "+ex.Message);
+        }finally {_pendingControlSession=null;}
+    }
+    private async void DenyControl_Click(object sender,RoutedEventArgs e) {
+        string? session=_pendingControlSession;
+        ControlRequestPanel.Visibility=Visibility.Collapsed;
+        _pendingControlSession=null;
+        if(session==null)return;
+        try {await _screenPublisher.DecideControlAsync(session,false);}
+        catch(Exception ex){Status("Відхилення: "+ex.Message);}
+    }
+    private async void StopControl_Click(object sender,RoutedEventArgs e) {
+        _pendingControlSession=null;
+        ControlRequestPanel.Visibility=Visibility.Collapsed;
+        ControlActivePanel.Visibility=Visibility.Collapsed;
+        await _screenPublisher.DisableControlAsync();
+    }
     private void StopScreenShare_Click(object sender,RoutedEventArgs e) {
         // This is an immediate local revocation; the publisher checks the
         // same settings flag before every capture and every upload.
         _state.Settings.EnableScreenShare=false;
+        _state.Settings.EnableRemoteControl=false;
         EnableScreenShare.IsChecked=false;
+        EnableRemoteControl.IsChecked=false;
+        ControlRequestPanel.Visibility=Visibility.Collapsed;
+        ControlActivePanel.Visibility=Visibility.Collapsed;
+        _pendingControlSession=null;
         _store.Save(_state);
         _=_screenPublisher.RevokeAsync();
         ScreenShareIndicator.Visibility=Visibility.Collapsed;
@@ -394,9 +451,22 @@ public partial class MainWindow : Window {
             _state.Settings.OnTop=StayOnTop.IsChecked==true;
             if(EnableScreenShare.IsChecked==true && EnableDeviceRelay.IsChecked!=true)
                 throw new InvalidOperationException("Спочатку дозволь зв'язок пристроїв через Cloudflare.");
+            if(EnableRemoteControl.IsChecked==true &&
+               (EnableScreenShare.IsChecked!=true || EnableDeviceRelay.IsChecked!=true))
+                throw new InvalidOperationException(
+                    "Для дистанційної миші й клавіатури потрібно спочатку дозволити "+
+                    "перегляд екрана та зв'язок пристроїв.");
             bool previouslySharingAllowed=_state.Settings.EnableScreenShare;
+            bool previouslyControlAllowed=_state.Settings.EnableRemoteControl;
             _state.Settings.EnableDeviceRelay=EnableDeviceRelay.IsChecked==true;
             _state.Settings.EnableScreenShare=EnableScreenShare.IsChecked==true;
+            _state.Settings.EnableRemoteControl=EnableRemoteControl.IsChecked==true;
+            if(previouslyControlAllowed && !_state.Settings.EnableRemoteControl) {
+                _pendingControlSession=null;
+                ControlRequestPanel.Visibility=Visibility.Collapsed;
+                ControlActivePanel.Visibility=Visibility.Collapsed;
+                _=_screenPublisher.DisableControlAsync();
+            }
             if(previouslySharingAllowed && !_state.Settings.EnableScreenShare)
                 _=_screenPublisher.RevokeAsync();
             _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
