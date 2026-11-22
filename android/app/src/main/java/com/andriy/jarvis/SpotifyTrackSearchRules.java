@@ -235,6 +235,38 @@ public final class SpotifyTrackSearchRules {
         return title;
     }
 
+    /** The plural category chips (Songs, Albums, Playlists, Artists) identify
+     * Spotify's SEARCH RESULTS, not an opened playlist detail. A song title
+     * can match the search query and be large enough to look like a heading;
+     * that is NEVER evidence of a playlist page or authorization to tap Play.
+     * Returns a canonical category for deduplicating nested Compose nodes. */
+    public static String searchFilterCategory(String raw) {
+        String s=normal(raw);
+        if(s.endsWith(" вибрано"))s=s.substring(0,s.length()-" вибрано".length());
+        if(s.endsWith(" selected"))s=s.substring(0,s.length()-" selected".length());
+        switch(s) {
+            case "пісні": case "песни": case "songs": return "songs";
+            case "альбоми": case "альбомы": case "albums": return "albums";
+            case "плейлісти": case "плейлисты": case "плейлисти":
+            case "playlists": return "playlists";
+            case "виконавці": case "исполнители": case "artists":
+            case "артисти": return "artists";
+            default: return "";
+        }
+    }
+
+    /** Spotify search chips live in the upper content bar. A same-word
+     * heading elsewhere on the screen is not a search-filter signature. */
+    public static boolean searchFilterChip(String raw,int x,int y,int w,int h,
+            int left,int top,int right,int bottom) {
+        int pw=right-left,ph=bottom-top;
+        return !searchFilterCategory(raw).isEmpty() &&
+            pw>=240 && ph>=400 && w>=18 && h>=12 &&
+            w<pw*.58f && h<ph*.095f &&
+            x>left+pw*.02f && x<right-pw*.02f &&
+            y>top+ph*.075f && y<top+ph*.315f;
+    }
+
     /** When Spotify withholds every Song/Playlist subtitle, prefer the
      * first VISIBLE result-title node after the filter chips, not a
      * same-name track lower down. Geometry is guarded by the actual
