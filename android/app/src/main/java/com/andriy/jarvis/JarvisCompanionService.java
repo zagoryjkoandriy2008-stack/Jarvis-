@@ -120,6 +120,10 @@ public final class JarvisCompanionService extends Service {
                 startForeground(NOTIFICATION_ID,notification);
             }
             foregroundStarted = true;
+            // Owner opted into cross-device commands separately. This does
+            // not activate the microphone or change the Watch7 Data Layer.
+            if(JarvisDeviceRelay.enabled(this))
+                JarvisDeviceRelay.startPhone(this);
             return START_STICKY;
         } catch (RuntimeException error) {
             Log.e(TAG,"Cannot start connected-device foreground service",error);
@@ -129,6 +133,7 @@ public final class JarvisCompanionService extends Service {
     }
 
     @Override public void onDestroy() {
+        JarvisDeviceRelay.stop();
         foregroundStarted = false;
         super.onDestroy();
     }
