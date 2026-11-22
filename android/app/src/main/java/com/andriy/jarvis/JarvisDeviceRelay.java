@@ -217,7 +217,7 @@ public final class JarvisDeviceRelay {
                                  boolean ok,String detail) {
         if(!JarvisWearProtocol.validId(id))return;
         final String safeDetail=detail==null?"":detail.substring(
-            0,Math.min(1000,detail.length()));
+            0,Math.min(4500,detail.length()));
         // Persist ACK before network I/O. If the Worker lease expires before
         // the ACK, resend the same result, NEVER re-execute the action.
         app.getSharedPreferences(PREFS,0).edit().putString("result:"+id,
