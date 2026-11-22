@@ -80,3 +80,22 @@ test('alarm deletes device commands even after clients have gone offline',async(
   await relay.alarm();
   assert.equal(state.storage.map.has('m:'+id),false);
 });
+
+test('later commands never postpone an earlier expiry alarm',async()=>{
+  const st=storage();
+  let alarm=null;
+  let alarmCalls=0;
+  st.getAlarm=async()=>alarm;
+  st.setAlarm=async due=>{alarmCalls++;alarm=due};
+  const relay=new DeviceRelay({storage:st},{});
+  const first=await call(relay,'POST','/device/v1/send',sample);
+  assert.equal(first.status,202);
+  const original=alarm;
+  const next=await call(relay,'POST','/device/v1/send',{
+    ...sample,id:'35c8d264-bca6-4a33-9155-84224d2fef02',
+    command:'увімкни реп'
+  });
+  assert.equal(next.status,202);
+  assert.equal(alarm,original,'a newer request must not extend older TTL');
+  assert.equal(alarmCalls,1,'do not reset expiry timer on every message');
+});
