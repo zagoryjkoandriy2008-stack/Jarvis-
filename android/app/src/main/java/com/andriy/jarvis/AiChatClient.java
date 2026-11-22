@@ -382,8 +382,13 @@ public final class AiChatClient {
                 try(OutputStream out=connection.getOutputStream()){out.write(data);}
             }
             int status=connection.getResponseCode();
-            if(status==401 || status==403)throw new Exception(
+            if(status==401)throw new Exception(
                 "Невірний особистий код Worker для підключення пристроїв.");
+            if(status==403 && route.startsWith("/device/v1/screen/"))
+                throw new IllegalStateException(
+                    "Сеанс перегляду завершився. Закрий і відкрий екран повторно.");
+            if(status==403)throw new Exception(
+                "Сервер заборонив цю дистанційну дію.");
             if(status==503)throw new Exception("Cloudflare Relay не розгорнуто.");
             if(status<200 || status>=300)throw new Exception(
                 "JARVIS Relay HTTP "+status+".");
