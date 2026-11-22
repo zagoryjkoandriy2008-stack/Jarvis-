@@ -137,8 +137,7 @@ public final class JarvisWindowsScreenActivity extends Activity {
         sendText.setText("Написати");
         sendText.setOnClickListener(v->{
             String value=remoteText.getText().toString();
-            if(value.isEmpty()||value.length()>160 || value.contains("\\n") ||
-               value.contains("\\r")) {
+            if(value.isEmpty()||value.length()>160 || hasControlChars(value)) {
                 status.setText("Текст має бути від 1 до 160 символів.");
                 return;
             }
@@ -179,6 +178,12 @@ public final class JarvisWindowsScreenActivity extends Activity {
         down.setOnClickListener(v->sendScroll(-3));
         scrollButtons.addView(down,new LinearLayout.LayoutParams(0,dp(43),1));
         controlTools.addView(scrollButtons);
+        Button leaveControl=new Button(this);
+        leaveControl.setText("■ Завершити керування, залишити перегляд");
+        leaveControl.setTextSize(12);
+        leaveControl.setOnClickListener(v->stopControl());
+        controlTools.addView(leaveControl,new LinearLayout.LayoutParams(
+            -1,dp(44)));
         bottom.addView(controlTools);
         FrameLayout.LayoutParams bottomParams=new FrameLayout.LayoutParams(
             -1,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.BOTTOM);
@@ -199,6 +204,14 @@ public final class JarvisWindowsScreenActivity extends Activity {
             status.setText("Налаштуй HTTPS Cloudflare Worker у JARVIS на Pixel.");
             return;
         }
+        controlling=false;
+        freshFrameAt=0;
+        requestControl.setEnabled(true);
+        requestControl.setText("🖱 Попросити керування");
+        requestControl.setVisibility(View.VISIBLE);
+        controlTools.setVisibility(View.GONE);
+        lastTap=null;
+        lastTapAt=0;
         visible=true;
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         final String session=UUID.randomUUID().toString();
@@ -242,8 +255,8 @@ public final class JarvisWindowsScreenActivity extends Activity {
                             status.setText("Windows відхилив керування. "+
                                 "Закрий перегляд і відкрий заново.");
                         }else if(approved) {
-                            status.setText("🖱 Керування дозволено. Натискай "+
-                                "на іконки ПК; двічі — подвійний клік.");
+                            status.setText("🖱 Керування дозволено: торкнись "+
+                                "для кліку, двічі — подвійний, довго — правий клік.");
                         }
                     });
                     nextControlCheck=now+1650;
@@ -274,8 +287,11 @@ public final class JarvisWindowsScreenActivity extends Activity {
                     ui.post(()->{
                         if(visible && session.equals(activeSession)) {
                             showBitmap(ready);
-                            status.setText("● Windows онлайн · тільки перегляд "+
-                                "· зображення оновлюється автоматично");
+                            if(controlling)status.setText(
+                                "🖱 Ти керуєш Windows · дотики, клавіші, текст.");
+                            else if(requestControl.isEnabled())
+                                status.setText("● Windows онлайн · "+
+                                    "натисни «Попросити керування» для керування ПК.");
                         }else ready.recycle();
                     });
                 } else if(System.currentTimeMillis()-lastFrame>5000) {
@@ -322,6 +338,28 @@ public final class JarvisWindowsScreenActivity extends Activity {
                 "та налаштування приватного Cloudflare Relay.");
     }
 
+    private static boolean hasControlChars(String value) {
+        for(int i=0;i<value.length();i++)
+            if(Character.isISOControl(value.charAt(i)))return true;
+        return false;
+    }
+    private void stopControl() {
+        String session=activeSession;
+        if(!visible||session==null)return;
+        controlling=false;
+        controlTools.setVisibility(View.GONE);
+        status.setText("Дистанційне керування вимкнено на Pixel.");
+        remoteInput.execute(()->{
+            try {
+                new AiChatClient(getApplicationContext()).deviceRelayRequest(
+                    "/device/v1/screen/control/disable?session="+session,
+                    "POST",new JSONObject());
+            }catch(Exception error) {
+                showStatus(session,"Керування вимкнено на Pixel. "+
+                    "Windows завершить його після втрати зв'язку.");
+            }
+        });
+    }
     private void requestControl() {
         String session=activeSession;
         if(!visible||session==null)return;
