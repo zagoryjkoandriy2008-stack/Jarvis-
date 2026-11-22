@@ -27,12 +27,12 @@
           FontSize="14" Padding="0" ToolTip="Режим комп'ютер"/>
       </StackPanel>
     </StackPanel>
-    <Border.ContextMenu>
+    <Grid.ContextMenu>
       <ContextMenu>
         <MenuItem Header="Відкрити JARVIS" Click="ShowMain_Click"/>
         <MenuItem Header="Почати слухати" Click="OrbButton_Click"/>
         <MenuItem Header="Приховати плаваюче вікно" Click="HideOrb_Click"/>
       </ContextMenu>
-    </Border.ContextMenu>
+    </Grid.ContextMenu>
   </Grid>
 </Window>
