@@ -15,6 +15,9 @@ public partial class MainWindow : Window {
     private readonly VoiceService _voice=new();
     private readonly AiClient _ai=new();
     private readonly FinanceService _finance;
+    private DeviceRelayClient? _relay;
+    private FloatingOrb? _floating;
+    private JarvisDevice _target=JarvisDevice.Computer;
     private readonly CancellationTokenSource _lifetime=new();
     private CancellationTokenSource? _operation;
     private HwndSource? _source;
@@ -37,9 +40,15 @@ public partial class MainWindow : Window {
             throw;
         }
         _finance=new FinanceService(_state,_store);
+        _relay=new DeviceRelayClient(_store,_state.Settings);
+        _relay.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
+        _relay.CommandReceived+=HandleRemoteOnUiAsync;
+        _=_relay.ListenAsync(_lifetime.Token);
         WorkerUrl.Text=_state.Settings.WorkerUrl;
         SpeakReplies.IsChecked=_state.Settings.SpeakReplies;
         StayOnTop.IsChecked=_state.Settings.OnTop;
+        EnableDeviceRelay.IsChecked=_state.Settings.EnableDeviceRelay;
+        ShowFloatingOrb.IsChecked=_state.Settings.ShowFloatingOrb;
         Topmost=_state.Settings.OnTop;
         NotesText.Text=_state.Notes;
         VoiceChoices.ItemsSource=_voice.Voices;
@@ -56,6 +65,14 @@ public partial class MainWindow : Window {
         RefreshFinance();
         RefreshMacros();
         Append("JARVIS","Windows-версія запущена. Для голосу натисни 🎙 або Ctrl+Shift+J. Якщо українського розпізнавача Windows немає, користуйся текстом.");
+        _floating=new FloatingOrb();
+        _floating.ListenRequested+=ToggleListening;
+        _floating.TargetRequested+=SetTarget;
+        _floating.HideRequested+=()=>_floating.Hide();
+        _floating.ShowRequested+=()=>{Show();WindowState=WindowState.Normal;Activate();};
+        _floating.SetTarget(_target);
+        if(_state.Settings.ShowFloatingOrb)_floating.Show();
+        CurrentDeviceLabel.Text=DeviceRouting.Label(_target);
         SourceInitialized+=OnSourceInitialized;
         Closing+=OnClosing;
     }
@@ -83,6 +100,8 @@ public partial class MainWindow : Window {
         _lifetime.Cancel();
         _operation?.Cancel();
         _voice.Dispose();
+        _floating?.Close();
+        _relay?.Dispose();
         _ai.Dispose();
         _lifetime.Dispose();
     }
@@ -94,11 +113,13 @@ public partial class MainWindow : Window {
             _voice.Start(RecognizerChoices.SelectedItem as string);
             MicButton.Content=_voice.IsListening?"■ Слухаю…":"🎙 Слухати";
         }
+        _floating?.SetListening(_voice.IsListening);
     }
     private void MicButton_Click(object sender,RoutedEventArgs e)=>ToggleListening();
     private void StopButton_Click(object sender,RoutedEventArgs e) {
         _voice.StopListening();_voice.StopVoice();_operation?.Cancel();
         MicButton.Content="🎙 Слухати";
+        _floating?.SetListening(false);
         Status("Зупинено.");
     }
     private void CommandInput_KeyDown(object sender,KeyEventArgs e) {
@@ -133,19 +154,36 @@ public partial class MainWindow : Window {
         using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _operation=operation;
         try {
+            var change=DeviceRouting.TargetChange(raw);
+            if(change.HasValue) {
+                SetTarget(change.Value);
+                Reply("Обрано режим "+DeviceRouting.Label(change.Value)+".");
+            } else {
             var macro=MacroEngine.Match(_state,raw);
-            if(macro!=null) {
+            if(macro!=null && _target==JarvisDevice.Computer) {
                 if(_runningMacro)throw new InvalidOperationException("Макрос уже виконується.");
                 await RunMacroAsync(macro,operation.Token);
                 Reply("Макрос «"+macro.Trigger+"» виконано.");
             } else {
                 var cmd=CommandRouter.Parse(raw);
-                await ExecuteAsync(cmd,operation.Token);
+                var destination=DeviceRouting.EffectiveTarget(_target,cmd.Kind);
+                if(destination!=JarvisDevice.Computer) {
+                    if(!_state.Settings.EnableDeviceRelay || _relay==null)
+                        throw new InvalidOperationException("Увімкни Cloudflare Relay у Налаштуваннях для керування іншими пристроями.");
+                    Status("Передаю команду: "+DeviceRouting.Label(destination)+"…");
+                    var response=await _relay.SendCommandAsync(JarvisDevice.Computer,
+                        destination,raw,operation.Token);
+                    if(cmd.Kind is CommandKind.FinanceAdd or CommandKind.FinanceReport &&
+                       response.Ok)FinanceReport.Text=response.Detail;
+                    Reply((response.Ok?"Підтверджено: ":"Не виконано: ")+response.Detail);
+                } else await ExecuteAsync(cmd,operation.Token);
+            }
             }
         } catch(OperationCanceledException) { Status("Команду скасовано."); }
           catch(Exception ex) { Reply("Не вдалося виконати: "+ex.Message,false); }
         finally {
             _busy=false;_operation=null;MicButton.Content="🎙 Слухати";
+            _floating?.SetListening(false);
         }
     }
 
@@ -225,7 +263,9 @@ public partial class MainWindow : Window {
         } finally { _runningMacro=false; }
     }
 
-    private void RefreshFinance()=>FinanceReport.Text=_finance.Report();
+    private void RefreshFinance()=>FinanceReport.Text=
+        "Локальні записи ранньої Preview (не синхронізовані, лише перегляд):\\n"+
+        _finance.Report()+"\\nДля єдиного JARVIS Finance використовуй з'єднання з Pixel.";
     private void RefreshMacros() {
         MacroList.ItemsSource=null;
         MacroList.ItemsSource=_state.Macros.Select(m=>
@@ -269,11 +309,15 @@ public partial class MainWindow : Window {
             _state.Settings.WorkerUrl=url;
             _state.Settings.SpeakReplies=SpeakReplies.IsChecked==true;
             _state.Settings.OnTop=StayOnTop.IsChecked==true;
+            _state.Settings.EnableDeviceRelay=EnableDeviceRelay.IsChecked==true;
+            _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
             _state.Settings.VoiceName=VoiceChoices.SelectedItem as string??"";
             _state.Settings.RecognizerCulture=RecognizerChoices.SelectedItem as string??"";
             _voice.SelectVoice(_state.Settings.VoiceName);
             Topmost=_state.Settings.OnTop;
             _store.Save(_state);
+            if(_state.Settings.ShowFloatingOrb)_floating?.Show();
+            else _floating?.Hide();
             WorkerToken.Clear();
             _ai.ClearHistory();
             Status("Параметри збережено. Код Worker захищений DPAPI.");
@@ -292,4 +336,67 @@ public partial class MainWindow : Window {
         _ai.ClearHistory();ChatHistory.Clear();
         Status("Контекст розмови очищено.");
     }
+
+    private void SetTarget(JarvisDevice selected) {
+        _target=selected;
+        CurrentDeviceLabel.Text=DeviceRouting.Label(selected);
+        _floating?.SetTarget(selected);
+        Status("Активна ціль: "+DeviceRouting.Label(selected)+
+            ". Наступні команди передаються вибраному пристрою.");
+    }
+    private void OrbToggle_Click(object sender,RoutedEventArgs e) {
+        if(_floating==null)return;
+        if(_floating.IsVisible)_floating.Hide();
+        else _floating.Show();
+    }
+    private void TargetPhone_Click(object sender,RoutedEventArgs e)=>SetTarget(JarvisDevice.Phone);
+    private void TargetWatch_Click(object sender,RoutedEventArgs e)=>SetTarget(JarvisDevice.Watch);
+    private void TargetComputer_Click(object sender,RoutedEventArgs e)=>SetTarget(JarvisDevice.Computer);
+    private async void CheckDevices_Click(object sender,RoutedEventArgs e) {
+        if(_relay==null || !_state.Settings.EnableDeviceRelay) {
+            DeviceStatusReport.Text="Включи авторизований Relay у Налаштуваннях, збережи токен Worker.";
+            return;
+        }
+        try {
+            var phone=await _relay.IsOnlineAsync(JarvisDevice.Phone,_lifetime.Token);
+            var watch=await _relay.IsOnlineAsync(JarvisDevice.Watch,_lifetime.Token);
+            DeviceStatusReport.Text="🖥 Windows: працює\n📱 Pixel: "+
+                (phone?"з'єднаний":"офлайн")+"\n⌚ Watch7: "+
+                (watch?"з'єднаний":"офлайн")+
+                "\nЗв'язок потребує активного Android-агента та оновленого Cloudflare Worker.";
+        }catch(Exception error){DeviceStatusReport.Text="Relay: "+error.Message;}
+    }
+
+    /** Execute remote commands only from the authenticated private relay,
+     * not from AI output. Never remotely type into another app, run macros,
+     * launch arbitrary programs, or mutate finance on this Windows machine. */
+    private async Task<DeviceRelayClient.RemoteResult> HandleRemoteOnUiAsync(
+        DeviceRelayClient.RemoteCommand request) {
+        var work=await Dispatcher.InvokeAsync(()=>ExecuteRemoteAsync(request));
+        return await work;
+    }
+    private async Task<DeviceRelayClient.RemoteResult> ExecuteRemoteAsync(
+        DeviceRelayClient.RemoteCommand request) {
+        if(!_state.Settings.EnableDeviceRelay)
+            return new(false,"Користувач Windows вимкнув дистанційне керування.");
+        if(_busy)return new(false,"JARVIS Windows зайнятий.");
+        if(request.Origin is not ("phone" or "watch") ||
+           request.Target!="computer" || request.Command.Length>250)
+            return new(false,"Джерело або команда не дозволені.");
+        var command=CommandRouter.Parse(request.Command);
+        if(command.Kind is not (CommandKind.OpenApp or CommandKind.OpenSettings
+           or CommandKind.Volume or CommandKind.MediaToggle or CommandKind.MediaNext
+           or CommandKind.MediaPrevious or CommandKind.Speak or CommandKind.Timer
+           or CommandKind.WebSearch or CommandKind.SpotifySearch
+           or CommandKind.SpotifyPlaylist))
+            return new(false,"Команда не дозволена для дистанційного Windows. "+
+                "Фінанси завжди виконуються на Pixel.");
+        try {
+            await ExecuteAsync(command,_lifetime.Token);
+            return new(true,"Windows обробив: "+request.Command);
+        }catch(Exception failure) {
+            return new(false,"Windows: "+failure.Message);
+        }
+    }
+
 }
