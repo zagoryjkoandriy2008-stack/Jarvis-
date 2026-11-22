@@ -56,6 +56,12 @@ public final class JarvisWatchSpotifyController {
         playIndexed(context,kind,title,0,false,completion,null);
     }
 
+    /** Explicit "Відкрий Spotify" starts a new UI session, so an old
+     * search cursor cannot later drive "Не та пісня" to a stale list. */
+    public static void clearSearchAfterExplicitOpen() {
+        RESULT_CURSOR.clear();
+    }
+
     private static void playIndexed(Context context,SpotifyMusicCommands.Kind kind,
             String title,int resultOrdinal,boolean followup,
             JarvisWatchLocalController.Callback completion) {
@@ -91,16 +97,25 @@ public final class JarvisWatchSpotifyController {
             completion.finished(false,"Установи Spotify на Galaxy Watch7 та увійди в акаунт.");
             return;
         }
+        // A fresh spoken Spotify command must NOT reopen the previous
+        // song/playlist screen. CLEAR_TASK resets the Android task without
+        // force-stopping Spotify or erasing downloads/account state.
+        // The voice follow-up "Не та пісня" preserves search results instead.
+        boolean fresh=JarvisWatchSpotifyLaunchPolicy.freshTaskForMusic(kind,followup);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            (fresh ? Intent.FLAG_ACTIVITY_CLEAR_TASK :
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
         boolean deepLinkOpened=false;
         String playlistLink=SpotifyPlaylistSyncRules.playlistLink(syncedPlaylistUri);
         if(playlistLink!=null) {
             Intent deep=new Intent(Intent.ACTION_VIEW,Uri.parse(playlistLink));
             deep.setPackage(PACKAGE); // Never send the saved link to a browser or Pixel.
             deep.addCategory(Intent.CATEGORY_BROWSABLE);
+            // A saved-playlist deep link is the *new requested destination*,
+            // not a reason to preserve a stale Spotify task.
             deep.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                (fresh ? Intent.FLAG_ACTIVITY_CLEAR_TASK :
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
             try {
                 if(deep.resolveActivity(context.getPackageManager())!=null) {
                     context.startActivity(deep);
@@ -127,6 +142,8 @@ public final class JarvisWatchSpotifyController {
         }
         if(kind==SpotifyMusicCommands.Kind.TRACK && !followup)
             RESULT_CURSOR.begin(title,SystemClock.elapsedRealtime());
+        else if(JarvisWatchSpotifyLaunchPolicy.clearPreviousSongCursor(kind))
+            RESULT_CURSOR.clear();
         Session session=new Session(context.getApplicationContext(),
             kind,title,resultOrdinal,followup,completion,
             playlistLink!=null,deepLinkOpened);
