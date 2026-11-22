@@ -53,6 +53,16 @@ export class ScreenRelayState {
     this.frame=null;
     this.frameTime=0;
     this.previousUpload=0;
+    // A Windows owner revocation is final for this viewer ID. Without
+    // a deny-list, a still-running Pixel heartbeat would simply re-open
+    // the SAME session and re-enable capture a few seconds later.
+    this.revokedSessions=new Map();
+  }
+  recentlyRevoked(session) {
+    const now=this.clock();
+    for(const [id,at] of this.revokedSessions)
+      if(now-at>120_000)this.revokedSessions.delete(id);
+    return this.revokedSessions.has(session);
   }
   active() {
     if(!this.session)return false;
@@ -76,6 +86,8 @@ export class ScreenRelayState {
       catch(_) {return json({error:'Invalid viewer request'},400);}
       if(body?.device!=='phone' || !UUID.test(body?.session||''))
         return json({error:'Invalid viewer identity'},400);
+      if(this.recentlyRevoked(body.session))
+        return json({error:'Viewer session revoked; close and reopen manually'},403);
       if(this.active() && this.session!==body.session)
         return json({error:'Screen already has a viewer'},409);
       if(this.session!==body.session) {
@@ -93,6 +105,10 @@ export class ScreenRelayState {
       catch(_) {return json({error:'Invalid revocation'},400);}
       if(!UUID.test(body?.session||''))
         return json({error:'Invalid session'},400);
+      // Persist revocation in RAM long enough for Pixel's existing heartbeat
+      // to stop. Other sessions still require a fresh explicit UI open.
+      this.recentlyRevoked(body.session);
+      this.revokedSessions.set(body.session,this.clock());
       if(this.session===body.session)this.reset();
       return json({active:false});
     }
