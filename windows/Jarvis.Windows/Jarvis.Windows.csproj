@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Jarvis.Windows</AssemblyName>
+    <RootNamespace>Jarvis.Windows</RootNamespace>
+    <ApplicationIcon></ApplicationIcon>
+    <Version>0.1.0</Version>
+    <PublishReadyToRun>false</PublishReadyToRun>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="9.0.11" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.11" />
+  </ItemGroup>
+</Project>
