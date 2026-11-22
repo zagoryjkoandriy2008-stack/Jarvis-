@@ -85,6 +85,17 @@ export class ScreenRelayState {
       this.viewerLastSeen=now;
       return json({active:true,expiresInMs:VIEW_TTL_MS});
     }
+    // The desktop owner can revoke an active session immediately from
+    // Windows, even if the phone remains open and keeps pinging.
+    if(path==='/device/v1/screen/revoke' && method==='POST') {
+      let body;
+      try {body=await request.json();}
+      catch(_) {return json({error:'Invalid revocation'},400);}
+      if(!UUID.test(body?.session||''))
+        return json({error:'Invalid session'},400);
+      if(this.session===body.session)this.reset();
+      return json({active:false});
+    }
     if(path==='/device/v1/screen/stop' && method==='POST') {
       let body;
       try {body=await request.json();}
