@@ -7,7 +7,7 @@ public enum CommandKind {
     Ai, OpenApp, WebSearch, SpotifySearch, SpotifyPlaylist, Volume,
     Speak, NoteAdd, NoteRead, NoteDelete, FinanceAdd, FinanceReport, FinanceRemote, Timer, MediaToggle,
     MediaNext, MediaPrevious, ClickNamed, ScrollPage, TypeIntoActiveWindow, OpenSettings,
-    SystemStatus, AnalyzeScreen, Wait, DeviceList, LockWindows, MonitorOff, MacroRun
+    SystemStatus, AnalyzeScreen, Wait, DeviceList, LockWindows, MonitorOff, MacroRun, AiDesktop
 }
 
 public sealed record ParsedCommand(CommandKind Kind, string Argument = "",
@@ -30,6 +30,10 @@ public static class CommandRouter {
         text=Regex.Replace(text,@"\s+(?:на|у|в)\s+(?:комп'ютері|комп’ютері|компютері|пк|windows)$",
             "",RegexOptions.IgnoreCase).Trim();
         var s = text.ToLowerInvariant().Trim();
+        var desktopTask=Regex.Match(text,
+            @"^(?:керуй екраном|керуй комп'ютером через ші|ші керуй пк)\s*[:：]?\s+(.{2,500})$",
+            RegexOptions.IgnoreCase);
+        if(desktopTask.Success)return new(CommandKind.AiDesktop,desktopTask.Groups[1].Value.Trim());
         if(s is "покажи пристрої" or "список пристроїв" or "статус пристроїв" or "мої пристрої")
             return new(CommandKind.DeviceList);
         if(s is "заблокуй windows" or "заблокуй комп'ютер" or "заблокуй пк")

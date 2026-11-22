@@ -22,6 +22,8 @@
       <StackPanel Grid.Column="1" VerticalAlignment="Center">
         <TextBlock Text="JARVIS / WINDOWS" FontSize="24" FontWeight="Bold" Foreground="#53D7EA"/>
         <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
+        <TextBlock x:Name="AIControlIndicator" Text="🟠 ШІ керує Windows · СТОП для скасування"
+                   Foreground="#FFE69B" FontWeight="Bold" Visibility="Collapsed"/>
         <TextBlock x:Name="ScreenShareIndicator" Text="🔴 Екран транслюється на Pixel" Foreground="#FF786C" FontWeight="Bold" Visibility="Collapsed"/>
         <StackPanel x:Name="ControlRequestPanel" Visibility="Collapsed"
             Orientation="Horizontal" Margin="0,5,0,0">
@@ -180,6 +182,8 @@
                 Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
             <CheckBox x:Name="LaunchAtSignIn" Content="Запускати JARVIS після входу у Windows (без адміністратора)" Margin="0,8"/>
             <CheckBox x:Name="MinimizeToTray" Content="Згортати в трей при закритті вікна" Margin="0,8"/>
+            <CheckBox x:Name="EnableAiDesktop" Content="Дозволяти локальний AI Desktop Agent після підтвердження" Margin="0,8"/>
+            <CheckBox x:Name="UseAiDesktopVision" Content="AI Desktop: передавати JPEG екрана в ШІ під час сесії (за замовчуванням OFF)" Margin="0,8"/>
             <CheckBox x:Name="EnableWakeWord" Content="Офлайн-пробудження «Джарвіс» (потребує Windows-розпізнавача)" Margin="0,8"/>
             <TextBlock Text="За відсутності мовного пакета режим не запускається; whisper.cpp буде додано окремо."
                 Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,6"/>

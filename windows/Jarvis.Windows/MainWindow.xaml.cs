@@ -59,6 +59,7 @@ public partial class MainWindow : Window {
     private bool _busy;
     private bool _runningMacro;
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint pid);
     private static string ActiveProcess() {
         try {
@@ -189,6 +190,8 @@ public partial class MainWindow : Window {
         LaunchAtSignIn.IsChecked=_state.Settings.LaunchAtSignIn;
         MinimizeToTray.IsChecked=_state.Settings.MinimizeToTray;
         EnableWakeWord.IsChecked=_state.Settings.EnableWakeWord;
+        EnableAiDesktop.IsChecked=_state.Settings.EnableAiDesktop;
+        UseAiDesktopVision.IsChecked=_state.Settings.UseAiDesktopVision;
         Topmost=_state.Settings.OnTop;
         NotesText.Text=_state.Notes;
         VoiceChoices.ItemsSource=_voice.Voices;
@@ -400,7 +403,7 @@ public partial class MainWindow : Window {
                 Reply("Макрос «"+macro.Trigger+"» виконано.");
             } else {
                 var cmd=CommandRouter.Parse(raw);
-                var destination=forceComputer || cmd.Kind==CommandKind.AnalyzeScreen
+                var destination=forceComputer || cmd.Kind is CommandKind.AnalyzeScreen or CommandKind.AiDesktop
                     ?JarvisDevice.Computer:DeviceRouting.EffectiveTarget(_target,cmd.Kind);
                 if(destination!=JarvisDevice.Computer) {
                     if(!_state.Settings.EnableDeviceRelay || _relay==null)
@@ -468,6 +471,44 @@ public partial class MainWindow : Window {
             case CommandKind.Wait:
                 await Task.Delay(TimeSpan.FromSeconds(command.Value),token);
                 Reply("Пауза завершилась.",false);break;
+            case CommandKind.AiDesktop:
+                if(!_state.Settings.EnableAiDesktop)
+                    throw new InvalidOperationException("Увімкни AI Desktop Agent у налаштуваннях Windows.");
+                if(System.Windows.MessageBox.Show(
+                    "AI Desktop отримає доступ до доступних елементів активного вікна "+
+                    "та передасть їх у приватний Worker і зовнішній ШІ."+
+                    (_state.Settings.UseAiDesktopVision?
+                    " Також можуть надсилатися скриншоти екрана.":" Скриншоти НЕ передаватимуться.")+
+                    " Дозволити цю одну сесію до 15 кроків? Кнопка Стоп зупиняє наступні дії.",
+                    "JARVIS AI Desktop — локальна згода",MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning)!=MessageBoxResult.Yes)
+                    throw new OperationCanceledException("Сесію AI Desktop відхилено.");
+                var agentToken=_store.ReadWorkerToken();
+                if(string.IsNullOrWhiteSpace(agentToken))
+                    throw new InvalidOperationException("Налаштуй Worker.");
+                AIControlIndicator.Visibility=Visibility.Visible;
+                try {
+                    bool ApproveAiStep(AiDesktopAgent.PlannedStep step) {
+                        // Confirm individual UI modifications on the physical PC.
+                        // After a modal prompt restore the exact prior foreground,
+                        // never click in JARVIS or a different window by accident.
+                        var previous=GetForegroundWindow();
+                        var answer=System.Windows.MessageBox.Show(
+                            "ШІ пропонує: "+step.Kind+" | "+step.Target+
+                            (step.Kind=="setText"?" | текст: "+step.Value:"")+
+                            ". Підтвердити дію на цьому комп'ютері?",
+                            "JARVIS — підтвердження AI-кроку",
+                            MessageBoxButton.YesNo,MessageBoxImage.Warning);
+                        if(answer==MessageBoxResult.Yes && previous!=IntPtr.Zero)
+                            SetForegroundWindow(previous);
+                        return answer==MessageBoxResult.Yes;
+                    }
+                    Reply(await AiDesktopAgent.RunAsync(command.Argument,_ai,
+                        _state.Settings.WorkerUrl,agentToken,
+                        _state.Settings.UseAiDesktopVision,ApproveAiStep,
+                        text=>Status(text),token),false);
+                }finally {AIControlIndicator.Visibility=Visibility.Collapsed;}
+                break;
             case CommandKind.AnalyzeScreen:
                 if(string.IsNullOrWhiteSpace(_state.Settings.WorkerUrl))
                     throw new InvalidOperationException("Налаштуй приватний Cloudflare Worker.");
@@ -719,6 +760,8 @@ public partial class MainWindow : Window {
             _state.Settings.LaunchAtSignIn=LaunchAtSignIn.IsChecked==true;
             _state.Settings.MinimizeToTray=MinimizeToTray.IsChecked==true;
             _state.Settings.EnableWakeWord=EnableWakeWord.IsChecked==true;
+            _state.Settings.EnableAiDesktop=EnableAiDesktop.IsChecked==true;
+            _state.Settings.UseAiDesktopVision=UseAiDesktopVision.IsChecked==true;
             if(!_state.Settings.EnableWakeWord){_wakeGeneration++;_wake.Stop();}
             else if(!_voice.IsListening)_=ResumeWakeAsync();
             _state.Settings.ShowFloatingOrb=ShowFloatingOrb.IsChecked==true;
