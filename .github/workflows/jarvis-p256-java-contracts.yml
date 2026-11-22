@@ -1,0 +1,27 @@
+name: JARVIS device P-256 Java contracts (no APK)
+on:
+  push:
+    paths:
+      - 'android/app/src/main/java/com/andriy/jarvis/EcdsaSignatureCodec.java'
+      - 'tools/qa/JarvisP256SignatureContract.java'
+      - '.github/workflows/jarvis-p256-java-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  p256:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile standalone P-256 signature tests (no Android SDK)
+        run: |
+          mkdir -p /tmp/jarvis-p256-test
+          javac -d /tmp/jarvis-p256-test \
+            android/app/src/main/java/com/andriy/jarvis/EcdsaSignatureCodec.java \
+            tools/qa/JarvisP256SignatureContract.java
+          java -cp /tmp/jarvis-p256-test com.andriy.jarvis.JarvisP256SignatureContract
