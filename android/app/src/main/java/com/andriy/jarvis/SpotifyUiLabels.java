@@ -59,6 +59,31 @@ public final class SpotifyUiLabels {
         }
     }
 
+    /** A green check beside a Spotify search result opens the "Saved in"
+     * playlist sheet. Never reinterpret it as an unlabeled Play button. */
+    public static boolean saveCollectionAction(String raw) {
+        String s=normalize(raw);
+        if(s.isEmpty())return false;
+        return s.equals("saved in") || s.startsWith("saved in ") ||
+            s.equals("save") || s.startsWith("save to ") ||
+            s.startsWith("saved to ") || s.startsWith("add to library") ||
+            s.startsWith("add to your library") ||
+            s.startsWith("remove from library") ||
+            s.startsWith("remove from your library") ||
+            s.startsWith("add to liked songs") ||
+            s.startsWith("remove from liked songs") ||
+            s.startsWith("додати до бібліотеки") ||
+            s.startsWith("додано до бібліотеки") ||
+            s.startsWith("прибрати з бібліотеки") ||
+            s.startsWith("збережено в ") ||
+            s.startsWith("зберегти в ") ||
+            s.startsWith("додати до плейліста") ||
+            s.startsWith("прибрати з плейліста") ||
+            s.startsWith("добавить в плейлист") ||
+            s.startsWith("сохранено в ") ||
+            s.startsWith("убрать из плейлиста");
+    }
+
     /** Exact playlist title, never substring matching another playlist or song.
      * Spotify may add a playlist-type prefix/suffix to accessibility labels. */
     public static boolean namedPlaylist(String wanted,String visible) {
