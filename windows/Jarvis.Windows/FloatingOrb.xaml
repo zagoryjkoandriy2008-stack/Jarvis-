@@ -1,0 +1,38 @@
+<Window x:Class="Jarvis.Windows.FloatingOrb"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  Title="JARVIS" Width="158" Height="182"
+  Background="Transparent" AllowsTransparency="True" WindowStyle="None"
+  ResizeMode="NoResize" ShowInTaskbar="False" ShowActivated="False"
+  Topmost="True" WindowStartupLocation="Manual">
+  <Grid>
+    <Border Background="#DD0B1729" BorderBrush="#53D7EA" BorderThickness="2"
+      Width="104" Height="104" CornerRadius="52" HorizontalAlignment="Center"
+      VerticalAlignment="Top" Margin="0,8,0,0" MouseLeftButtonDown="Orb_Drag"
+      MouseLeftButtonUp="Orb_DragEnd"/>
+    <Button x:Name="OrbButton" Content="◼  ◼&#10;▔▔" Click="OrbButton_Click"
+      Width="75" Height="67" FontSize="20" FontFamily="Consolas"
+      BorderThickness="0" Background="Transparent" Foreground="#53D7EA"
+      Cursor="Hand" HorizontalAlignment="Center" VerticalAlignment="Top"
+      Margin="0,22,0,0" ToolTip="Джарвіс: натисни для слухання"/>
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom">
+      <TextBlock x:Name="TargetLabel" Foreground="#53D7EA" HorizontalAlignment="Center"
+        Text="🖥 Комп'ютер" Margin="0,0,0,4" FontSize="12"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+        <Button x:Name="PhoneButton" Content="📱" Click="Phone_Click" Width="42" Height="32"
+          FontSize="14" Padding="0" ToolTip="Режим телефон"/>
+        <Button x:Name="WatchButton" Content="⌚" Click="Watch_Click" Width="42" Height="32"
+          FontSize="14" Padding="0" ToolTip="Режим годинник"/>
+        <Button x:Name="PcButton" Content="🖥" Click="Pc_Click" Width="42" Height="32"
+          FontSize="14" Padding="0" ToolTip="Режим комп'ютер"/>
+      </StackPanel>
+    </StackPanel>
+    <Border.ContextMenu>
+      <ContextMenu>
+        <MenuItem Header="Відкрити JARVIS" Click="ShowMain_Click"/>
+        <MenuItem Header="Почати слухати" Click="OrbButton_Click"/>
+        <MenuItem Header="Приховати плаваюче вікно" Click="HideOrb_Click"/>
+      </ContextMenu>
+    </Border.ContextMenu>
+  </Grid>
+</Window>
