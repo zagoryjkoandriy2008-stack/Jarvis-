@@ -11,6 +11,27 @@ function json(body,status=200) {
     'cache-control':'no-store','x-content-type-options':'nosniff'
   }});
 }
+async function boundedJson(request,limit) {
+  if(!request.body)return null;
+  const reader=request.body.getReader();
+  const chunks=[];let length=0;
+  try {
+    for(;;) {
+      const next=await reader.read();
+      if(next.done)break;
+      length+=next.value.byteLength;
+      if(length>limit) {
+        await reader.cancel('oversized file inbox request');
+        return null;
+      }
+      chunks.push(next.value);
+    }
+  } finally {try{reader.releaseLock();}catch(_){}}
+  const bytes=new Uint8Array(length);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  try {return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}
+  catch(_){return null;}
+}
 function fileBytes(encoded) {
   if(typeof encoded!=='string' || !encoded.length ||
      encoded.length>1_398_104 || encoded.length%4!==0 ||
@@ -47,7 +68,8 @@ export class FileRelayState {
     }
     if(path==='/device/v1/files/send' && method==='POST') {
       if(this.active())return json({error:'Phone inbox already contains a file'},409);
-      let b;try{b=await request.json();}catch(_){return json({error:'Invalid JSON'},400);}
+      const b=await boundedJson(request,1_500_000);
+      if(b==null)return json({error:'Invalid or oversized upload'},413);
       if(!validFile(b))return json({error:'File invalid or exceeds 1 MiB'},400);
       this.file={id:b.id,name:b.name,mime:b.mime,data:b.data,
         size:fileBytes(b.data),expires:this.clock()+TTL};
