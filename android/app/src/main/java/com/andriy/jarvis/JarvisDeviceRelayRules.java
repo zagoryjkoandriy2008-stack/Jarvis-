@@ -65,7 +65,8 @@ public final class JarvisDeviceRelayRules {
     public static boolean permittedRemotePhone(String utterance) {
         if(utterance==null || utterance.isEmpty() || utterance.length()>250 ||
            utterance.indexOf('\n')>=0 || utterance.indexOf('\r')>=0 ||
-           utterance.indexOf('\u0000')>=0)return false;
+           utterance.indexOf('\u0000')>=0 ||
+           utterance.contains("\\n") || utterance.contains("\\r"))return false;
         String s=utterance.toLowerCase(Locale.ROOT).trim()
             .replaceFirst("^(?:джарвіс|джарвис|jarvis|дімон|димон|dimon)\\s+","");
         if(s.contains("пароль")||s.contains("pin")||s.contains("токен")||
