@@ -216,8 +216,12 @@ public final class JarvisDeviceRelay {
     private static void complete(Context app,String id,String device,
                                  boolean ok,String detail) {
         if(!JarvisWearProtocol.validId(id))return;
-        final String safeDetail=detail==null?"":detail.substring(
-            0,Math.min(4500,detail.length()));
+        // Never silently return a truncated balance or note list as though
+        // it were complete; show an explicit on-phone follow-up instruction.
+        final String safeDetail=detail==null?"":(
+            detail.length()<=4500?detail:
+            detail.substring(0,4350)+"\\n… Відповідь скорочено. "+
+            "Повний звіт або нотатки відкрий у JARVIS на Pixel.");
         // Persist ACK before network I/O. If the Worker lease expires before
         // the ACK, resend the same result, NEVER re-execute the action.
         app.getSharedPreferences(PREFS,0).edit().putString("result:"+id,
