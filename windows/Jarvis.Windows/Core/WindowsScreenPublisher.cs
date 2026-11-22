@@ -73,7 +73,7 @@ public sealed class WindowsScreenPublisher : IDisposable {
                     if(!json.RootElement.GetProperty("active").GetBoolean()) {
                         _lastSession=null;
                         if(_sharing)Report(false,"Телефон завершив перегляд.");
-                        await Task.Delay(1200,cancellation);
+                        await Task.Delay(2500,cancellation);
                         continue;
                     }
                     var session=json.RootElement.GetProperty("session").GetString();
