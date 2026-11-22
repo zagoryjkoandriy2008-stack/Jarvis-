@@ -66,7 +66,7 @@
         </Grid>
       </TabItem>
       <TabItem Header="Пристрої">
-        <StackPanel Margin="20">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20">
           <TextBlock Text="Обери пристрій для наступних голосових команд" FontSize="17" FontWeight="Bold" Margin="0,0,0,10"/>
           <TextBlock Text="Команди «телефон», «годинник», «комп'ютер» змінюють ціль, а JARVIS Finance завжди використовує базу Pixel. Комп'ютер може приймати лише дозволені локальні дії." Foreground="#A4B4CD" TextWrapping="Wrap" Width="680" HorizontalAlignment="Left" Margin="0,0,0,10"/>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
@@ -78,7 +78,25 @@
           <Button Content="Перевірити підключення" Click="CheckDevices_Click" Width="230" HorizontalAlignment="Left" Margin="0,14,0,14"/>
           <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="180" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
           <TextBlock Text="На годиннику команди передає Pixel. Для цього потрібні оновлений Android-код, розгорнутий Cloudflare Relay та дозвіл приймати команди." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,12,0,0" Width="680" HorizontalAlignment="Left"/>
-        </StackPanel>
+          <Separator Margin="0,12"/>
+          <TextBlock Text="🔒 Захищене спарювання Pixel з Windows — P-256"
+                     FontWeight="Bold" FontSize="16" Foreground="#53D7EA"/>
+          <TextBlock Text="1. Створи одноразовий код на ПК. 2. Введи ID і код на Pixel. 3. Перевір відбиток ключа телефона. 4. Підтвердь на ПК. Паролі і ключі не передаються."
+                     TextWrapping="Wrap" Width="680" Margin="0,8"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="1 · Створити код" Click="PairBegin_Click"/>
+            <Button Content="3 · Перевірити запит" Click="PairPending_Click"/>
+            <Button Content="4 · Підтвердити Pixel" Click="PairApprove_Click"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="Перелік спарених" Click="PairList_Click"/>
+            <Button Content="Відкликати Pixel" Click="PairRevoke_Click"/>
+          </StackPanel>
+          <TextBox x:Name="PairingCodeReport" Width="680" Height="115" IsReadOnly="True"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,8"/>
+          <TextBlock Foreground="#FFCC99" TextWrapping="Wrap" Width="680"
+                     Text="До переходу всіх клієнтів на підписаний Relay v2 старий спільний ключ v1 залишається обмеженим, але не захищений pairing."/>
+        </StackPanel></ScrollViewer>
       </TabItem>
       <TabItem Header="JARVIS Finance">
         <Grid Margin="12">

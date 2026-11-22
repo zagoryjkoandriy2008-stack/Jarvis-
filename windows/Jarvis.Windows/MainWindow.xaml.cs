@@ -40,6 +40,9 @@ public partial class MainWindow : Window {
 
     private readonly AiClient _ai=new();
     private readonly WindowsFileExchange _fileExchange=new();
+    private readonly DevicePairingService _pairing;
+    private Guid _pairingRequestId;
+    private string? _pendingPhoneFingerprint;
     private TrayStartupService? _tray;
     private bool _allowExit;
     private bool _automationPaused;
@@ -118,7 +121,8 @@ public partial class MainWindow : Window {
 
     public MainWindow() {
         InitializeComponent();
-        try { _state=_store.Load(); }
+        try { _state=_store.Load();
+        _pairing=new DevicePairingService(_store,_state.Settings); }
         catch(InvalidDataException ex) {
             System.Windows.MessageBox.Show(ex.Message,"JARVIS Windows",MessageBoxButton.OK,MessageBoxImage.Error);
             throw;
@@ -272,6 +276,7 @@ public partial class MainWindow : Window {
         _screenPublisher.Dispose();
         _ai.Dispose();
         _fileExchange.Dispose();
+        _pairing.Dispose();
         _lifetime.Dispose();
     }
 
@@ -809,6 +814,66 @@ public partial class MainWindow : Window {
     private static string FormatPresence(DeviceRelayClient.DevicePresence p) =>
         p.Online?"online, останній heartbeat "+(p.AgeMs??0)/1000+" с тому":
         p.AgeMs.HasValue?"offline, останній heartbeat "+p.AgeMs.Value/1000+" с тому":"немає даних";
+    private async void PairBegin_Click(object sender,RoutedEventArgs e) {
+        try {
+            var request=await _pairing.BeginAsync(_lifetime.Token);
+            _pairingRequestId=request.Id;
+            _pendingPhoneFingerprint=null;
+            PairingCodeReport.Text="На Pixel → Пристрої → Спарювання Windows:\n"+
+                "ID: "+request.Id+"\nОдноразовий код: "+request.Code+
+                "\nДійсний 5 хвилин; нікому не пересилай.";
+        }catch(Exception e){PairingCodeReport.Text="Помилка створення спарювання: "+e.Message;}
+    }
+    private async void PairPending_Click(object sender,RoutedEventArgs e) {
+        if(_pairingRequestId==Guid.Empty) {
+            PairingCodeReport.Text="Спочатку створи одноразовий код.";return;
+        }
+        try {
+            var pending=await _pairing.PendingAsync(_pairingRequestId,_lifetime.Token);
+            _pendingPhoneFingerprint=pending.State=="requested"?
+                pending.PhoneFingerprint:null;
+            PairingCodeReport.Text="Стан: "+pending.State+
+                "\nВідбиток ключа Pixel: "+
+                (pending.PhoneFingerprint??"ще не отримано")+
+                "\nЗвір цей відбиток із тим, який показує Pixel перед підтвердженням.";
+        }catch(Exception e){PairingCodeReport.Text="Не вдалося перевірити: "+e.Message;}
+    }
+    private async void PairApprove_Click(object sender,RoutedEventArgs e) {
+        if(_pairingRequestId==Guid.Empty ||
+           string.IsNullOrWhiteSpace(_pendingPhoneFingerprint)) {
+            PairingCodeReport.Text="Спочатку перевір запит і відбиток ключа Pixel.";return;
+        }
+        if(System.Windows.MessageBox.Show(
+            "Відбиток ключа Pixel: "+_pendingPhoneFingerprint+
+            "\nТой самий відбиток показаний на Pixel? Дозволити цьому Pixel "+
+            "отримати власний криптографічний доступ?",
+            "JARVIS — підтвердження нового пристрою",
+            MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)
+            return;
+        try {
+            var approved=await _pairing.ApproveAsync(_pairingRequestId,true,_lifetime.Token);
+            PairingCodeReport.Text=approved?"Ключ Pixel підтверджено на сервері. "+
+                "Старий Relay v1 ще потребує міграції на підписаний v2.":
+                "Підтвердження не завершено.";
+            if(approved){_pairingRequestId=Guid.Empty;_pendingPhoneFingerprint=null;}
+        }catch(Exception e){PairingCodeReport.Text="Підтвердження не виконано: "+e.Message;}
+    }
+    private async void PairList_Click(object sender,RoutedEventArgs e) {
+        try{PairingCodeReport.Text=await _pairing.ListAsync(_lifetime.Token);}
+        catch(Exception ex){PairingCodeReport.Text="Перелік недоступний: "+ex.Message;}
+    }
+    private async void PairRevoke_Click(object sender,RoutedEventArgs e) {
+        if(System.Windows.MessageBox.Show("Відкликати криптографічний ключ Pixel? "+
+            "Це не вимикає старий Relay v1 до завершення міграції.",
+            "JARVIS — відкликання доступу",MessageBoxButton.YesNo,
+            MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+        try{
+            var revoked=await _pairing.RevokePhoneAsync(_lifetime.Token);
+            PairingCodeReport.Text=revoked?"Ключ Pixel v2 відкликано. "+
+                "Вимкни старий Relay v1 в налаштуваннях Windows і Pixel.":
+                "Відкликання не підтверджене.";
+        }catch(Exception ex){PairingCodeReport.Text="Помилка відкликання: "+ex.Message;}
+    }
     private async void CheckDevices_Click(object sender,RoutedEventArgs e) {
         if(_relay==null || !_state.Settings.EnableDeviceRelay) {
             DeviceStatusReport.Text="Включи авторизований Relay у Налаштуваннях, збережи токен Worker.";
