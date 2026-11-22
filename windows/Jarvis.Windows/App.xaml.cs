@@ -7,7 +7,7 @@ using System.Windows.Interop;
 namespace Jarvis.Windows;
 
 /// <summary>One interactive instance per Windows session, never a background service.</summary>
-public partial class App : Application {
+public partial class App : System.Windows.Application {
     private Mutex? _instance;
     private bool _ownsMutex;
     private CancellationTokenSource? _pipeLife;

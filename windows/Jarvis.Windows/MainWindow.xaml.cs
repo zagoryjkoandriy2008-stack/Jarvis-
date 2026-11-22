@@ -299,7 +299,7 @@ public partial class MainWindow : Window {
         _floating?.SetListening(false);
         Status("Зупинено.");
     }
-    private void CommandInput_KeyDown(object sender,KeyEventArgs e) {
+    private void CommandInput_KeyDown(object sender,System.Windows.Input.KeyEventArgs e) {
         if(e.Key==Key.Enter && (Keyboard.Modifiers & ModifierKeys.Shift)==0) {
             e.Handled=true;
             _=SubmitInputAsync();
