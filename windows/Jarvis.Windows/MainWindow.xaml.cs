@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -64,7 +65,7 @@ public partial class MainWindow : Window {
         if(_source==null)return;
         _source.AddHook(HotkeyHook);
         _hotkeyRegistered=RegisterHotKey(_source.Handle,HotkeyId,
-            ModControl|ModShift,(uint)Key.J);
+            ModControl|ModShift,(uint)KeyInterop.VirtualKeyFromKey(Key.J));
         if(!_hotkeyRegistered)Status("Ctrl+Shift+J зайнята іншою програмою. Можна натискати кнопку мікрофона.");
     }
     private IntPtr HotkeyHook(IntPtr hwnd,int msg,IntPtr wParam,IntPtr lParam,ref bool handled) {
