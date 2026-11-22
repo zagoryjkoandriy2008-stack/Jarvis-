@@ -79,7 +79,7 @@ public partial class MainWindow : Window {
     private async Task RunMacroV2Async(MacroDefinitionV2 macro,CancellationToken cancel) {
         if(!macro.Conditions.All(MacroCondition))
             throw new InvalidOperationException("Умови запуску макросу v2 не виконані.");
-        await MacroV2Engine.RunAsync(macro,cmd=>ExecuteAsync(cmd,cancel),
+        await MacroV2Engine.RunAsync(macro,(cmd,deadline)=>ExecuteAsync(cmd,deadline),
             MacroCondition,cancel);
     }
     private async Task RunMacroV2ExclusiveAsync(MacroDefinitionV2 macro,bool scheduled) {

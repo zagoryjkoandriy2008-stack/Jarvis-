@@ -203,7 +203,7 @@ public static class MacroV2Engine {
             _=>0
         });
     public static async Task RunAsync(MacroDefinitionV2 m,
-        Func<ParsedCommand,Task> perform,Func<string,bool> matches,
+        Func<ParsedCommand,CancellationToken,Task> perform,Func<string,bool> matches,
         CancellationToken cancel) {
         Validate(m);
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancel);
@@ -218,7 +218,13 @@ public static class MacroV2Engine {
                         if(++steps>30)throw new InvalidOperationException("Ліміт дій вичерпано.");
                         if(a.Command.Kind==CommandKind.Wait)
                             await Task.Delay(TimeSpan.FromSeconds(a.Command.Value),deadline.Token);
-                        else await perform(a.Command);
+                        else {
+                            // Pass the macro's own two-minute deadline INTO the
+                            // action. An action cannot ignore the expiry while
+                            // waiting for API/UI/file operations.
+                            await perform(a.Command,deadline.Token);
+                            deadline.Token.ThrowIfCancellationRequested();
+                        }
                         break;
                     case MacroIfV2 i: await Walk(matches(i.Condition)?i.Then:i.Else);break;
                     case MacroRepeatV2 repeat:

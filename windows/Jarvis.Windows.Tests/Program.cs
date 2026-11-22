@@ -199,7 +199,7 @@ Check(!MacroV2Engine.EvaluateCondition("інтернет=так",DateTimeOffset.
 Check(MacroV2Engine.EvaluateCondition("процес=notepad",DateTimeOffset.Now,true,"notepad"),
       "v2 process exact match");
 var performed=new List<ParsedCommand>();
-await MacroV2Engine.RunAsync(v2,cmd=>{performed.Add(cmd);return Task.CompletedTask;},
+await MacroV2Engine.RunAsync(v2,(cmd,deadline)=>{deadline.ThrowIfCancellationRequested();performed.Add(cmd);return Task.CompletedTask;},
     condition=>condition=="інтернет=так",CancellationToken.None);
 Check(performed.Count==3 && performed[0].Kind==CommandKind.Volume &&
       performed[0].Value==20 && performed[1].Kind==CommandKind.Speak,
@@ -371,4 +371,19 @@ foreach(var template in MacroV2Engine.Templates) {
 }
 Check(MacroV2Engine.Templates.Count>=5,
     "macro v2 templates cover work, music, meeting, sleep and network");
+
+var cancelledMacro=MacroV2Engine.New("Скасування","тест","","","гучність 20");
+using(var stopMacro=new CancellationTokenSource()) {
+    var actionStarted=false;
+    try {
+        await MacroV2Engine.RunAsync(cancelledMacro,async (cmd,deadline)=>{
+            actionStarted=true;
+            stopMacro.Cancel();
+            await Task.Delay(TimeSpan.FromSeconds(5),deadline);
+        },_=>true,stopMacro.Token);
+        throw new Exception("Macro action ignored cancellation.");
+    }catch(OperationCanceledException) {
+        Check(actionStarted,"macro timeout token reaches in-flight action");
+    }
+}
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");
