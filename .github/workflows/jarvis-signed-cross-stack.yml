@@ -1,0 +1,27 @@
+name: JARVIS signed device integration contracts (no APK/EXE)
+on:
+  push:
+    paths:
+      - 'server/jarvis-ai-worker/src/device-*.mjs'
+      - 'windows/Jarvis.Windows/Core/**'
+      - 'windows/Jarvis.Windows/MainWindow.xaml.cs'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisSignedDeviceCommands.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceRelay.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisDeviceIdentity.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/JarvisWakeOnLan.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java'
+      - 'android/app/src/main/java/com/andriy/jarvis/MainActivity.java'
+      - 'tools/qa/jarvis_signed_cross_stack.py'
+      - '.github/workflows/jarvis-signed-cross-stack.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed command routing and authorization, no binaries
+        run: python3 tools/qa/jarvis_signed_cross_stack.py
