@@ -416,26 +416,27 @@ try{
 }catch(ArgumentException){assertions++;}
 
 
-Check(MacroUsbEventName.TryParse("usb.attach:046D:C52B",out var usbAction,out var usbId)
-      && usbAction=="attach" && usbId=="046d:c52b",
+Check(MacroUsbEventName.TryParse("device.attach:VID_046D&PID_C52B",
+      out var usbHardware,out var usbAttachFlag)
+      && usbHardware=="vid_046d&pid_c52b" && usbAttachFlag,
       "USB VID/PID event parser canonicalizes case");
 Check(MacroUsbEventName.TryFromInterfacePath(
       @"\\?\USB#VID_046D&PID_C52B#product",true,out var usbAttach)
-      && usbAttach=="usb.attach:046d:c52b",
-      "USB arrival derives a bounded event from the Windows interface path");
+      && usbAttach=="device.attach:vid_046d&pid_c52b",
+      "USB arrival derives bounded, canonical event from device interface");
 Check(MacroUsbEventName.TryFromInterfacePath(
       @"\\?\USB#VID_046D&PID_C52B#product",false,out var usbDetach)
-      && usbDetach=="usb.detach:046d:c52b",
-      "USB removal is a different event");
-Check(!MacroUsbEventName.TryParse("usb.attach:../../cmd",out _,out _),
+      && usbDetach=="device.detach:vid_046d&pid_c52b",
+      "USB removal produces a different event");
+Check(!MacroUsbEventName.TryParse("device.attach:../../cmd",out _,out _),
       "USB trigger path traversal rejected");
 Check(!MacroUsbEventName.TryFromInterfacePath(
       @"\\?\USB#SERIAL_ABC123#private",true,out _),
       "unrecognized USB path has no event");
 var usbMacro=MacroV2Engine.New("USB пристрій","USB увімкнений","","",
-    "гучність 20","usb.attach:046d:c52b");
+    "гучність 20","device.attach:vid_046d&pid_c52b");
 Check(MacroV2Engine.EventDue(usbMacro,usbAttach,DateTimeOffset.UtcNow),
-      "USB app event triggers only matching enabled macro");
+      "USB event triggers only matching enabled macro");
 Check(!MacroV2Engine.EventDue(usbMacro,usbDetach,DateTimeOffset.UtcNow),
-      "unplug does not trigger a plug macro");
+      "USB removal does not trigger insertion macro");
 Console.WriteLine($"PASS JARVIS Windows pure contracts: {assertions} assertions.");

@@ -6,14 +6,29 @@ namespace Jarvis.Windows.Core;
 public static class MacroUsbEventName {
     private static readonly Regex Valid=new(
         @"^device\.(attach|detach):(vid_[a-f0-9]{4}&pid_[a-f0-9]{4})$",
-        RegexOptions.Compiled|RegexOptions.CultureInvariant);
+        RegexOptions.Compiled|RegexOptions.CultureInvariant|RegexOptions.IgnoreCase);
+    private static readonly Regex InterfaceName=new(
+        @"(?:^|[#\\])VID_([0-9a-f]{4})&PID_([0-9a-f]{4})(?:[&#\\]|$)",
+        RegexOptions.CultureInvariant|RegexOptions.IgnoreCase|RegexOptions.Compiled);
     public static bool TryParse(string? input,out string hardware,out bool attach) {
         hardware="";attach=false;
-        var match=Valid.Match(input??"");
+        if(string.IsNullOrWhiteSpace(input) || input.Length>64)return false;
+        var match=Valid.Match(input);
         if(!match.Success)return false;
-        hardware=match.Groups[2].Value;
+        hardware=match.Groups[2].Value.ToLowerInvariant();
         attach=match.Groups[1].Value=="attach";
         return true;
+    }
+    public static bool TryFromInterfacePath(string? path,bool attach,
+            out string eventName) {
+        eventName="";
+        if(string.IsNullOrWhiteSpace(path) || path.Length>2048)return false;
+        var found=InterfaceName.Match(path);
+        if(!found.Success)return false;
+        eventName="device."+(attach?"attach:":"detach:")+
+            "vid_"+found.Groups[1].Value.ToLowerInvariant()+"&pid_"+
+            found.Groups[2].Value.ToLowerInvariant();
+        return TryParse(eventName,out _,out _);
     }
 }
 public sealed class MacroUsbTransitions {

@@ -147,7 +147,7 @@
             <TextBox x:Name="MacroV2Trigger" Margin="0,6" ToolTip="Голосовий тригер: робота"/>
             <TextBox x:Name="MacroV2Schedule" Margin="0,6" ToolTip="Розклад HH:mm або порожньо"/>
             <TextBlock Text="Тригер за подією: network.online, network.offline або app.active:notepad (необов'язково)" TextWrapping="Wrap"/>
-            <TextBox x:Name="MacroV2Event" Margin="0,6" ToolTip="network.online / network.offline / app.active:notepad / app.start:notepad / usb.attach:046d:c52b"/>
+            <TextBox x:Name="MacroV2Event" Margin="0,6" ToolTip="network.online / network.offline / app.active:notepad / app.start:notepad / device.attach:vid_046d&pid_c52b"/>
             <TextBlock Text="Мінімальна пауза між запусками (секунди, 0–86400)"/>
             <TextBox x:Name="MacroV2Cooldown" Text="60" Margin="0,6"/>
             <TextBlock Text="Умови: день=пн,вт; час=09:00-18:00; інтернет=так; процес=notepad"/>

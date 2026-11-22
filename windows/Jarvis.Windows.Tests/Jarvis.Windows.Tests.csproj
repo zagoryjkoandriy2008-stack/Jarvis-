@@ -20,7 +20,7 @@
     <Compile Include="../Jarvis.Windows/Core/LocalState.cs" Link="Core/LocalState.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroEngine.cs" Link="Core/MacroEngine.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroV2Engine.cs" Link="Core/MacroV2Engine.cs" />
-    <Compile Include="../Jarvis.Windows/Core/MacroUsbEventName.cs" Link="Core/MacroUsbEventName.cs" />
+    <Compile Include="../Jarvis.Windows/Core/MacroUsbEventService.cs" Link="Core/MacroUsbEventService.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroEventService.cs" Link="Core/MacroEventService.cs" />
     <Compile Include="../Jarvis.Windows/Core/MacroProcessStartService.cs" Link="Core/MacroProcessStartService.cs" />
     <Compile Include="../Jarvis.Windows/Core/LargeFileTransferService.cs" Link="Core/LargeFileTransferService.cs" />
