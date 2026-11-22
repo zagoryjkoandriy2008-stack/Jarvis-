@@ -145,3 +145,26 @@ test('Windows owner revocation drops the active viewer and frame instantly',asyn
   assert.equal((await jsonCall(screen,'GET',
     '/device/v1/screen/state')).body.active,false);
 });
+
+test('owner revocation cannot be silently undone by phone heartbeat',async()=>{
+  let now=100_000;
+  const screen=new ScreenRelayState(()=>now);
+  const open=()=>jsonCall(screen,'POST','/device/v1/screen/view',
+    {device:'phone',session:id});
+  assert.equal((await open()).status,200);
+  assert.equal((await upload(screen,id)).status,202);
+  assert.equal((await jsonCall(screen,'POST','/device/v1/screen/revoke',
+    {session:id})).status,200);
+  assert.equal(screen.frame,null,'frame cleared immediately');
+  for(let i=0;i<5;i++) {
+    now+=2100;
+    assert.equal((await open()).status,403,
+      'heartbeat with revoked ID must never restart capture');
+    assert.equal((await upload(screen,id)).status,403);
+    assert.equal(screen.frame,null,'no screenshot after revocation');
+  }
+  const fresh=await jsonCall(screen,'POST','/device/v1/screen/view',
+    {device:'phone',session:alt});
+  assert.equal(fresh.status,200,
+    'new explicit phone viewer session can start when owner re-enables Windows');
+});
