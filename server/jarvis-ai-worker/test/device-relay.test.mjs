@@ -99,3 +99,16 @@ test('later commands never postpone an earlier expiry alarm',async()=>{
   assert.equal(alarm,original,'a newer request must not extend older TTL');
   assert.equal(alarmCalls,1,'do not reset expiry timer on every message');
 });
+
+test('unclaimed finance requests cannot start after sender timeout',async()=>{
+  const st=storage(),relay=new DeviceRelay({storage:st},{});
+  await call(relay,'POST','/device/v1/send',sample);
+  st.map.get('m:'+id).created=Date.now()-26_000;
+  const delayed=await call(relay,'GET','/device/v1/poll?device=phone');
+  assert.equal(delayed.json.items.length,0,
+    'no first execution after the sender has timed out');
+  // Stored acknowledgement state is retained temporarily to distinguish
+  // unknown delivery from an actual successful financial write.
+  assert.equal((await call(relay,'GET',
+    `/device/v1/result?id=${id}&origin=computer`)).json.done,false);
+});
