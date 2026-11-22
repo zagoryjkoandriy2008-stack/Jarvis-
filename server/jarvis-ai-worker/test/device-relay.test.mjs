@@ -31,7 +31,7 @@ test('valid envelopes allow only user-typed bounded commands',()=>{
     {command:'API key 123'},{id:'not-uuid'}
   ]) assert.equal(validEnvelope({...sample,...mutation}),false);
   assert.ok(validAck({id,device:'phone',ok:true,detail:'Готово'}));
-  assert.equal(validAck({id,device:'computer',ok:true,detail:'x'.repeat(1601)}),false);
+  assert.equal(validAck({id,device:'computer',ok:true,detail:'x'.repeat(5001)}),false);
 });
 test('queue, poll, ack, deduplicate and query result',async()=>{
   const state={storage:storage()},relay=new DeviceRelay(state,{});
