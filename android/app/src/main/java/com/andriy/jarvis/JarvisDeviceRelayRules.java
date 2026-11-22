@@ -33,15 +33,17 @@ public final class JarvisDeviceRelayRules {
         }
     }
     public static boolean isFinance(String utterance) {
-        if(utterance==null)return false;
-        String s=utterance.toLowerCase(Locale.ROOT).trim()
+        if(utterance==null || utterance.isEmpty() || utterance.length()>250)return false;
+        String s=utterance.toLowerCase(Locale.forLanguageTag("uk-UA")).trim()
             .replaceFirst("^(?:джарвіс|джарвис|jarvis|дімон|димон|dimon)\\s+","");
-        return s.startsWith("витратив ") || s.startsWith("заробив ") ||
-            s.startsWith("потратив ") || s.startsWith("запиши витрату ") ||
-            s.startsWith("додай витрату ") ||
-            s.startsWith("баланс рахунків") || s.equals("звіти") ||
-            s.startsWith("скільки витратив ") ||
-            s.startsWith("залишок бюджету ");
+        if(FinanceVoiceCommands.parse(utterance)!=null ||
+           FinanceInsightsCommands.parse(utterance)!=null ||
+           FinanceVoiceFollowups.parse(utterance)!=null ||
+           FinanceBatchCommands.looksLikeBatch(utterance) ||
+           FinanceVoiceQueryMatcher.matches(s))return true;
+        return s.equals("відкрий фінанси") || s.equals("відкрий фінансовий менеджер") ||
+            s.equals("фінансовий звіт") || s.equals("звіти") ||
+            s.matches("^(?:скільки|покажи|який|яка)\\s+.*(?:витрат|дохід|баланс|бюджет|капітал|чайов|крипто|платіж|грошей).*$");
     }
     /** Only user-initiated, bounded, low-privilege remote commands.
      * The receiver validates the command AGAIN before doing any action.
