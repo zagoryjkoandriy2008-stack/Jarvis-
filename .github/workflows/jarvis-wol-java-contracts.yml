@@ -1,0 +1,27 @@
+name: JARVIS Wake-on-LAN Java contracts (no APK)
+on:
+  push:
+    paths:
+      - 'android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java'
+      - 'tools/qa/WakeOnLanContract.java'
+      - '.github/workflows/jarvis-wol-java-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pure-wol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile plain Java packet tests (no Android SDK, no APK)
+        run: |
+          mkdir -p /tmp/jarvis-wol-test
+          javac -d /tmp/jarvis-wol-test \
+            android/app/src/main/java/com/andriy/jarvis/WakeOnLanPacket.java \
+            tools/qa/WakeOnLanContract.java
+          java -cp /tmp/jarvis-wol-test com.andriy.jarvis.WakeOnLanContract
