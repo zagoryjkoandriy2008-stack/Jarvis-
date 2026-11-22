@@ -31,7 +31,8 @@ assert "case CommandKind.AnalyzeScreen:" in cs
 assert "MessageBoxButton.YesNo" in cs
 assert "WindowsScreenPublisher.CaptureForAi()" in cs
 assert "GetFromPixelAsync" in cs and "SendToPixelAsync" in cs
-assert "new OpenFileDialog" in cs and "new SaveFileDialog" in cs
+assert re.search(r"new\s+(?:Microsoft\.Win32\.)?OpenFileDialog\b", cs)
+assert re.search(r"new\s+(?:Microsoft\.Win32\.)?SaveFileDialog\b", cs)
 assert "HttpClient" in read(win / "Core/WindowsFileExchange.cs")
 assert "ReadMemory()" in read(win / "Core/WindowsSystemMonitor.cs")
 assert "OperatingSystem.IsWindows()" in read(win / "Core/WindowsSystemMonitor.cs")
