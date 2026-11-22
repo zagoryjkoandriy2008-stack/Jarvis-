@@ -4,6 +4,8 @@ mkdir -p /tmp/jarvis-voice-tests
 javac -encoding UTF-8 -d /tmp/jarvis-voice-tests \
   android/app/src/main/java/com/andriy/jarvis/CommandPatterns.java \
   android/app/src/main/java/com/andriy/jarvis/JarvisScreenViewCommands.java \
+  android/app/src/main/java/com/andriy/jarvis/JarvisRemoteTouchMapper.java \
+  android/app/src/test/java/com/andriy/jarvis/JarvisRemoteTouchMapperTest.java \
   android/app/src/test/java/com/andriy/jarvis/JarvisScreenViewCommandsTest.java \
   android/app/src/main/java/com/andriy/jarvis/JarvisWatchTimerRequests.java \
   android/app/src/test/java/com/andriy/jarvis/JarvisWatchTimerRequestsTest.java \
@@ -142,6 +144,7 @@ java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisMacroScreenRulesTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisMacroTriggerRulesTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.CommandPatternsTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisScreenViewCommandsTest
+java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisRemoteTouchMapperTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisWatchTimerRequestsTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.JarvisInstantCommandsTest
 java -cp /tmp/jarvis-voice-tests com.andriy.jarvis.SpotifyMusicCommandsTest
