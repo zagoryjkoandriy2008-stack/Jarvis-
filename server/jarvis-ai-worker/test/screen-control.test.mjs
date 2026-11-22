@@ -15,6 +15,7 @@ function route(path,session=a){return '/device/v1/screen/'+path+'?session='+sess
 test('normalized clicks, drags, shortcuts and bounded text only',()=>{
   assert.ok(validScreenInput(event('tap',{x:0.5,y:0})));
   assert.ok(validScreenInput(event('double',{x:1,y:1})));
+  assert.ok(validScreenInput(event('right',{x:0.5,y:0.5})));
   assert.ok(validScreenInput(event('drag',{x:0,y:0,x2:1,y2:1})));
   assert.ok(validScreenInput(event('scroll',{delta:-8})));
   assert.ok(validScreenInput(event('text',{text:'Привіт ❤️'})));
@@ -45,6 +46,11 @@ test('all remote input requires explicit Windows approval after active Pixel vie
   assert.equal((await call(relay,'GET',route('control/poll'))).json.events.length,1);
   assert.equal((await call(relay,'GET',route('control/poll'))).json.events.length,0,
       'event may not replay and click twice');
+  now+=150;
+  assert.equal((await call(relay,'POST',route('control/input'),
+    {...event('right',{x:0.5,y:0.5}),id:b})).code,202);
+  assert.equal((await call(relay,'GET',route('control/poll'))).json.events[0].kind,
+    'right','right click delivered without replay');
   now+=130;
   assert.equal((await call(relay,'POST',route('control/input'),{...event('key',{key:'ENTER'}),id:b})).code,202);
   now+=4600;
