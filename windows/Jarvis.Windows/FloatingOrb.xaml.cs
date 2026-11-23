@@ -41,19 +41,22 @@ public partial class FloatingOrb : Window {
         WatchButton.Opacity=selected==JarvisDevice.Watch?1:.58;
         PcButton.Opacity=selected==JarvisDevice.Computer?1:.58;
     }
-    public void SetListening(bool listening) {
-        OrbButton.Content=listening?"◉  ◉\n▁▁":"◼  ◼\n▔▔";
-        OrbButton.Foreground=listening?
-            System.Windows.Media.Brushes.Orange:
-            new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(83,215,234));
+    public void SetListening(bool listening) =>
+        SetState(listening ? PixelFaceState.Listening : PixelFaceState.Idle);
+
+    public void SetState(PixelFaceState state) {
+        FloatingFace.SetState(state);
+        OrbButton.ToolTip = state == PixelFaceState.Listening
+            ? "Джарвіс слухає. Натисни, щоб зупинити."
+            : "Джарвіс: натисни для слухання";
     }
     public void SetStreaming(bool streaming) {
         ScreenCastBadge.Visibility=streaming?Visibility.Visible:Visibility.Collapsed;
+        OrbRing.BorderThickness=streaming ? new Thickness(2) : new Thickness(0);
         OrbRing.BorderBrush=streaming
             ?System.Windows.Media.Brushes.OrangeRed
             :new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(83,215,234));
+                System.Windows.Media.Color.FromRgb(80,223,251));
     }
     private void OrbButton_Click(object sender,RoutedEventArgs e)=>ListenRequested?.Invoke();
     private void Phone_Click(object sender,RoutedEventArgs e)=>TargetRequested?.Invoke(JarvisDevice.Phone);
