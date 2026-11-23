@@ -19,6 +19,7 @@
          code-behind is still compiled; the root XML is statically validated. -->
     <Page Include="../Jarvis.Windows/MainWindow.xaml" Link="MainWindow.xaml" />
     <Page Include="../Jarvis.Windows/FloatingOrb.xaml" Link="FloatingOrb.xaml" />
+    <Page Include="../Jarvis.Windows/PixelFace.xaml" Link="PixelFace.xaml" />
     <Reference Include="UIAutomationClient" />
     <Reference Include="UIAutomationTypes" />
     <PackageReference Include="System.Speech" Version="9.0.11" />
