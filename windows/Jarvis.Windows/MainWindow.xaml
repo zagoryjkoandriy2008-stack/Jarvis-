@@ -30,7 +30,7 @@
           <TextBlock Text="J.A.R.V.I.S." Foreground="#EDF6FF"
                      FontSize="17" FontWeight="Bold" FontFamily="Consolas"/>
           <TextBlock Text="PERSONAL VOICE ASSISTANT" Foreground="#A1B3D0" FontSize="10"
-                     CharacterSpacing="1"/>
+                     />
         </StackPanel>
         <Border Grid.Column="2" VerticalAlignment="Center" Background="#142F3B"
                 BorderBrush="#2B836C" BorderThickness="1" CornerRadius="15" Padding="12,7">
