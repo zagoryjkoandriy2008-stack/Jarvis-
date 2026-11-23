@@ -13,7 +13,7 @@ public enum PixelFaceState { Idle, Listening, Thinking, Speaking }
 /// Geometry/color proportions follow Android MainActivity.PixelFace.
 /// Audio/listening states are set by the real command lifecycle, never inferred from animation.
 /// </summary>
-public partial class PixelFace : UserControl {
+public partial class PixelFace : System.Windows.Controls.UserControl {
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(140) };
     private PixelFaceState _state = PixelFaceState.Idle;
 
