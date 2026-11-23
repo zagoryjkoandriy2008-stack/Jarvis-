@@ -5,6 +5,12 @@ on:
       - 'windows/Jarvis.Windows/**'
       - '.github/workflows/jarvis-windows-xaml-dll-check.yml'
       - 'windows/Jarvis.Windows.CompileCheck/**'
+  pull_request:
+    branches: [feature/jarvis-installable-builds-20261123]
+    paths:
+      - 'windows/Jarvis.Windows/**'
+      - 'windows/Jarvis.Windows.CompileCheck/**'
+      - '.github/workflows/jarvis-windows-xaml-dll-check.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,6 +23,28 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Check all Windows XAML documents and Pixel visual contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($file in @(
+            "windows/Jarvis.Windows/App.xaml",
+            "windows/Jarvis.Windows/MainWindow.xaml",
+            "windows/Jarvis.Windows/FloatingOrb.xaml",
+            "windows/Jarvis.Windows/PixelFace.xaml"
+          )) {
+            [xml]$parsed = [System.IO.File]::ReadAllText((Resolve-Path $file))
+            if ($null -eq $parsed.DocumentElement) { throw "Invalid XAML XML: $file" }
+          }
+          $main = Get-Content windows/Jarvis.Windows/MainWindow.xaml -Raw
+          $orb = Get-Content windows/Jarvis.Windows/FloatingOrb.xaml -Raw
+          foreach ($token in @('HeroFace', 'HeroStatusText', 'StatusText', 'MicButton',
+                                'ChatHistory', 'CommandInput', 'AiMode', 'ControlRequestPanel',
+                                'ControlActivePanel', 'StopScreenShareButton')) {
+            if (-not $main.Contains("x:Name=`"$token`"")) { throw "MainWindow lost $token" }
+          }
+          if (-not $orb.Contains('x:Name="FloatingFace"')) { throw "Pixel floating face missing" }
+          if ($orb.Contains('Content="◼  ◼')) { throw "Old ASCII face is still used" }
       - name: Validate XAML and compile classes to library only (no Windows EXE)
         shell: pwsh
         run: |
