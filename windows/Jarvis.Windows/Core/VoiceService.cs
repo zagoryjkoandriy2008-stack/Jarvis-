@@ -10,11 +10,12 @@ public sealed class VoiceService : IDisposable {
     private SpeechRecognitionEngine? _listener;
     private int _speaking;
     public VoiceService() {
-        _speaker.SpeakStarted+=(_,_)=>System.Threading.Volatile.Write(ref _speaking,1);
-        _speaker.SpeakCompleted+=(_,_)=>System.Threading.Volatile.Write(ref _speaking,0);
+        _speaker.SpeakStarted+=(_,_)=>{System.Threading.Volatile.Write(ref _speaking,1);SpeakingChanged?.Invoke(true);};
+        _speaker.SpeakCompleted+=(_,_)=>{System.Threading.Volatile.Write(ref _speaking,0);SpeakingChanged?.Invoke(false);};
     }
     public bool IsListening { get; private set; }
     public bool IsSpeaking => System.Threading.Volatile.Read(ref _speaking)!=0;
+    public event Action<bool>? SpeakingChanged;
     public event Action? RecognitionEnded;
     public event Action<string>? Recognized;
     public event Action<string>? Status;
