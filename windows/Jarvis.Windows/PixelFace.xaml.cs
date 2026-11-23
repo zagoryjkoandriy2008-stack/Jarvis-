@@ -38,7 +38,7 @@ public partial class PixelFace : System.Windows.Controls.UserControl {
         ThinkingMouth.Visibility = state == PixelFaceState.Thinking ? Visibility.Visible : Visibility.Collapsed;
         SpeakingMouth.Visibility = state == PixelFaceState.Speaking ? Visibility.Visible : Visibility.Collapsed;
         FaceRing.Stroke = new SolidColorBrush(state == PixelFaceState.Listening
-            ? Color.FromRgb(107, 232, 191) : Color.FromRgb(114, 235, 255));
+            ? System.Windows.Media.Color.FromRgb(107, 232, 191) : System.Windows.Media.Color.FromRgb(114, 235, 255));
         Animate();
     }
 
