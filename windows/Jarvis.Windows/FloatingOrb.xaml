@@ -8,7 +8,7 @@
   <Grid>
     <!-- PixelFace is shared with the full Windows hero; the button captures clicks. -->
     <Border x:Name="OrbRing" Background="Transparent" BorderBrush="#50DFFB"
-      BorderThickness="0" Width="117" Height="117" CornerRadius="59"
+      BorderThickness="0" Width="144" Height="128" CornerRadius="64"
       HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
       MouseLeftButtonDown="Orb_Drag" MouseLeftButtonUp="Orb_DragEnd"/>
     <Button x:Name="OrbButton" Click="OrbButton_Click"
