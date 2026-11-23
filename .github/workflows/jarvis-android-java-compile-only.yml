@@ -8,6 +8,12 @@ on:
       - 'android/app/src/main/AndroidManifest.xml'
       - 'android/app/build.gradle'
       - '.github/workflows/jarvis-android-java-compile-only.yml'
+  pull_request:
+    branches: [feature/windows-pixel-ui-parity-20261123]
+    paths:
+      - 'android/app/src/main/java/**'
+      - 'tools/qa/JarvisWatchSpotifySubmitRulesContract.java'
+      - '.github/workflows/jarvis-android-java-compile-only.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -41,6 +47,16 @@ jobs:
           (yes | "$SDKMANAGER" --licenses > /dev/null) || true
           "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;36.0.0'
           test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+      - name: Watch7 Spotify IME Search-key policy regressions (JDK only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/jarvis-spotify-submit
+          javac -d /tmp/jarvis-spotify-submit \
+            android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifySubmitRules.java \
+            tools/qa/JarvisWatchSpotifySubmitRulesContract.java
+          java -cp /tmp/jarvis-spotify-submit \
+            com.andriy.jarvis.JarvisWatchSpotifySubmitRulesContract
       - name: Compile Java and Android resources only (NEVER assemble APK)
         run: |
           gradle -p android :app:compileDebugJavaWithJavac --no-daemon --stacktrace
