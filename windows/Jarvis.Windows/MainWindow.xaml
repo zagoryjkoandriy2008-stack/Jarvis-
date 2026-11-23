@@ -32,10 +32,20 @@
           <TextBlock Text="PERSONAL VOICE ASSISTANT" Foreground="#A1B3D0" FontSize="10"
                      />
         </StackPanel>
-        <Border Grid.Column="2" VerticalAlignment="Center" Background="#142F3B"
-                BorderBrush="#2B836C" BorderThickness="1" CornerRadius="15" Padding="12,7">
-          <TextBlock Text="● V 0.2.0" Foreground="#6BE8BF" FontSize="12"/>
-        </Border>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border VerticalAlignment="Center" Background="#142F3B"
+                  BorderBrush="#2B836C" BorderThickness="1" CornerRadius="15"
+                  Padding="12,7" Margin="0,0,8,0">
+            <TextBlock Text="● V 0.2.0" Foreground="#6BE8BF" FontSize="12"/>
+          </Border>
+          <Button Content="🎙" Click="MicButton_Click" ToolTip="Слухати з будь-якої вкладки"
+                  Width="43" Height="40" Padding="0"/>
+          <Button Click="StopButton_Click" Content="■ Стоп" ToolTip="Перервати поточну дію"
+                  Background="#632E3A" BorderBrush="#AD5267"/>
+          <Button x:Name="StopScreenShareButton" Content="■ Зупинити екран"
+                  Click="StopScreenShare_Click" Visibility="Collapsed"
+                  Background="#D34C4C" Foreground="White"/>
+        </StackPanel>
       </Grid>
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock x:Name="AIControlIndicator" Text="🟠 ШІ керує Windows · СТОП для скасування"
@@ -91,10 +101,6 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,18">
               <Button x:Name="OrbToggleButton" Content="◎ Плаваючий" Click="OrbToggle_Click"
                       ToolTip="Показати або приховати плаваючого JARVIS"/>
-              <Button Click="StopButton_Click" Content="■ Стоп"/>
-              <Button x:Name="StopScreenShareButton" Content="■ Зупинити екран"
-                      Click="StopScreenShare_Click" Visibility="Collapsed"
-                      Background="#D34C4C" Foreground="White"/>
             </StackPanel>
             <Border Background="#111B30" BorderBrush="#263957" BorderThickness="1"
                     CornerRadius="18" Padding="18" Margin="0,0,0,16">
