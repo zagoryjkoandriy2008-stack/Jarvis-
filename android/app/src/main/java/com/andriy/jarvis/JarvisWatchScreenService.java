@@ -529,20 +529,36 @@ public final class JarvisWatchScreenService extends AccessibilityService {
     public static boolean spotifySearchResultsVisible(String query) {
         JarvisWatchScreenService service=connected.get();
         AccessibilityNodeInfo root=service==null?null:service.appRoot(SPOTIFY_PKG);
-        if(root==null || service.spotifyImeVisible() || query==null)return false;
+        return service!=null && root!=null && !service.spotifyImeVisible() &&
+            service.spotifyResultRowsForQuery(root,query);
+    }
+
+    /** Check behind the keyboard BEFORE dismissing it or retrying Search.
+     * A verified title and typed result rows are required; unrelated
+     * Spotify tab text or old Now Playing UI do not count. */
+    public static boolean spotifySearchResultsBehindKeyboard(String query) {
+        JarvisWatchScreenService service=connected.get();
+        if(service==null || !service.spotifyImeVisible())return false;
+        AccessibilityNodeInfo root=service.appRoot(SPOTIFY_PKG);
+        if(root==null)root=service.spotifyRootUnderKeyboard();
+        return root!=null && service.spotifyResultRowsForQuery(root,query);
+    }
+
+    private boolean spotifyResultRowsForQuery(AccessibilityNodeInfo root,String query) {
+        if(root==null || query==null)return false;
         String wanted=AppNameMatcher.normalize(query);
         if(wanted.isEmpty())return false;
         Rect frame=new Rect();root.getBoundsInScreen(frame);
         boolean upperQuery=false,typedResults=false;
-        for(AccessibilityNodeInfo node:service.spotifyNodes(root)){
+        for(AccessibilityNodeInfo node:spotifyNodes(root)) {
             String label=spotifyLabel(node);
-            Rect b=new Rect();node.getBoundsInScreen(b);
+            Rect bounds=new Rect();node.getBoundsInScreen(bounds);
             if(label.equals(wanted) &&
-               (node.isEditable() || b.centerY()<frame.height()*.34f))
+               (node.isEditable() || bounds.centerY()<frame.height()*.34f))
                 upperQuery=true;
             if(JarvisWatchUiRules.watchCombinedType(label)!=
                SpotifyTrackSearchRules.SearchResultType.UNKNOWN &&
-               b.centerY()>frame.height()*.17f)
+               bounds.centerY()>frame.height()*.17f)
                 typedResults=true;
         }
         return upperQuery && typedResults;
@@ -625,8 +641,14 @@ public final class JarvisWatchScreenService extends AccessibilityService {
 
     private boolean spotifyImeVisible() {
         for(AccessibilityWindowInfo window:getWindows()) {
-            if(window.getType()==AccessibilityWindowInfo.TYPE_INPUT_METHOD &&
-               (window.isActive() || window.isFocused()))return true;
+            if(window.getType()!=AccessibilityWindowInfo.TYPE_INPUT_METHOD)
+                continue;
+            if(window.isActive() || window.isFocused())return true;
+            // Some full-screen Wear keyboards report a visible IME root
+            // without an active/focused window flag. Never mistake this for
+            // a hidden keyboard after Search has been submitted.
+            AccessibilityNodeInfo keyboard=window.getRoot();
+            if(keyboard!=null && keyboard.isVisibleToUser())return true;
         }
         return false;
     }
@@ -705,7 +727,7 @@ public final class JarvisWatchScreenService extends AccessibilityService {
             case VERIFY_QUERY:
                 return service.spotifyVerifyQuery(root,title);
             case SUBMIT_QUERY:
-                return service.spotifySubmitQuery(root,title);
+                return service.spotifySubmitQuery(root,title,completion);
             case SELECT_RESULT:
                 if(!playlist && !genreDiscovery)
                     return service.spotifySelectMixedResult(root,title,resultOrdinal,completion);
@@ -1019,15 +1041,107 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                 field.getText()==null?null:field.getText().toString());
     }
 
-    private Result spotifySubmitQuery(AccessibilityNodeInfo root,String title) {
-        AccessibilityNodeInfo field=spotifyEditableNode(root);
-        if(field==null || title==null)return Result.WAIT;
-        if(!JarvisWatchUiRules.spotifyQueryVisible(title,
-             field.getText()==null?null:field.getText().toString()))
+    /**
+     * Press the visible, explicitly labelled Search key in the ACTIVE Wear
+     * keyboard first. The IME input connection is a fallback, not a prerequisite.
+     * This fixes keyboards where AccessibilityService.getInputMethod() is null
+     * even though Spotify's text editor and keyboard are already visible.
+     */
+    private Result spotifyTapImeSearchKey(Completion cb) {
+        if(appRoot(SPOTIFY_PKG)==null && spotifyRootUnderKeyboard()==null)
             return Result.WAIT;
-        if(!spotifyImeVisible())return Result.DONE; // live search results
+        AccessibilityNodeInfo best=null;
+        Rect bestRect=null;
+        int screenWidth=getResources().getDisplayMetrics().widthPixels;
+        int screenHeight=getResources().getDisplayMetrics().heightPixels;
+        for(AccessibilityWindowInfo window:getWindows()) {
+            if(window.getType()!=AccessibilityWindowInfo.TYPE_INPUT_METHOD)continue;
+            AccessibilityNodeInfo keyboard=window.getRoot();
+            if(keyboard==null || !keyboard.isVisibleToUser())continue;
+            // The keyboard may be visible without focus on some Wear IMEs.
+            // Spotify ownership and the matching query are checked above.
+            for(AccessibilityNodeInfo node:spotifyNodes(keyboard)) {
+                if(node.isEditable() ||
+                   !JarvisWatchSpotifySubmitRules.isSearchKey(
+                       node.getText()==null?null:node.getText().toString(),
+                       node.getContentDescription()==null?null:
+                           node.getContentDescription().toString()))
+                    continue;
+                Rect bounds=new Rect();
+                node.getBoundsInScreen(bounds);
+                if(!JarvisWatchSpotifySubmitRules.safeKeyBounds(
+                    bounds.left,bounds.top,bounds.right,bounds.bottom,
+                    screenWidth,screenHeight))continue;
+                // Duplicate parent and child labels are normal. Two different
+                // keys are ambiguous, so do not guess a search target.
+                if(bestRect!=null && !bestRect.contains(bounds) &&
+                   !bounds.contains(bestRect) && !bounds.equals(bestRect))
+                    return Result.WAIT;
+                if(best==null || bounds.width()*bounds.height()<
+                                 bestRect.width()*bestRect.height()) {
+                    best=node;
+                    bestRect=bounds;
+                }
+            }
+        }
+        if(best==null || bestRect==null)return Result.WAIT;
+        AccessibilityNodeInfo clickable=best;
+        for(int depth=0;depth<3 && clickable!=null;
+            depth++,clickable=clickable.getParent()) {
+            Rect buttonBounds=new Rect();
+            clickable.getBoundsInScreen(buttonBounds);
+            if(!JarvisWatchSpotifySubmitRules.safeKeyBounds(
+                    buttonBounds.left,buttonBounds.top,
+                    buttonBounds.right,buttonBounds.bottom,
+                    screenWidth,screenHeight))continue;
+            if(clickable.isEnabled() && clickable.isClickable() &&
+               clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                JarvisWatchSpotifyTrace.mark(getApplicationContext(),
+                    "SUBMIT_IME_KEY_CLICK");
+                return Result.DONE;
+            }
+        }
+        // The exact Search key is identifiable but lacks ACTION_CLICK:
+        // tap its own verified rectangle, never a guessed screen coordinate.
+        Path point=new Path();
+        point.moveTo(bestRect.exactCenterX(),bestRect.exactCenterY());
+        Result tapped=gesture(SPOTIFY_PKG,point,90L,cb);
+        if(tapped==Result.RUNNING) {
+            JarvisWatchSpotifyTrace.mark(getApplicationContext(),
+                "SUBMIT_IME_KEY_GESTURE");
+            return tapped;
+        }
+        // A cancelled/blocked gesture must not abort the entire Spotify
+        // command: the verified input connection may still submit Search.
+        return Result.WAIT;
+    }
+
+    private Result spotifySubmitQuery(AccessibilityNodeInfo root,String title,
+                                      Completion completion) {
+        AccessibilityNodeInfo field=spotifyEditableNode(root);
+        if(field==null || title==null || completion==null)return Result.WAIT;
+        boolean verified=JarvisWatchUiRules.spotifyQueryVisible(title,
+            field.getText()==null?null:field.getText().toString());
+        if(!verified)return Result.WAIT;
+
+        // Some Spotify layouts search live without an IME. Do not claim a
+        // finished search merely because the keyboard disappeared; require
+        // the original query plus visible result metadata instead.
+        if(!spotifyImeVisible())
+            return spotifySearchResultsVisible(title)?Result.DONE:Result.WAIT;
+        if(!JarvisWatchSpotifySubmitRules.maySubmit(
+                appRoot(SPOTIFY_PKG)!=null || spotifyRootUnderKeyboard()!=null,
+                spotifyImeVisible(),verified))return Result.WAIT;
+
+        Result key=spotifyTapImeSearchKey(completion);
+        if(key!=Result.WAIT)return key;
+
         android.accessibilityservice.InputMethod ime=spotifyLiveInputMethod();
-        if(ime==null)return Result.WAIT;
+        if(ime==null) {
+            JarvisWatchSpotifyTrace.mark(getApplicationContext(),
+                "SUBMIT_IME_UNAVAILABLE");
+            return Result.WAIT;
+        }
         try {
             android.view.inputmethod.EditorInfo editor=ime.getCurrentInputEditorInfo();
             android.accessibilityservice.InputMethod.AccessibilityInputConnection
@@ -1037,10 +1151,11 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                 android.view.inputmethod.EditorInfo.IME_MASK_ACTION;
             if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
                action==android.view.inputmethod.EditorInfo.IME_ACTION_GO ||
-               action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE)
+               action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
                 connection.performEditorAction(action);
-            else {
-                // Wear IME has no declared action: one verified Enter pair.
+            } else {
+                // The keyboard exposes no editor action: dispatch Enter
+                // through its VERIFIED Spotify input connection only.
                 connection.sendKeyEvent(new android.view.KeyEvent(
                     android.view.KeyEvent.ACTION_DOWN,
                     android.view.KeyEvent.KEYCODE_ENTER));
@@ -1048,7 +1163,9 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                     android.view.KeyEvent.ACTION_UP,
                     android.view.KeyEvent.KEYCODE_ENTER));
             }
-            return Result.DONE; // results and text integrity verified after
+            JarvisWatchSpotifyTrace.mark(getApplicationContext(),
+                "SUBMIT_INPUT_CONNECTION");
+            return Result.DONE; // SELECT_RESULT rechecks the query and list
         }catch(RuntimeException failure) {
             JarvisDiagnostics.error(JarvisDiagnostics.Event.ACCESSIBILITY_ERROR,failure);
             return Result.WAIT;

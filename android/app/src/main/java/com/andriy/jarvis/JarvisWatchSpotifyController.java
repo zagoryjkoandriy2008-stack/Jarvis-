@@ -171,6 +171,7 @@ public final class JarvisWatchSpotifyController {
         int revealAttempts;
         long lastRevealAt;
         int queryRetries;
+        int submitRetries;
         int submittedQueryRepairs;
         boolean searchKeyboardDismissed;
         int keyboardDismissals;
@@ -304,8 +305,21 @@ public final class JarvisWatchSpotifyController {
                !searchKeyboardDismissed &&
                now-stageStart>=2700L &&
                JarvisWatchScreenService.spotifyKeyboardVisible()) {
-                // Only after the query was verified and submitted; do NOT
-                // navigate away from Spotify, tap an IME key or swipe RIGHT.
+                // An IME click can be accepted by Accessibility while the
+                // Spotify result list is still absent. Retry the verified
+                // Search key ONCE, never hit a guessed screen coordinate.
+                if(!JarvisWatchScreenService.spotifySearchResultsBehindKeyboard(title) &&
+                   submitRetries++==0) {
+                    status("Spotify ще не показав результати. "+
+                        "Повторюю кнопку «Пошук» на клавіатурі…");
+                    stageStart=now;
+                    MAIN.postDelayed(()->run(
+                        JarvisWatchScreenService.SpotifyStep.SUBMIT_QUERY),600L);
+                    return;
+                }
+                // Some Wear keyboards cover the search results even after
+                // a successful Search action. Hide ONLY the confirmed IME,
+                // never swipe RIGHT or use Back on the Spotify app itself.
                 searchKeyboardDismissed=true;
                 if(JarvisWatchScreenService.spotifyDismissSubmittedKeyboard(title))
                     status("Приховую клавіатуру після пошуку Spotify…");
@@ -578,6 +592,8 @@ public final class JarvisWatchSpotifyController {
                 status("Відкрито пошук Spotify.");
             if(step==JarvisWatchScreenService.SpotifyStep.SET_QUERY)
                 status("Шукаю «"+title+"»…");
+            if(step==JarvisWatchScreenService.SpotifyStep.VERIFY_QUERY)
+                status("Назву перевірено. Натискаю «Пошук» у Spotify…");
             if(step==JarvisWatchScreenService.SpotifyStep.SELECT_RESULT)
                 status("Результат вибрано. Перевіряю його тип…");
             stageStart=SystemClock.elapsedRealtime();
