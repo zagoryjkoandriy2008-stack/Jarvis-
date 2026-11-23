@@ -475,7 +475,10 @@ public partial class MainWindow : Window {
         ChatHistory.AppendText($"[{DateTime.Now:HH:mm:ss}] {by}: {text}\n\n");
         ChatHistory.ScrollToEnd();
     }
-    private void Status(string detail)=>StatusText.Text=detail;
+    private void Status(string detail) {
+        StatusText.Text=detail;
+        HeroStatusText.Text=detail;
+    }
     private async void ReceiveFileFromPixel_Click(object sender,RoutedEventArgs e) {
         try {
             FileExchangeStatus.Text="Перевіряю файли з Pixel…";
