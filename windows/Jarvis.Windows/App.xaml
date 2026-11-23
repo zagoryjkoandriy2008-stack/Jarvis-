@@ -3,39 +3,133 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     ShutdownMode="OnMainWindowClose">
   <Application.Resources>
-    <SolidColorBrush x:Key="PanelBrush" Color="#152237"/>
-    <SolidColorBrush x:Key="AccentBrush" Color="#53D7EA"/>
-    <SolidColorBrush x:Key="MutedBrush" Color="#A4B4CD"/>
+    <!-- Shared Pixel palette: BG / PANEL / BORDER / CYAN / GREEN / MUTED. -->
+    <SolidColorBrush x:Key="PanelBrush" Color="#111B30"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#50DFFB"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#A1B3D0"/>
     <Style TargetType="Button">
-      <Setter Property="Foreground" Value="#061322"/>
-      <Setter Property="Background" Value="#53D7EA"/>
+      <Setter Property="Foreground" Value="#EDF6FF"/>
+      <Setter Property="Background" Value="#132E49"/>
+      <Setter Property="BorderBrush" Value="#314C6F"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="14,9"/>
+      <Setter Property="Padding" Value="12,9"/>
+      <Setter Property="MinHeight" Value="40"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Margin" Value="4"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonFrame" CornerRadius="12"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter RecognizesAccessKey="True"
+                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ButtonFrame" Property="BorderBrush" Value="#50DFFB"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ButtonFrame" Property="Opacity" Value="0.74"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ButtonFrame" Property="Opacity" Value="0.5"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <!-- Pixel's primary microphone/send gradient. -->
+    <Style x:Key="PrimaryActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Foreground" Value="#031725"/>
+      <Setter Property="BorderBrush" Value="#7CE8FF"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Background">
+        <Setter.Value>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#91F6FF" Offset="0"/>
+            <GradientStop Color="#31C7ED" Offset="1"/>
+          </LinearGradientBrush>
+        </Setter.Value>
+      </Setter>
     </Style>
     <Style TargetType="TextBox">
-      <Setter Property="Foreground" Value="#EFF7FF"/>
-      <Setter Property="Background" Value="#1D304A"/>
-      <Setter Property="CaretBrush" Value="#53D7EA"/>
-      <Setter Property="BorderBrush" Value="#49617E"/>
-      <Setter Property="Padding" Value="10"/>
+      <Setter Property="Foreground" Value="#EDF6FF"/>
+      <Setter Property="Background" Value="#091528"/>
+      <Setter Property="CaretBrush" Value="#50DFFB"/>
+      <Setter Property="BorderBrush" Value="#34496C"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="11"/>
       <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="TextBoxFrame" CornerRadius="12"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}">
+              <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
+                            HorizontalScrollBarVisibility="Hidden"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="TextBoxFrame" Property="BorderBrush" Value="#50DFFB"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
     <Style TargetType="ComboBox">
+      <Setter Property="Background" Value="#132E49"/>
+      <Setter Property="Foreground" Value="#EDF6FF"/>
+      <Setter Property="BorderBrush" Value="#314C6F"/>
       <Setter Property="Margin" Value="4"/>
       <Setter Property="Padding" Value="9"/>
     </Style>
     <Style TargetType="TabControl">
-      <Setter Property="Background" Value="#0B1729"/>
+      <Setter Property="Background" Value="#080E1D"/>
       <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style TargetType="TabItem">
-      <Setter Property="Background" Value="#182D46"/>
-      <Setter Property="Foreground" Value="#E7F7FF"/>
-      <Setter Property="Padding" Value="16,9"/>
+      <Setter Property="Foreground" Value="#EDF6FF"/>
+      <Setter Property="Background" Value="#132E49"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Padding" Value="11,9"/>
       <Setter Property="Margin" Value="2"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Border x:Name="TabFrame" CornerRadius="12" Background="{TemplateBinding Background}"
+                    BorderBrush="#314C6F" BorderThickness="1"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabFrame" Property="Background" Value="#183B54"/>
+                <Setter TargetName="TabFrame" Property="BorderBrush" Value="#50DFFB"/>
+                <Setter Property="Foreground" Value="#50DFFB"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="TabFrame" Property="BorderBrush" Value="#50DFFB"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
   </Application.Resources>
 </Application>

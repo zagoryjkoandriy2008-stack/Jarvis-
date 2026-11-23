@@ -1,80 +1,171 @@
 <Window x:Class="Jarvis.Windows.MainWindow"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  Title="JARVIS — Windows" Width="1040" Height="760" MinWidth="780" MinHeight="620"
-  WindowStartupLocation="CenterScreen" Background="#0B1729" Foreground="#EFF7FF">
-  <Grid Margin="20">
+  xmlns:local="clr-namespace:Jarvis.Windows"
+  Title="J.A.R.V.I.S. — Windows" Width="1060" Height="800" MinWidth="780" MinHeight="620"
+  WindowStartupLocation="CenterScreen" Background="#080E1D" Foreground="#EDF6FF">
+  <Grid Margin="16">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#12315C" Offset="0"/>
+        <GradientStop Color="#080E1D" Offset="0.55"/>
+        <GradientStop Color="#060A13" Offset="1"/>
+      </LinearGradientBrush>
+    </Grid.Background>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
-    <Grid Grid.Row="0" Margin="0,0,0,12">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Border Background="#24405D" Width="72" Height="72" CornerRadius="36" BorderBrush="#53D7EA" BorderThickness="2" Margin="0,0,16,0">
-        <Viewbox Margin="12">
-          <Grid Width="42" Height="42">
-            <Rectangle Width="32" Height="32" Fill="#53D7EA" RadiusX="4" RadiusY="4"/>
-            <Rectangle Width="7" Height="8" Fill="#082033" HorizontalAlignment="Left" Margin="9,0,0,0" VerticalAlignment="Center"/>
-            <Rectangle Width="7" Height="8" Fill="#082033" HorizontalAlignment="Right" Margin="0,0,9,0" VerticalAlignment="Center"/>
-            <Rectangle Width="16" Height="3" Fill="#082033" VerticalAlignment="Bottom" Margin="0,0,0,7"/>
-          </Grid>
-        </Viewbox>
-      </Border>
-      <StackPanel Grid.Column="1" VerticalAlignment="Center">
-        <TextBlock Text="JARVIS / WINDOWS" FontSize="24" FontWeight="Bold" Foreground="#53D7EA"/>
-        <TextBlock Text="Локальні команди • Cloudflare AI • фінанси • макроси" Foreground="#A4B4CD" FontSize="13"/>
+    <!-- Pixel's small J mark, wordmark, subtitle and green version pill. -->
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+      <Grid Margin="2,2,2,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Border Width="40" Height="40" CornerRadius="11" BorderThickness="1.5"
+                BorderBrush="#4CDBFF" Background="#091529" Margin="0,0,12,0">
+          <TextBlock Text="J" FontWeight="Bold" FontSize="21"
+                     Foreground="#50DFFB" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="J.A.R.V.I.S." Foreground="#EDF6FF"
+                     FontSize="17" FontWeight="Bold" FontFamily="Consolas"/>
+          <TextBlock Text="PERSONAL VOICE ASSISTANT" Foreground="#A1B3D0" FontSize="10"
+                     />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border VerticalAlignment="Center" Background="#142F3B"
+                  BorderBrush="#2B836C" BorderThickness="1" CornerRadius="15"
+                  Padding="12,7" Margin="0,0,8,0">
+            <TextBlock Text="● V 0.2.0" Foreground="#6BE8BF" FontSize="12"/>
+          </Border>
+          <Button Content="🎙" Click="MicButton_Click" ToolTip="Слухати з будь-якої вкладки"
+                  Width="43" Height="40" Padding="0"/>
+          <Button Click="StopButton_Click" Content="■ Стоп" ToolTip="Перервати поточну дію"
+                  Background="#632E3A" BorderBrush="#AD5267"/>
+          <Button x:Name="StopScreenShareButton" Content="■ Зупинити екран"
+                  Click="StopScreenShare_Click" Visibility="Collapsed"
+                  Background="#D34C4C" Foreground="White"/>
+        </StackPanel>
+      </Grid>
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock x:Name="AIControlIndicator" Text="🟠 ШІ керує Windows · СТОП для скасування"
-                   Foreground="#FFE69B" FontWeight="Bold" Visibility="Collapsed"/>
-        <TextBlock x:Name="ScreenShareIndicator" Text="🔴 Екран транслюється на Pixel" Foreground="#FF786C" FontWeight="Bold" Visibility="Collapsed"/>
-        <StackPanel x:Name="ControlRequestPanel" Visibility="Collapsed"
-            Orientation="Horizontal" Margin="0,5,0,0">
+                   Foreground="#FFE69B" FontWeight="Bold" Visibility="Collapsed" Margin="5"/>
+        <TextBlock x:Name="ScreenShareIndicator" Text="🔴 Екран транслюється на Pixel"
+                   Foreground="#FF786C" FontWeight="Bold" Visibility="Collapsed" Margin="5"/>
+        <StackPanel x:Name="ControlRequestPanel" Visibility="Collapsed" Orientation="Horizontal"
+                    VerticalAlignment="Center" Margin="5">
           <TextBlock Text="📱 Pixel запитує керування Windows" Foreground="#FFE69B"
-            VerticalAlignment="Center" FontWeight="Bold"/>
+                     VerticalAlignment="Center" FontWeight="Bold"/>
           <Button Content="Дозволити" Click="AllowControl_Click"
-            Background="#236F55" Foreground="White" Margin="8,0,4,0"/>
-          <Button Content="Відхилити" Click="DenyControl_Click"
-            Margin="4,0,0,0"/>
+                  Background="#236F55" Foreground="White" Margin="8,0,4,0"/>
+          <Button Content="Відхилити" Click="DenyControl_Click" Margin="4,0,0,0"/>
         </StackPanel>
         <StackPanel x:Name="ControlActivePanel" Visibility="Collapsed"
-            Orientation="Horizontal" Margin="0,5,0,0">
+                    Orientation="Horizontal" VerticalAlignment="Center" Margin="5">
           <TextBlock Text="🔴 Pixel керує мишею і клавіатурою"
-            Foreground="#FF786C" FontWeight="Bold" VerticalAlignment="Center"/>
+                     Foreground="#FF786C" FontWeight="Bold" VerticalAlignment="Center"/>
           <Button Content="■ Заборонити керування" Click="StopControl_Click"
-            Background="#D34C4C" Foreground="White" Margin="8,0,0,0"/>
+                  Background="#D34C4C" Foreground="White" Margin="8,0,0,0"/>
         </StackPanel>
       </StackPanel>
-      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-        <Button x:Name="StopScreenShareButton" Content="■ Зупинити екран" Click="StopScreenShare_Click" Visibility="Collapsed" Background="#D34C4C" Foreground="White"/>
-        <Button x:Name="OrbToggleButton" Content="◎ Плаваючий" Click="OrbToggle_Click" ToolTip="Показати або приховати плаваючого JARVIS"/>
-        <Button x:Name="MicButton" Click="MicButton_Click" Content="🎙 Слухати"/>
-        <Button Click="StopButton_Click" Content="■ Стоп"/>
-      </StackPanel>
-    </Grid>
+    </StackPanel>
     <TabControl Grid.Row="1" x:Name="Tabs">
-      <TabItem Header="Асистент">
-        <Grid Margin="12">
-          <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-          <TextBox x:Name="ChatHistory" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" AcceptsReturn="True" FontSize="15" Margin="0,0,0,12"/>
-          <TextBox x:Name="CommandInput" Grid.Row="1" Height="75" AcceptsReturn="True" TextWrapping="Wrap" KeyDown="CommandInput_KeyDown" ToolTip="Enter — виконати, Shift+Enter — новий рядок"/>
-          <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <ComboBox x:Name="AiMode" SelectedIndex="0" Width="135">
-              <ComboBoxItem Content="chat"/><ComboBoxItem Content="web"/><ComboBoxItem Content="analysis"/><ComboBoxItem Content="image"/>
-            </ComboBox>
-            <Button Click="AnalyzeScreenButton_Click" Content="👁 Аналіз екрана" ToolTip="Разовий знімок лише після згоди на ПК"/>
-            <Button Click="RunButton_Click" Content="Виконати ↵"/>
-            <Button Click="ClearConversationButton_Click" Content="Новий діалог"/>
+      <TabItem Header="● Асистент">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel MaxWidth="825" HorizontalAlignment="Center" Margin="12,14,12,20">
+            <!-- Android hero: face 210dp, greeting, status, microphone. -->
+            <Button Click="MicButton_Click" ToolTip="Натисни на лице, щоб почати або зупинити слухання"
+                    HorizontalAlignment="Center" Width="214" Height="214"
+                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,8"
+                    Cursor="Hand">
+              <local:PixelFace x:Name="HeroFace" Width="210" Height="210"/>
+            </Button>
+            <TextBlock Text="Вітаю, я Дімон" FontWeight="Bold" FontSize="32"
+                       Foreground="#EDF6FF" HorizontalAlignment="Center" TextAlignment="Center"/>
+            <TextBlock Text="Голосовий помічник українською. Натисни мікрофон або введи команду нижче."
+                       Foreground="#A1B3D0" FontSize="14" TextWrapping="Wrap"
+                       TextAlignment="Center" HorizontalAlignment="Center"
+                       Margin="24,9,24,12"/>
+            <Border BorderBrush="#263957" BorderThickness="1" Background="#B8101D33"
+                    CornerRadius="18" Padding="14,9" HorizontalAlignment="Center" Margin="0,0,0,14">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="#6BE8BF" Margin="0,0,9,0"/>
+                <TextBlock x:Name="HeroStatusText" Text="Готовий. Ctrl+Shift+J — мікрофон; Enter — виконати текст."
+                           Foreground="#CBDEF4" FontSize="12" TextWrapping="Wrap" MaxWidth="620"/>
+              </StackPanel>
+            </Border>
+            <Button x:Name="MicButton" Click="MicButton_Click"
+                    Style="{StaticResource PrimaryActionButton}"
+                    Width="270" Height="54" HorizontalAlignment="Center"
+                    Content="🎙 Говорити з Дімоном" Margin="0,0,0,10"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,18">
+              <Button x:Name="OrbToggleButton" Content="◎ Плаваючий" Click="OrbToggle_Click"
+                      ToolTip="Показати або приховати плаваючого JARVIS"/>
+            </StackPanel>
+            <Border Background="#111B30" BorderBrush="#263957" BorderThickness="1"
+                    CornerRadius="18" Padding="18" Margin="0,0,0,16">
+              <StackPanel>
+                <DockPanel Margin="0,0,0,14" LastChildFill="False">
+                  <TextBlock Text="ДІАЛОГ" FontWeight="Bold" FontSize="14" Foreground="#B9D6F0"
+                             VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                  <TextBlock Text="ГОЛОСОВІ ТА ТЕКСТОВІ КОМАНДИ" Foreground="#A1B3D0"
+                             FontSize="11" DockPanel.Dock="Right" VerticalAlignment="Center"/>
+                </DockPanel>
+                <TextBox x:Name="ChatHistory" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                         TextWrapping="Wrap" AcceptsReturn="True" FontSize="14"
+                         Height="235" Margin="0,0,0,12"
+                         Background="#091528" BorderBrush="#263957"/>
+                <Grid Margin="0,0,0,10">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBox x:Name="CommandInput" Grid.Column="0" MinHeight="56"
+                           AcceptsReturn="True" TextWrapping="Wrap"
+                           KeyDown="CommandInput_KeyDown"
+                           ToolTip="Enter — виконати, Shift+Enter — новий рядок"
+                           VerticalScrollBarVisibility="Auto"/>
+                  <Button Grid.Column="1" Click="RunButton_Click" Content="Надіслати"
+                          MinWidth="110" Margin="8,0,0,0"
+                          Style="{StaticResource PrimaryActionButton}"/>
+                </Grid>
+                <WrapPanel HorizontalAlignment="Center">
+                  <ComboBox x:Name="AiMode" SelectedIndex="0" Width="135" Margin="4">
+                    <ComboBoxItem Content="chat"/><ComboBoxItem Content="web"/>
+                    <ComboBoxItem Content="analysis"/><ComboBoxItem Content="image"/>
+                  </ComboBox>
+                  <Button Click="AnalyzeScreenButton_Click" Content="👁 Аналіз екрана"
+                          ToolTip="Разовий знімок лише після згоди на ПК"/>
+                  <Button Click="ClearConversationButton_Click" Content="🧹 Новий діалог"/>
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+            <Border Background="#111B30" BorderBrush="#263957" BorderThickness="1"
+                    CornerRadius="18" Padding="18" Margin="0,0,0,14">
+              <StackPanel>
+                <TextBlock Text="СПРОБУЙ КОМАНДИ" FontSize="14" Foreground="#B9D6F0"
+                           FontWeight="Bold" Margin="0,0,0,12"/>
+                <WrapPanel HorizontalAlignment="Center">
+                  <Button Content="🖥 Стан комп'ютера" Tag="стан комп'ютера" Click="QuickCommand_Click"/>
+                  <Button Content="📝 Відкрий блокнот" Tag="відкрий блокнот" Click="QuickCommand_Click"/>
+                  <Button Content="📱 Телефон" Tag="телефон" Click="QuickCommand_Click"/>
+                  <Button Content="⌚ Годинник" Tag="годинник" Click="QuickCommand_Click"/>
+                  <Button Content="🎙 Скажи привіт" Tag="скажи привіт" Click="QuickCommand_Click"/>
+                </WrapPanel>
+              </StackPanel>
+            </Border>
           </StackPanel>
-        </Grid>
+        </ScrollViewer>
       </TabItem>
       <TabItem Header="Пристрої">
         <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20">
           <TextBlock Text="Обери пристрій для наступних голосових команд" FontSize="17" FontWeight="Bold" Margin="0,0,0,10"/>
-          <TextBlock Text="Команди «телефон», «годинник», «комп'ютер» змінюють ціль, а JARVIS Finance завжди використовує базу Pixel. Комп'ютер може приймати лише дозволені локальні дії." Foreground="#A4B4CD" TextWrapping="Wrap" Width="680" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+          <TextBlock Text="Команди «телефон», «годинник», «комп'ютер» змінюють ціль, а JARVIS Finance завжди використовує базу Pixel. Комп'ютер може приймати лише дозволені локальні дії." Foreground="#A1B3D0" TextWrapping="Wrap" Width="680" HorizontalAlignment="Left" Margin="0,0,0,10"/>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
             <Button Content="📱 Телефон" Click="TargetPhone_Click"/>
             <Button Content="⌚ Годинник" Click="TargetWatch_Click"/>
             <Button Content="🖥 Комп'ютер" Click="TargetComputer_Click"/>
           </StackPanel>
-          <TextBlock x:Name="CurrentDeviceLabel" Text="🖥 Комп'ютер" FontSize="19" Foreground="#53D7EA" FontWeight="Bold"/>
+          <TextBlock x:Name="CurrentDeviceLabel" Text="🖥 Комп'ютер" FontSize="19" Foreground="#50DFFB" FontWeight="Bold"/>
           <Button Content="Перевірити підключення" Click="CheckDevices_Click" Width="230" HorizontalAlignment="Left" Margin="0,14,0,14"/>
           <TextBox x:Name="DeviceStatusReport" IsReadOnly="True" TextWrapping="Wrap" Height="140" Width="680" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"/>
            <StackPanel Orientation="Horizontal" Margin="0,8">
@@ -85,10 +176,10 @@
                     HorizontalAlignment="Left" TextWrapping="Wrap"
                     VerticalScrollBarVisibility="Auto"
                     ToolTip="Лише час, ID, джерело, тип дії, статус, тривалість, код помилки."/>
-          <TextBlock Text="На годиннику команди передає Pixel. Для цього потрібні оновлений Android-код, розгорнутий Cloudflare Relay та дозвіл приймати команди." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,12,0,0" Width="680" HorizontalAlignment="Left"/>
+          <TextBlock Text="На годиннику команди передає Pixel. Для цього потрібні оновлений Android-код, розгорнутий Cloudflare Relay та дозвіл приймати команди." Foreground="#A1B3D0" TextWrapping="Wrap" Margin="0,12,0,0" Width="680" HorizontalAlignment="Left"/>
           <Separator Margin="0,12"/>
           <TextBlock Text="🔒 Захищене спарювання Pixel з Windows — P-256"
-                     FontWeight="Bold" FontSize="16" Foreground="#53D7EA"/>
+                     FontWeight="Bold" FontSize="16" Foreground="#50DFFB"/>
           <TextBlock Text="1. Створи одноразовий код на ПК. 2. Введи ID і код на Pixel. 3. Перевір відбиток ключа телефона. 4. Підтвердь на ПК. Паролі і ключі не передаються."
                      TextWrapping="Wrap" Width="680" Margin="0,8"/>
           <StackPanel Orientation="Horizontal">
@@ -122,10 +213,10 @@
                      Text="До переходу всіх клієнтів на підписаний Relay v2 старий спільний ключ v1 залишається обмеженим, але не захищений pairing."/>
         </StackPanel></ScrollViewer>
       </TabItem>
-      <TabItem Header="JARVIS Finance">
+      <TabItem Header="💰 Finance">
         <Grid Margin="12">
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-          <TextBlock Text="Єдина база JARVIS Finance — на Pixel. Підключення потрібне для записів і звітів з Windows. Локальні старі записи лише для перегляду." Foreground="#A4B4CD" Margin="0,0,0,12"/>
+          <TextBlock Text="Єдина база JARVIS Finance — на Pixel. Підключення потрібне для записів і звітів з Windows. Локальні старі записи лише для перегляду." Foreground="#A1B3D0" Margin="0,0,0,12"/>
           <StackPanel Grid.Row="1" Orientation="Horizontal">
             <TextBox x:Name="FinanceInput" Width="540" ToolTip="витратив 150 готівка транспорт таксі"/>
             <Button Click="AddFinanceButton_Click" Content="Записати"/>
@@ -137,7 +228,7 @@
       <TabItem Header="Макроси">
         <Grid Margin="12">
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-          <TextBlock Text="Точна голосова фраза → локальні дії (по одній команді на рядок; макрос не виконує shell-код)" Foreground="#A4B4CD" TextWrapping="Wrap"/>
+          <TextBlock Text="Точна голосова фраза → локальні дії (по одній команді на рядок; макрос не виконує shell-код)" Foreground="#A1B3D0" TextWrapping="Wrap"/>
           <TextBox x:Name="MacroTrigger" Grid.Row="1" Margin="0,10,0,0" Height="36" ToolTip="Наприклад: робочий режим"/>
           <TextBox x:Name="MacroActions" Grid.Row="2" Margin="0,8,0,0" Height="108" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" ToolTip="відкрий блокнот&#10;гучність 40&#10;скажи починаю роботу"/>
           <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"><StackPanel>
@@ -172,19 +263,19 @@
           </StackPanel></ScrollViewer>
         </Grid>
       </TabItem>
-      <TabItem Header="Система ПК">
+      <TabItem Header="🖥 Система">
         <StackPanel Margin="18" Width="670" HorizontalAlignment="Left">
           <TextBlock Text="🖥 Моніторинг Windows" FontSize="19" FontWeight="Bold" Margin="0,0,0,9"/>
-          <TextBlock Text="Показники знімаються лише за запитом, без фонової телеметрії. Команда: «стан комп'ютера» або «статус пк». Також доступна з Pixel і Watch7 у режимі «комп'ютер»." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <TextBlock Text="Показники знімаються лише за запитом, без фонової телеметрії. Команда: «стан комп'ютера» або «статус пк». Також доступна з Pixel і Watch7 у режимі «комп'ютер»." Foreground="#A1B3D0" TextWrapping="Wrap" Margin="0,0,0,12"/>
           <Button Content="↻ Оновити показники" Click="RefreshSystemStatus_Click" Width="225" HorizontalAlignment="Left"/>
           <TextBox x:Name="SystemStatusReport" Height="110" Margin="0,12,0,0" IsReadOnly="True" TextWrapping="Wrap"/>
-          <TextBlock Text="Температури CPU/GPU не відображаються: Windows не має універсального надійного API для них. Пізніше можна додати окремий датчик через LibreHardwareMonitor." TextWrapping="Wrap" Foreground="#A4B4CD" Margin="0,12,0,0"/>
+          <TextBlock Text="Температури CPU/GPU не відображаються: Windows не має універсального надійного API для них. Пізніше можна додати окремий датчик через LibreHardwareMonitor." TextWrapping="Wrap" Foreground="#A1B3D0" Margin="0,12,0,0"/>
         </StackPanel>
       </TabItem>
-      <TabItem Header="Обмін файлами">
+      <TabItem Header="📂 Файли">
         <StackPanel Margin="20" Width="660" HorizontalAlignment="Left">
           <TextBlock Text="📂 Обмін файлами Windows ↔ Pixel" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
-          <TextBlock Text="Вибери один файл до 1 МіБ. Він зберігатиметься тільки в оперативній пам'яті приватного Cloudflare Relay максимум 2 хвилини. На Pixel відкрий перегляд Windows → «📂 Файли ПК» → «Зберегти». Не передавай паролі чи секрети: це HTTPS, але ще не наскрізне шифрування." TextWrapping="Wrap" Foreground="#A4B4CD" Margin="0,0,0,12"/>
+          <TextBlock Text="Вибери один файл до 1 МіБ. Він зберігатиметься тільки в оперативній пам'яті приватного Cloudflare Relay максимум 2 хвилини. На Pixel відкрий перегляд Windows → «📂 Файли ПК» → «Зберегти». Не передавай паролі чи секрети: це HTTPS, але ще не наскрізне шифрування." TextWrapping="Wrap" Foreground="#A1B3D0" Margin="0,0,0,12"/>
           <StackPanel Orientation="Horizontal">
             <Button Content="📤 Передати на Pixel" Click="SendFileToPixel_Click" Width="225"/>
             <Button Content="📥 Отримати з Pixel" Click="ReceiveFileFromPixel_Click" Width="225"/>
@@ -199,7 +290,7 @@
             <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
             <RowDefinition Height="110"/>
           </Grid.RowDefinitions>
-          <TextBlock Text="📱 Єдині нотатки JARVIS — на Pixel. Додавай і переглядай через авторизований Cloudflare Relay." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,0,0,10"/>
+          <TextBlock Text="📱 Єдині нотатки JARVIS — на Pixel. Додавай і переглядай через авторизований Cloudflare Relay." Foreground="#A1B3D0" TextWrapping="Wrap" Margin="0,0,0,10"/>
           <StackPanel Grid.Row="1" Orientation="Horizontal">
             <TextBox x:Name="PhoneNoteInput" Width="430" Height="40"
               ToolTip="Напиши текст нотатки (до 180 символів)"/>
@@ -208,35 +299,35 @@
           </StackPanel>
           <TextBox Grid.Row="2" x:Name="PhoneNotesReport" Margin="0,12,0,14"
             TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
-          <TextBlock Grid.Row="3" Text="Архів ранніх локальних нотаток Windows (лише читання, не синхронізовано; нічого не видаляємо)" Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <TextBlock Grid.Row="3" Text="Архів ранніх локальних нотаток Windows (лише читання, не синхронізовано; нічого не видаляємо)" Foreground="#A1B3D0" TextWrapping="Wrap" Margin="0,0,0,8"/>
           <TextBox Grid.Row="4" x:Name="NotesText" TextWrapping="Wrap"
             VerticalScrollBarVisibility="Auto" IsReadOnly="True"/>
         </Grid>
       </TabItem>
-      <TabItem Header="Налаштування">
+      <TabItem Header="⚙ Налаштування">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="14" Width="680" HorizontalAlignment="Left">
             <TextBlock Text="Cloudflare JARVIS AI Worker — той самий сервер, що й на телефоні" FontWeight="Bold" Margin="0,0,0,8"/>
-            <TextBlock Text="HTTPS /chat (не вводь тут OpenAI API-ключ)" Foreground="#A4B4CD"/>
+            <TextBlock Text="HTTPS /chat (не вводь тут OpenAI API-ключ)" Foreground="#A1B3D0"/>
             <TextBox x:Name="WorkerUrl" Margin="0,5,0,12"/>
-            <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A4B4CD"/>
+            <TextBlock Text="Особистий токен Worker (захищається Windows DPAPI)" Foreground="#A1B3D0"/>
             <PasswordBox x:Name="WorkerToken" Background="#1D304A" Foreground="White" Padding="10" Margin="0,5,0,12"/>
             <CheckBox x:Name="EnableSignedRelay" Content="Використовувати підписані команди v2 з Pixel/Watch7 після спарювання (потрібне налаштування на Pixel)" Margin="0,8"/>
             <CheckBox x:Name="EnableDeviceRelay" Content="Дозволити з'єднання з Pixel і Watch7 через приватний Cloudflare Relay" Margin="0,8" ToolTip="Команди передаються через твій Cloudflare Worker. Увімкни тільки для власного акаунта."/>
             <CheckBox x:Name="EnableScreenShare" Content="🖥 Дозволити Pixel переглядати мій екран (тільки за активного запиту)" Margin="0,8" ToolTip="Містить усі видимі вікна, включно з особистими даними; передається HTTPS через твій Cloudflare Worker."/>
-            <TextBlock Text="🔒 Кадри не зберігаються. Для початку потрібна кнопка на Pixel; індикатор трансляції видно у Windows. Працює лише поки JARVIS відкритий." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
+            <TextBlock Text="🔒 Кадри не зберігаються. Для початку потрібна кнопка на Pixel; індикатор трансляції видно у Windows. Працює лише поки JARVIS відкритий." Foreground="#A1B3D0" TextWrapping="Wrap" Margin="8,0,0,8"/>
             <CheckBox x:Name="EnableRemoteControl"
                 Content="🖱 Дозволяти запити Pixel на мишу та клавіатуру (кожен сеанс підтверджую окремо)"
                 Margin="0,8" ToolTip="Дозвіл лише на власному Windows; кожне нове підключення потрібно явно схвалити на комп'ютері."/>
             <TextBlock Text="Керування не починається без натискання «Дозволити» на ПК. Видимі всі дії. Прихованого доступу або роботи на екрані входу немає."
-                Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,8"/>
+                Foreground="#A1B3D0" TextWrapping="Wrap" Margin="8,0,0,8"/>
             <CheckBox x:Name="LaunchAtSignIn" Content="Запускати JARVIS після входу у Windows (без адміністратора)" Margin="0,8"/>
             <CheckBox x:Name="MinimizeToTray" Content="Згортати в трей при закритті вікна" Margin="0,8"/>
             <CheckBox x:Name="EnableAiDesktop" Content="Дозволяти локальний AI Desktop Agent після підтвердження" Margin="0,8"/>
             <CheckBox x:Name="UseAiDesktopVision" Content="AI Desktop: передавати JPEG екрана в ШІ під час сесії (за замовчуванням OFF)" Margin="0,8"/>
             <CheckBox x:Name="EnableWakeWord" Content="Офлайн-пробудження «Джарвіс» (потребує Windows-розпізнавача)" Margin="0,8"/>
             <TextBlock Text="За відсутності мовного пакета режим не запускається; whisper.cpp буде додано окремо."
-                Foreground="#A4B4CD" TextWrapping="Wrap" Margin="8,0,0,6"/>
+                Foreground="#A1B3D0" TextWrapping="Wrap" Margin="8,0,0,6"/>
             <CheckBox x:Name="ShowFloatingOrb" Content="Показувати плаваючого JARVIS" IsChecked="True" Margin="0,8"/>
             <CheckBox x:Name="SpeakReplies" Content="Озвучувати відповіді" IsChecked="True" Margin="0,6"/>
             <CheckBox x:Name="StayOnTop" Content="Поверх інших вікон" Margin="0,6" Checked="StayOnTop_Changed" Unchecked="StayOnTop_Changed"/>
@@ -249,13 +340,21 @@
               <Button Click="TestAiButton_Click" Content="Перевірити ШІ"/>
               <Button Click="TestSpeechButton_Click" Content="Тест голосу"/>
             </StackPanel>
-            <TextBlock Text="Глобальна комбінація Ctrl+Shift+J активує слухання. Немає прихованого безперервного прослуховування." Foreground="#A4B4CD" TextWrapping="Wrap" Margin="0,14,0,0"/>
+            <TextBlock Text="Глобальна комбінація Ctrl+Shift+J активує слухання. Немає прихованого безперервного прослуховування." Foreground="#A1B3D0" TextWrapping="Wrap" Margin="0,14,0,0"/>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
     </TabControl>
-    <Border Grid.Row="2" Background="#152237" Padding="12" Margin="0,10,0,0" CornerRadius="7">
-      <TextBlock x:Name="StatusText" Text="Готовий. Ctrl+Shift+J — мікрофон; Enter — виконати текст." Foreground="#53D7EA"/>
+    <Border Grid.Row="2" Background="#111B30" BorderBrush="#263957"
+            BorderThickness="1" Padding="10" Margin="0,10,0,0" CornerRadius="12">
+      <DockPanel LastChildFill="True">
+        <TextBlock Text="J.A.R.V.I.S. • Windows ↔ Pixel ↔ Galaxy Watch7"
+                   Foreground="#A1B3D0" FontSize="11" Margin="0,0,18,0"
+                   VerticalAlignment="Center" DockPanel.Dock="Left"/>
+        <TextBlock x:Name="StatusText" Text="Готовий. Ctrl+Shift+J — мікрофон; Enter — команда."
+                   Foreground="#50DFFB" FontSize="11" TextWrapping="Wrap"
+                   TextAlignment="Right" VerticalAlignment="Center"/>
+      </DockPanel>
     </Border>
   </Grid>
 </Window>

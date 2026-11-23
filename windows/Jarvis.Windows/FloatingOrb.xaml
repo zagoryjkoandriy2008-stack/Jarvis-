@@ -1,23 +1,26 @@
 <Window x:Class="Jarvis.Windows.FloatingOrb"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  Title="JARVIS" Width="158" Height="182"
+  xmlns:local="clr-namespace:Jarvis.Windows"
+  Title="JARVIS" Width="168" Height="196"
   Background="Transparent" AllowsTransparency="True" WindowStyle="None"
   ResizeMode="NoResize" ShowInTaskbar="False" ShowActivated="False"
   Topmost="True" WindowStartupLocation="Manual">
   <Grid>
-    <Border x:Name="OrbRing" Background="#DD0B1729" BorderBrush="#53D7EA" BorderThickness="2"
-      Width="104" Height="104" CornerRadius="52" HorizontalAlignment="Center"
-      VerticalAlignment="Top" Margin="0,8,0,0" MouseLeftButtonDown="Orb_Drag"
-      MouseLeftButtonUp="Orb_DragEnd"/>
-    <Button x:Name="OrbButton" Content="◼  ◼&#10;▔▔" Click="OrbButton_Click"
-      Width="75" Height="67" FontSize="20" FontFamily="Consolas"
-      BorderThickness="0" Background="Transparent" Foreground="#53D7EA"
-      Cursor="Hand" HorizontalAlignment="Center" VerticalAlignment="Top"
-      Margin="0,22,0,0" ToolTip="Джарвіс: натисни для слухання"/>
+    <!-- PixelFace is shared with the full Windows hero; the button captures clicks. -->
+    <Border x:Name="OrbRing" Background="Transparent" BorderBrush="#50DFFB"
+      BorderThickness="0" Width="144" Height="128" CornerRadius="64"
+      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
+      MouseLeftButtonDown="Orb_Drag" MouseLeftButtonUp="Orb_DragEnd"/>
+    <Button x:Name="OrbButton" Click="OrbButton_Click"
+      Width="115" Height="115" Padding="0" BorderThickness="0" Margin="0,4,0,0"
+      Background="Transparent" Cursor="Hand" HorizontalAlignment="Center"
+      VerticalAlignment="Top" ToolTip="Джарвіс: натисни для слухання">
+      <local:PixelFace x:Name="FloatingFace" Width="115" Height="115"/>
+    </Button>
     <TextBlock x:Name="ScreenCastBadge" Text="● ЕКРАН" Visibility="Collapsed"
       Background="#D73542" Foreground="White" FontWeight="Bold" FontSize="11"
-      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,2,0,0"
+      HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,0"
       Padding="8,2" ToolTip="Екран зараз видно на Pixel"/>
     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom">
       <TextBlock x:Name="TargetLabel" Foreground="#53D7EA" HorizontalAlignment="Center"
