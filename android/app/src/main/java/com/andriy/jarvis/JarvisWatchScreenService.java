@@ -641,8 +641,14 @@ public final class JarvisWatchScreenService extends AccessibilityService {
 
     private boolean spotifyImeVisible() {
         for(AccessibilityWindowInfo window:getWindows()) {
-            if(window.getType()==AccessibilityWindowInfo.TYPE_INPUT_METHOD &&
-               (window.isActive() || window.isFocused()))return true;
+            if(window.getType()!=AccessibilityWindowInfo.TYPE_INPUT_METHOD)
+                continue;
+            if(window.isActive() || window.isFocused())return true;
+            // Some full-screen Wear keyboards report a visible IME root
+            // without an active/focused window flag. Never mistake this for
+            // a hidden keyboard after Search has been submitted.
+            AccessibilityNodeInfo keyboard=window.getRoot();
+            if(keyboard!=null && keyboard.isVisibleToUser())return true;
         }
         return false;
     }
@@ -1052,7 +1058,8 @@ public final class JarvisWatchScreenService extends AccessibilityService {
             if(window.getType()!=AccessibilityWindowInfo.TYPE_INPUT_METHOD)continue;
             AccessibilityNodeInfo keyboard=window.getRoot();
             if(keyboard==null || !keyboard.isVisibleToUser())continue;
-            if(!window.isActive() && !window.isFocused())continue;
+            // The keyboard may be visible without focus on some Wear IMEs.
+            // Spotify ownership and the matching query are checked above.
             for(AccessibilityNodeInfo node:spotifyNodes(keyboard)) {
                 if(node.isEditable() ||
                    !JarvisWatchSpotifySubmitRules.isSearchKey(
@@ -1099,10 +1106,14 @@ public final class JarvisWatchScreenService extends AccessibilityService {
         Path point=new Path();
         point.moveTo(bestRect.exactCenterX(),bestRect.exactCenterY());
         Result tapped=gesture(SPOTIFY_PKG,point,90L,cb);
-        if(tapped==Result.RUNNING)
+        if(tapped==Result.RUNNING) {
             JarvisWatchSpotifyTrace.mark(getApplicationContext(),
                 "SUBMIT_IME_KEY_GESTURE");
-        return tapped;
+            return tapped;
+        }
+        // A cancelled/blocked gesture must not abort the entire Spotify
+        // command: the verified input connection may still submit Search.
+        return Result.WAIT;
     }
 
     private Result spotifySubmitQuery(AccessibilityNodeInfo root,String title,
