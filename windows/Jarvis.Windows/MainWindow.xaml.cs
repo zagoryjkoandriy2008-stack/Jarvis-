@@ -37,6 +37,7 @@ public partial class MainWindow : Window {
         _voice.Start(_state.Settings.RecognizerCulture);
         MicButton.Content=_voice.IsListening?"■ Слухаю…":"🎙 Слухати";
         _tray?.SetListening(_voice.IsListening);
+        UpdateFaceVisualState();
         if(!_voice.IsListening)_=ResumeWakeAsync();
     }
 
@@ -246,7 +247,14 @@ public partial class MainWindow : Window {
             await HandleUtteranceAsync(text);
         }));
         _voice.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
-        _voice.RecognitionEnded+=()=>Dispatcher.BeginInvoke(new Action(async()=>await ResumeWakeAsync()));
+        _voice.RecognitionEnded+=()=>Dispatcher.BeginInvoke(new Action(async()=>{
+            UpdateFaceVisualState();
+            await ResumeWakeAsync();
+        }));
+        _voice.SpeakingChanged+=_=>{
+            if(!Dispatcher.HasShutdownStarted)
+                Dispatcher.BeginInvoke(new Action(UpdateFaceVisualState));
+        };
         _wake.Status+=text=>Dispatcher.BeginInvoke(new Action(()=>Status(text)));
         _wake.Detected+=()=>Dispatcher.BeginInvoke(new Action(WakeDetected));
         RefreshFinance();
@@ -414,6 +422,15 @@ public partial class MainWindow : Window {
         _lifetime.Dispose();
     }
 
+    // Both visible faces use real microphone/TTS and command lifecycle, not icons.
+    private void UpdateFaceVisualState() {
+        var state=_voice.IsSpeaking ? PixelFaceState.Speaking :
+            _voice.IsListening ? PixelFaceState.Listening :
+            _busy ? PixelFaceState.Thinking : PixelFaceState.Idle;
+        HeroFace.SetState(state);
+        _floating?.SetState(state);
+    }
+
     private void ToggleListening() {
         _wakeGeneration++;
         _wake.Stop();
@@ -424,13 +441,14 @@ public partial class MainWindow : Window {
             MicButton.Content=_voice.IsListening?"■ Слухаю…":"🎙 Слухати";
             _tray?.SetListening(_voice.IsListening);
         }
-        _floating?.SetListening(_voice.IsListening);
+        UpdateFaceVisualState();
     }
     private void MicButton_Click(object sender,RoutedEventArgs e)=>ToggleListening();
     private void StopButton_Click(object sender,RoutedEventArgs e) {
         _voice.StopListening();_voice.StopVoice();_operation?.Cancel();
         MicButton.Content="🎙 Слухати";
-        _floating?.SetListening(false);
+        HeroFace.SetState(PixelFaceState.Idle);
+        _floating?.SetState(PixelFaceState.Idle);
         Status("Зупинено.");
     }
     private void CommandInput_KeyDown(object sender,System.Windows.Input.KeyEventArgs e) {
@@ -438,6 +456,11 @@ public partial class MainWindow : Window {
             e.Handled=true;
             _=SubmitInputAsync();
         }
+    }
+    private async void QuickCommand_Click(object sender,RoutedEventArgs e) {
+        if(sender is not Button button || button.Tag is not string command)return;
+        CommandInput.Text=command;
+        await SubmitInputAsync();
     }
     private async void RunButton_Click(object sender,RoutedEventArgs e)=>
         await SubmitInputAsync();
@@ -524,6 +547,7 @@ public partial class MainWindow : Window {
         if(_automationPaused){Reply("Автоматику призупинено.",false);return;}
         if(_busy) {Status("Попередня команда ще виконується.");return;}
         _busy=true;
+        UpdateFaceVisualState();
         using var operation=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _operation=operation;
         try {
@@ -572,7 +596,7 @@ public partial class MainWindow : Window {
           catch(Exception ex) { Reply("Не вдалося виконати: "+ex.Message,false); }
         finally {
             _busy=false;_operation=null;MicButton.Content="🎙 Слухати";
-            _floating?.SetListening(false);
+            UpdateFaceVisualState();
         }
     }
 
