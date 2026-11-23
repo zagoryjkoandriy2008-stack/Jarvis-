@@ -529,20 +529,36 @@ public final class JarvisWatchScreenService extends AccessibilityService {
     public static boolean spotifySearchResultsVisible(String query) {
         JarvisWatchScreenService service=connected.get();
         AccessibilityNodeInfo root=service==null?null:service.appRoot(SPOTIFY_PKG);
-        if(root==null || service.spotifyImeVisible() || query==null)return false;
+        return service!=null && root!=null && !service.spotifyImeVisible() &&
+            service.spotifyResultRowsForQuery(root,query);
+    }
+
+    /** Check behind the keyboard BEFORE dismissing it or retrying Search.
+     * A verified title and typed result rows are required; unrelated
+     * Spotify tab text or old Now Playing UI do not count. */
+    public static boolean spotifySearchResultsBehindKeyboard(String query) {
+        JarvisWatchScreenService service=connected.get();
+        if(service==null || !service.spotifyImeVisible())return false;
+        AccessibilityNodeInfo root=service.appRoot(SPOTIFY_PKG);
+        if(root==null)root=service.spotifyRootUnderKeyboard();
+        return root!=null && service.spotifyResultRowsForQuery(root,query);
+    }
+
+    private boolean spotifyResultRowsForQuery(AccessibilityNodeInfo root,String query) {
+        if(root==null || query==null)return false;
         String wanted=AppNameMatcher.normalize(query);
         if(wanted.isEmpty())return false;
         Rect frame=new Rect();root.getBoundsInScreen(frame);
         boolean upperQuery=false,typedResults=false;
-        for(AccessibilityNodeInfo node:service.spotifyNodes(root)){
+        for(AccessibilityNodeInfo node:spotifyNodes(root)) {
             String label=spotifyLabel(node);
-            Rect b=new Rect();node.getBoundsInScreen(b);
+            Rect bounds=new Rect();node.getBoundsInScreen(bounds);
             if(label.equals(wanted) &&
-               (node.isEditable() || b.centerY()<frame.height()*.34f))
+               (node.isEditable() || bounds.centerY()<frame.height()*.34f))
                 upperQuery=true;
             if(JarvisWatchUiRules.watchCombinedType(label)!=
                SpotifyTrackSearchRules.SearchResultType.UNKNOWN &&
-               b.centerY()>frame.height()*.17f)
+               bounds.centerY()>frame.height()*.17f)
                 typedResults=true;
         }
         return upperQuery && typedResults;
