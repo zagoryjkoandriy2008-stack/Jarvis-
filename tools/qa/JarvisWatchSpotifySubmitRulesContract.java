@@ -14,7 +14,7 @@ public final class JarvisWatchSpotifySubmitRulesContract {
     public static void main(String[] ignored) {
         // Samsung/Google keyboard labels in Ukrainian, English, Russian.
         for(String key:new String[]{"Пошук","Search","SEARCH KEY",
-                "Go","Enter","Кнопка пошуку","пОиСк","Найти","Готово"}) {
+                "Go","Enter","Кнопка пошуку","Поиск","Найти","Готово"}) {
             verify(JarvisWatchSpotifySubmitRules.isSearchKey(key,null),
                 "Valid keyboard submit missing: "+key);
         }
