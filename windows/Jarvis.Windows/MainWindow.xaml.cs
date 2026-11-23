@@ -458,7 +458,7 @@ public partial class MainWindow : Window {
         }
     }
     private async void QuickCommand_Click(object sender,RoutedEventArgs e) {
-        if(sender is not Button button || button.Tag is not string command)return;
+        if(sender is not System.Windows.Controls.Button button || button.Tag is not string command)return;
         CommandInput.Text=command;
         await SubmitInputAsync();
     }
