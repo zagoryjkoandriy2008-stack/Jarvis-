@@ -3,6 +3,9 @@ on:
   push:
     branches: [feature/jarvis-android-apk-0.1.48-20261125]
     paths: [.github/workflows/jarvis-android-apk-0.1.48.yml]
+  pull_request:
+    branches: [feature/watch7-spotify-keyboard-search-20261123]
+    paths: [.github/workflows/jarvis-android-apk-0.1.48.yml, android/app/build.gradle]
   workflow_dispatch:
 permissions:
   contents: read
