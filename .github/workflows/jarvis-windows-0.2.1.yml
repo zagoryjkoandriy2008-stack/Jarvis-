@@ -1,0 +1,103 @@
+name: JARVIS Windows 0.2.1 x64 release (on request)
+on:
+  push:
+    branches: [feature/jarvis-windows-0.2.1-build-20261125]
+    paths: [.github/workflows/jarvis-windows-0.2.1.yml]
+  pull_request:
+    branches: [feature/jarvis-android-apk-0.1.48-20261125]
+    paths:
+      - '.github/workflows/jarvis-windows-0.2.1.yml'
+      - 'windows/Jarvis.Windows/**'
+      - 'windows/Jarvis.Windows.Tests/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate Pixel-themed WPF XAML and important controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($file in @(
+            'windows/Jarvis.Windows/App.xaml',
+            'windows/Jarvis.Windows/MainWindow.xaml',
+            'windows/Jarvis.Windows/FloatingOrb.xaml',
+            'windows/Jarvis.Windows/PixelFace.xaml'
+          )) {
+            [xml]$parsed = [System.IO.File]::ReadAllText((Resolve-Path $file))
+            if ($null -eq $parsed.DocumentElement) { throw "Invalid XAML: $file" }
+          }
+          $main=Get-Content windows/Jarvis.Windows/MainWindow.xaml -Raw
+          $orb=Get-Content windows/Jarvis.Windows/FloatingOrb.xaml -Raw
+          foreach($token in @('HeroFace','HeroStatusText','StatusText','MicButton',
+             'ChatHistory','CommandInput','AiMode','StopScreenShareButton',
+             'ControlRequestPanel','ControlActivePanel')) {
+            if(-not $main.Contains("x:Name=`"$token`"")) { throw "Missing UI control $token" }
+          }
+          if(-not $orb.Contains('x:Name="FloatingFace"')) { throw 'Floating face is not PixelFace' }
+          if(-not $main.Contains('● V 0.2.1')) { throw 'Outdated Windows UI version' }
+      - name: Compile WPF including shared Pixel face
+        shell: pwsh
+        run: |
+          dotnet build windows/Jarvis.Windows.CompileCheck/Jarvis.Windows.CompileCheck.csproj --configuration Release -p:UseAppHost=false -p:GenerateRuntimeConfigurationFiles=false
+          if($LASTEXITCODE -ne 0) { throw 'WPF compile failed' }
+      - name: Run Windows command and device tests
+        shell: pwsh
+        run: |
+          dotnet run --project windows/Jarvis.Windows.Tests/Jarvis.Windows.Tests.csproj --configuration Release
+          if($LASTEXITCODE -ne 0) { throw 'Windows tests failed' }
+      - name: Publish self-contained Windows x64 portable application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $publish=Join-Path $env:RUNNER_TEMP 'jarvis-win-x64'
+          dotnet publish windows/Jarvis.Windows/Jarvis.Windows.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output "$publish"
+          if($LASTEXITCODE -ne 0) { throw 'Windows publish failed' }
+          $exe=Join-Path $publish 'Jarvis.Windows.exe'
+          if(-not (Test-Path $exe)) { throw 'Windows EXE missing' }
+          $version=[System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe).ProductVersion
+          Write-Host "Published EXE ProductVersion: $version"
+          if(-not $version.StartsWith('0.2.1')) { throw "Incorrect binary product version: $version" }
+          New-Item -ItemType Directory -Path deliverables -Force | Out-Null
+          Copy-Item $exe 'deliverables/JARVIS-Windows-0.2.1-win-x64.exe'
+          Compress-Archive -Path "$publish/*" -DestinationPath 'deliverables/JARVIS-Windows-0.2.1-win-x64.zip' -CompressionLevel Optimal
+          @(
+             'JARVIS Windows 0.2.1 x64 portable'
+             'Pixel-style visual UI and floating assistant included'
+             "Source commit: $env:GITHUB_SHA"
+             'Extract the ZIP, close the old JARVIS and run Jarvis.Windows.exe'
+             'Windows 10/11 x64, no installer; no Android APK and no Worker deploy'
+             'Real-device UI, microphone, pairing, screen sharing still require testing'
+             ''
+             'SHA256:'
+          ) | Set-Content -Path 'deliverables/WINDOWS-BUILD-INFO.txt' -Encoding utf8
+          Get-FileHash 'deliverables/JARVIS-Windows-0.2.1-win-x64.exe','deliverables/JARVIS-Windows-0.2.1-win-x64.zip' -Algorithm SHA256 | ForEach-Object {
+            "$($_.Hash)  $([System.IO.Path]::GetFileName($_.Path))"
+          } | Add-Content -Path 'deliverables/WINDOWS-BUILD-INFO.txt'
+          @(
+             'WINDOWS 0.2.1 TEST CHECKLIST'
+             '[ ] Exit previous JARVIS, extract ZIP, start Jarvis.Windows.exe'
+             '[ ] Confirm Pixel-themed J.A.R.V.I.S. face, rings, blinking, dialogue and gradient'
+             '[ ] Confirm floating face remains draggable and clickable'
+             '[ ] Confirm mic status changes only when microphone is actually listening'
+             '[ ] Confirm TTS mouth animation while speaking'
+             '[ ] Enter text command, verify dialogue and device tabs'
+             '[ ] Test quick commands, device selection, Finance and Notes'
+             '[ ] Test Stop / stop sharing from other tabs'
+             '[ ] Test pairing/remote control with Pixel and Galaxy Watch7'
+             '[ ] Check tray and app exit, no crashes'
+          ) | Set-Content -Path 'deliverables/WINDOWS-TEST-CHECKLIST.txt' -Encoding utf8
+          Get-ChildItem deliverables | Select-Object Name,Length | Format-Table
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Windows-0.2.1-win-x64
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 14
