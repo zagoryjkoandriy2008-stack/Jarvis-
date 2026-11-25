@@ -1,0 +1,101 @@
+name: JARVIS 0.1.48 signed Pixel + Watch7 APK (manual request)
+on:
+  push:
+    branches: [feature/jarvis-android-apk-0.1.48-20261125]
+    paths: [.github/workflows/jarvis-android-apk-0.1.48.yml]
+  pull_request:
+    branches: [feature/watch7-spotify-keyboard-search-20261123]
+    paths: [.github/workflows/jarvis-android-apk-0.1.48.yml, android/app/build.gradle]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Worker tests without deploy
+        working-directory: server/jarvis-ai-worker
+        run: npm test
+  android:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+      - name: Install Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -1)"
+          test -n "$SDKMANAGER"
+          (yes | "$SDKMANAGER" --licenses > /dev/null) || true
+          "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Watch7 Spotify Search-key regression (before packaging)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/watch7-spotify
+          javac -d /tmp/watch7-spotify \
+            android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifySubmitRules.java \
+            tools/qa/JarvisWatchSpotifySubmitRulesContract.java
+          java -cp /tmp/watch7-spotify \
+            com.andriy.jarvis.JarvisWatchSpotifySubmitRulesContract
+      - name: Build original signed stable APK
+        shell: bash
+        env:
+          JARVIS_SIGNING_KEYSTORE_BASE64: ${{ secrets.JARVIS_SIGNING_KEYSTORE_BASE64 }}
+          JARVIS_RELEASE_STORE_PASSWORD: ${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
+          JARVIS_RELEASE_KEY_ALIAS: ${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
+          JARVIS_RELEASE_KEY_PASSWORD: ${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p deliverables
+          if [[ -n "$JARVIS_SIGNING_KEYSTORE_BASE64" && -n "$JARVIS_RELEASE_STORE_PASSWORD" && -n "$JARVIS_RELEASE_KEY_ALIAS" && -n "$JARVIS_RELEASE_KEY_PASSWORD" ]]; then
+            export JARVIS_RELEASE_STORE_FILE="$RUNNER_TEMP/jarvis-stable.jks"
+            printf '%s' "$JARVIS_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$JARVIS_RELEASE_STORE_FILE"
+            chmod 600 "$JARVIS_RELEASE_STORE_FILE"
+            gradle -p android :app:assembleRelease --no-daemon --max-workers=2 --no-parallel -Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' --stacktrace
+            apk="android/app/build/outputs/apk/release/app-release.apk"
+            label=stable
+            package=com.andriy.jarvis.stable
+            expected="$(tr -cd '0123456789abcdefABCDEF' < android/RELEASE-CERT-SHA256.txt | tr 'A-F' 'a-f')"
+            actual="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" | awk -F ': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' | tr 'A-F' 'a-f' | tr -d ':[:space:]')"
+            if [[ "${#expected}" != 64 || "$actual" != "$expected" ]]; then
+              echo "::error::Stable APK certificate differs from original"; exit 1
+            fi
+            rm -f "$JARVIS_RELEASE_STORE_FILE"
+          else
+            echo "::error::Stable signing key missing; refusing to build a non-upgradable preview."
+            exit 1
+          fi
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -F "name='$package'" | grep -F "versionCode='58'" | grep -F "versionName='0.1.48'"
+          cp "$apk" "deliverables/JARVIS-Pixel-0.1.48-$label.apk"
+          cp "$apk" "deliverables/JARVIS-Watch7-0.1.48-$label.apk"
+          {
+            echo "v0.1.48+58; app ID $package; signature $label"
+            echo "Both files are identical universal APKs for Pixel and Galaxy Watch7."
+            echo "Stable-signed upgrade: install over existing JARVIS; backup finance and notes first."
+            echo "No Worker deploy or physical device tests. Commit: $GITHUB_SHA"
+            sha256sum deliverables/*.apk
+          } > deliverables/ANDROID-BUILD-INFO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Pixel-Watch7-APK
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 14
