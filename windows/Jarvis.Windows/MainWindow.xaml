@@ -36,7 +36,7 @@
           <Border VerticalAlignment="Center" Background="#142F3B"
                   BorderBrush="#2B836C" BorderThickness="1" CornerRadius="15"
                   Padding="12,7" Margin="0,0,8,0">
-            <TextBlock Text="● V 0.2.0" Foreground="#6BE8BF" FontSize="12"/>
+            <TextBlock Text="● V 0.2.1" Foreground="#6BE8BF" FontSize="12"/>
           </Border>
           <Button Content="🎙" Click="MicButton_Click" ToolTip="Слухати з будь-якої вкладки"
                   Width="43" Height="40" Padding="0"/>

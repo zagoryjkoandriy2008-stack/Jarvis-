@@ -9,7 +9,7 @@
     <AssemblyName>Jarvis.Windows</AssemblyName>
     <RootNamespace>Jarvis.Windows</RootNamespace>
     <ApplicationIcon></ApplicationIcon>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
