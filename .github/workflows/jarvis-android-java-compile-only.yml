@@ -9,7 +9,7 @@ on:
       - 'android/app/build.gradle'
       - '.github/workflows/jarvis-android-java-compile-only.yml'
   pull_request:
-    branches: [feature/windows-pixel-ui-parity-20261123]
+    branches: [feature/windows-pixel-ui-parity-20261123, feature/jarvis-windows-0.2.1-build-20261125]
     paths:
       - 'android/app/src/main/java/**'
       - 'tools/qa/JarvisWatchSpotifySubmitRulesContract.java'
@@ -57,6 +57,37 @@ jobs:
             tools/qa/JarvisWatchSpotifySubmitRulesContract.java
           java -cp /tmp/jarvis-spotify-submit \
             com.andriy.jarvis.JarvisWatchSpotifySubmitRulesContract
+      - name: Watch7 Spotify Connect phone-target regressions (JDK only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/jarvis-spotify-connect
+          javac -d /tmp/jarvis-spotify-connect \
+            android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyPhoneRules.java \
+            tools/qa/JarvisWatchSpotifyPhoneRulesContract.java
+          java -cp /tmp/jarvis-spotify-connect \
+            com.andriy.jarvis.JarvisWatchSpotifyPhoneRulesContract
+      - name: Check bounded Watch7 command wake-lock and completion cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest=Path('android/app/src/main/AndroidManifest.xml').read_text()
+          controller=Path('android/app/src/main/java/com/andriy/jarvis/JarvisWatchLocalController.java').read_text()
+          guard=Path('android/app/src/main/java/com/andriy/jarvis/JarvisWatchCommandScreenGuard.java').read_text()
+          spotify=Path('android/app/src/main/java/com/andriy/jarvis/JarvisWatchSpotifyController.java').read_text()
+          assert 'android.permission.WAKE_LOCK' in manifest
+          assert 'JarvisWatchCommandScreenGuard.begin(watch);' in controller
+          assert 'JarvisWatchCommandScreenGuard.end();' in controller
+          assert 'lock.acquire(MAX_HOLD_MS)' in guard
+          assert 'SCREEN_BRIGHT_WAKE_LOCK' in guard
+          assert 'SpotifyStep.SELECT_PHONE' in spotify
+          assert 'beginPhoneSelection();' in spotify
+          assert 'PHONE_TARGET_TAPPED' in spotify
+          assert 'case OPEN_DEVICE_PICKER:' in spotify
+          print('Watch7 screen guard and Spotify target contract: passed')
+          PY
       - name: Compile Java and Android resources only (NEVER assemble APK)
         run: |
           gradle -p android :app:compileDebugJavaWithJavac --no-daemon --stacktrace
