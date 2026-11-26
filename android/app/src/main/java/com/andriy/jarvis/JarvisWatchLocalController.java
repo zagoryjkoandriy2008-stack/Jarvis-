@@ -44,12 +44,14 @@ public final class JarvisWatchLocalController {
         lastResult=null;
         final long token=GATE.begin();
         Context watch=context.getApplicationContext();
+        JarvisWatchCommandScreenGuard.begin(watch);
         JarvisDiagnostics.event(JarvisDiagnostics.Event.WATCH_ROUTE,
             request.playsSpotify()?1:request.usesMaps()?2:request.opensApp()?3:4);
         Callback done=new Callback() {
             public boolean active() { return GATE.active(token); }
             public void finished(boolean ok,String detail) {
                 if(!GATE.finish(token))return;
+                JarvisWatchCommandScreenGuard.end();
                 running=false;
                 lastResult=detail;
                 JarvisDiagnostics.event(ok?JarvisDiagnostics.Event.LOCAL_DONE:JarvisDiagnostics.Event.LOCAL_ERROR);
