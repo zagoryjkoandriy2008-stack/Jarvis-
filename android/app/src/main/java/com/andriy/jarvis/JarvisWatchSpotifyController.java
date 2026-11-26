@@ -174,6 +174,7 @@ public final class JarvisWatchSpotifyController {
         int submitRetries;
         int submittedQueryRepairs;
         boolean searchKeyboardDismissed;
+        boolean phonePickerAttempted;
         int keyboardDismissals;
         int searchRecoveryRound;
         String selectedPlaylistTitle;
@@ -374,6 +375,8 @@ public final class JarvisWatchSpotifyController {
                         JarvisWatchScreenService.SpotifyStep.PLAY_PLAYLIST;
                 case PLAY_PLAYLIST:
                     return JarvisWatchScreenService.SpotifyStep.VERIFY_PLAYLIST;
+                case OPEN_DEVICE_PICKER:
+                    return JarvisWatchScreenService.SpotifyStep.SELECT_PHONE;
                 default:return null;
             }
         }
@@ -448,6 +451,24 @@ public final class JarvisWatchSpotifyController {
                             done(false,"Після трьох свайпів угору іконки пошуку Spotify "+
                                 "не знайдено. Вправо не свайпаю.");
                         } else MAIN.postDelayed(()->run(step),650L);
+                    } else if(step==JarvisWatchScreenService.SpotifyStep.SELECT_PHONE) {
+                        if(!phonePickerAttempted &&
+                           SystemClock.elapsedRealtime()-stageStart>=1700L) {
+                            phonePickerAttempted=true;
+                            MAIN.postDelayed(()->run(
+                                JarvisWatchScreenService.SpotifyStep.OPEN_DEVICE_PICKER),400L);
+                        } else if(SystemClock.elapsedRealtime()-stageStart>11000L) {
+                            done(false,"Spotify не показав кнопку «Ваш телефон». "+
+                                "Пісню вибрано, але перемикання на телефон не підтверджене.");
+                        } else MAIN.postDelayed(()->run(step),900L);
+                    } else if(step==JarvisWatchScreenService.SpotifyStep.OPEN_DEVICE_PICKER) {
+                        if(SystemClock.elapsedRealtime()-stageStart>3000L) {
+                            // No labelled device picker: return to exact phone
+                            // target search. Never tap guessed watch coordinates.
+                            stageStart=SystemClock.elapsedRealtime();
+                            MAIN.postDelayed(()->run(
+                                JarvisWatchScreenService.SpotifyStep.SELECT_PHONE),600L);
+                        } else MAIN.postDelayed(()->run(step),650L);
                     } else if(step==JarvisWatchScreenService.SpotifyStep.FIND_LIBRARY_PLAYLIST) {
                         // Search visible playlist names directly. The scroll is
                         // attempted only AFTER the current viewport was checked.
@@ -500,6 +521,20 @@ public final class JarvisWatchSpotifyController {
             }
         }
 
+        /**
+         * After a user-requested TRACK (also "Не та пісня"), the very last
+         * Spotify UI action must select "Ваш телефон" as playback output.
+         * Waiting here keeps the command open and its screen wake lock held.
+         */
+        private void beginPhoneSelection() {
+            if(finished || !callback.active())return;
+            phonePickerAttempted=false;
+            stageStart=SystemClock.elapsedRealtime();
+            status("Пісню вибрано. Натискаю «Ваш телефон» у Spotify…");
+            MAIN.postDelayed(()->run(
+                JarvisWatchScreenService.SpotifyStep.SELECT_PHONE),700L);
+        }
+
         /** A result without visible type may open a playlist detail.
          * If so, use the actual PLAY step. A completed tap alone is
          * never claimed to prove audio playback. */
@@ -522,9 +557,9 @@ public final class JarvisWatchSpotifyController {
                     chosenTitle,tappedAt),700L);
                 return;
             }
-            done(true,"Натиснув результат №"+(resultOrdinal+1)+
-                " у Spotify Watch7. Android підтвердив жест, але "+
-                "сам запуск музики цим ще не доведений.");
+            // The song card tap was confirmed. The final Connect target
+            // is still required before the voice command may finish.
+            beginPhoneSelection();
         }
 
         private void advance(JarvisWatchScreenService.SpotifyStep step,
@@ -563,16 +598,18 @@ public final class JarvisWatchSpotifyController {
             }
             if(step==JarvisWatchScreenService.SpotifyStep.VERIFY_PLAYLIST) {
                 if(kind==SpotifyMusicCommands.Kind.TRACK &&
-                   selectedPlaylistTitle!=null) {
-                    // No right-swipe after Play. Bring Jarvis microphone back,
-                    // then use saved query + ordinal on "Не та пісня".
-                    done(true,"Плейлист «"+selectedPlaylistTitle+
-                        "» запущено. Дімон слухає. «Не та пісня» "+
-                        "вибере наступний результат без свайпів вправо.");
-                } else {
+                   selectedPlaylistTitle!=null)
+                    beginPhoneSelection(); // TRACK result happens to be playlist
+                else
                     done(true,"Spotify показує відтворення плейлиста «"+title+
                         "» на Watch7.");
-                }
+                return;
+            }
+            if(step==JarvisWatchScreenService.SpotifyStep.SELECT_PHONE) {
+                JarvisWatchSpotifyTrace.mark(context,"PHONE_TARGET_TAPPED");
+                done(true,"Натиснув «Ваш телефон» у Spotify Watch7. "+
+                    "Spotify Connect має перемкнути відтворення на телефон; "+
+                    "фактичний звук перевір на телефоні.");
                 return;
             }
             if(next==null) {
@@ -596,6 +633,8 @@ public final class JarvisWatchSpotifyController {
                 status("Назву перевірено. Натискаю «Пошук» у Spotify…");
             if(step==JarvisWatchScreenService.SpotifyStep.SELECT_RESULT)
                 status("Результат вибрано. Перевіряю його тип…");
+            if(step==JarvisWatchScreenService.SpotifyStep.OPEN_DEVICE_PICKER)
+                status("Відкриваю список пристроїв Spotify Connect…");
             stageStart=SystemClock.elapsedRealtime();
             long delay=step==JarvisWatchScreenService.SpotifyStep.SUBMIT_QUERY?
                 1600L:step==JarvisWatchScreenService.SpotifyStep.REVEAL_NAV?
