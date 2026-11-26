@@ -9,7 +9,7 @@ on:
       - 'android/app/build.gradle'
       - '.github/workflows/jarvis-android-java-compile-only.yml'
   pull_request:
-    branches: [feature/windows-pixel-ui-parity-20261123]
+    branches: [feature/windows-pixel-ui-parity-20261123, feature/jarvis-windows-0.2.1-build-20261125]
     paths:
       - 'android/app/src/main/java/**'
       - 'tools/qa/JarvisWatchSpotifySubmitRulesContract.java'
