@@ -507,6 +507,7 @@ public final class JarvisWatchScreenService extends AccessibilityService {
         REVEAL_NAV, FIND_LIBRARY_PLAYLIST, SCROLL_LIBRARY_PLAYLISTS,
         OPEN_SEARCH, FOCUS_SEARCH, SET_QUERY, VERIFY_QUERY,
         SUBMIT_QUERY, SELECT_RESULT, PLAY_PLAYLIST, VERIFY_PLAYLIST,
+        OPEN_DEVICE_PICKER, SELECT_PHONE,
         SEARCH_RECOVER_UP
     }
     private static final String SPOTIFY_PKG="com.spotify.music";
@@ -728,6 +729,10 @@ public final class JarvisWatchScreenService extends AccessibilityService {
                 return service.spotifyVerifyQuery(root,title);
             case SUBMIT_QUERY:
                 return service.spotifySubmitQuery(root,title,completion);
+            case OPEN_DEVICE_PICKER:
+                return service.spotifyOpenDevicePicker(root,completion);
+            case SELECT_PHONE:
+                return service.spotifySelectYourPhone(root,completion);
             case SELECT_RESULT:
                 if(!playlist && !genreDiscovery)
                     return service.spotifySelectMixedResult(root,title,resultOrdinal,completion);
@@ -920,6 +925,77 @@ public final class JarvisWatchScreenService extends AccessibilityService {
         if(rect.width()<6 || rect.height()<6)return Result.WAIT;
         Path point=new Path();point.moveTo(rect.exactCenterX(),rect.exactCenterY());
         return gesture(SPOTIFY_PKG,point,90L,cb);
+    }
+
+    /**
+     * Spotify Connect output is selected on the WATCH only, after tapping
+     * the requested song. No generic "phone" text and no blind coordinates.
+     * For some Spotify Wear builds the picker is already open; for others an
+     * explicitly labelled device button must first be opened.
+     */
+    private Result spotifySelectYourPhone(AccessibilityNodeInfo root,Completion cb) {
+        if(root==null || spotifyImeVisible())return Result.WAIT;
+        AccessibilityNodeInfo found=null;
+        Rect best=null;
+        for(AccessibilityNodeInfo n:spotifyNodes(root)) {
+            if(n.isEditable() || n.isPassword() ||
+               (n.getPackageName()!=null &&
+                !SPOTIFY_PKG.contentEquals(n.getPackageName())))
+                continue;
+            if(!JarvisWatchSpotifyPhoneRules.isYourPhone(
+                n.getText()==null?null:n.getText().toString(),
+                n.getContentDescription()==null?null:
+                    n.getContentDescription().toString()))continue;
+            Rect bounds=new Rect();
+            n.getBoundsInScreen(bounds);
+            if(bounds.width()<12 || bounds.height()<12)continue;
+            if(best!=null && !best.contains(bounds) &&
+               !bounds.contains(best) && !best.equals(bounds))
+                return Result.WAIT; // Two different devices? Never guess.
+            if(found==null || bounds.width()*bounds.height()<
+                              best.width()*best.height()) {
+                found=n;
+                best=bounds;
+            }
+        }
+        if(found==null)return Result.WAIT;
+        return spotifyTapNode(found,cb);
+    }
+
+    private Result spotifyOpenDevicePicker(AccessibilityNodeInfo root,Completion cb) {
+        if(root==null || spotifyImeVisible())return Result.WAIT;
+        // The phone target may already be on the Spotify screen. The
+        // controller tries SELECT_PHONE first; never open another menu if
+        // the target is visible but temporarily not clickable.
+        for(AccessibilityNodeInfo n:spotifyNodes(root)) {
+            if(!n.isEditable() && JarvisWatchSpotifyPhoneRules.isYourPhone(
+                n.getText()==null?null:n.getText().toString(),
+                n.getContentDescription()==null?null:
+                    n.getContentDescription().toString()))
+                return Result.DONE;
+        }
+        AccessibilityNodeInfo found=null;
+        Rect best=null;
+        for(AccessibilityNodeInfo n:spotifyNodes(root)) {
+            if(n.isEditable() || n.isPassword() ||
+               (n.getPackageName()!=null &&
+                !SPOTIFY_PKG.contentEquals(n.getPackageName())))
+                continue;
+            if(!JarvisWatchSpotifyPhoneRules.isDevicePicker(
+                n.getText()==null?null:n.getText().toString(),
+                n.getContentDescription()==null?null:
+                    n.getContentDescription().toString()))continue;
+            Rect b=new Rect();
+            n.getBoundsInScreen(b);
+            if(b.width()<12 || b.height()<12)continue;
+            if(best!=null && !best.contains(b) &&
+               !b.contains(best) && !best.equals(b))
+                return Result.WAIT;
+            if(found==null || b.width()*b.height()<best.width()*best.height()) {
+                found=n;best=b;
+            }
+        }
+        return found==null?Result.WAIT:spotifyTapNode(found,cb);
     }
 
     private Result spotifyFocusSearch(AccessibilityNodeInfo root,Completion cb) {
