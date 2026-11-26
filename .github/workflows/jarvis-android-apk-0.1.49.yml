@@ -1,7 +1,7 @@
 name: JARVIS 0.1.49 signed Pixel + Watch7 APK (manual request)
 on:
   push:
-    branches: [feature/jarvis-android-apk-0.1.49-20261125]
+    branches: [feature/jarvis-android-apk-0.1.49-20261126]
     paths: [.github/workflows/jarvis-android-apk-0.1.49.yml]
   pull_request:
     branches: [feature/watch7-screen-awake-spotify-phone-20261126]
